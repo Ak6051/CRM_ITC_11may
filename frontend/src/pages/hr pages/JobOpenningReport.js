@@ -1,129 +1,3 @@
-// import React, { useEffect, useState } from 'react';
-// import { useNavigate } from 'react-router-dom';
-// import Navbar from '../../components/hr components/HrNavbar';
-// import Sidebar from '../../components/hr components/HrSidebar';
-// import {
-//   Container,
-//   Typography,
-//   Box,
-//   Grid,
-//   Card,
-//   CardContent,
-// } from '@mui/material';
-// import axios from 'axios';
-
-// const JobOpenningReport = () => {
-//   const [sales, setSales] = useState([]);
-//   const [loading, setLoading] = useState(true);
-//   const navigate = useNavigate();
-
-//   useEffect(() => {
-//     const fetchAssignedSales = async () => {
-//       try {
-//         const token = localStorage.getItem('token'); // Token from localStorage
-
-//         if (token) {
-//           const response = await axios.get(
-//             'http://localhost:5000/api/assignhr',
-//             {
-//               headers: {
-//                 Authorization: `Bearer ${token}`,
-//               },
-//             }
-//           );
-
-//           console.log('Response Data:', response.data); // Console log response to check data structure
-
-//           // Agar response mein data property hai toh uska use karein
-//           if (Array.isArray(response.data.data)) {
-//             setSales(response.data.data);
-//           } else {
-//             setSales(response.data); // Fallback in case array is directly in data
-//           }
-//         } else {
-//           console.error('No token found');
-//         }
-
-//         setLoading(false);
-//       } catch (error) {
-//         console.error('Error fetching assigned sales:', error);
-//         setLoading(false);
-//       }
-//     };
-
-//     fetchAssignedSales();
-//   }, []);
-
-//   if (loading) {
-//     return <div>Loading...</div>;
-//   }
-
-//   return (
-//     <Box sx={{ display: 'flex' }}>
-//       <Sidebar />
-//       <Box sx={{ flexGrow: 1 }}>
-//         <Navbar />
-//         <Container>
-//           <Typography variant="h4" gutterBottom>
-//             Job openning
-//           </Typography>
-//           {sales.length === 0 ? (
-//             <Typography>No sales assigned</Typography>
-//           ) : (
-//             <Grid container spacing={3}>
-//               {sales.map((sale) => (
-//                 <Grid item xs={12} sm={6} md={4} key={sale._id}>
-//                   <Card variant="outlined">
-//                     <CardContent>
-//                       <Typography variant="h6">{sale.companyName}</Typography>
-//                       <Typography variant="body2">
-//                         Lead By: {sale.LeadBy}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Phone: {sale.phoneNumber}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Email: {sale.emailId}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Address: {sale.address}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Website: {sale.websiteUrl}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Call Status: {sale.callStatus}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Meeting Date:{' '}
-//                         {new Date(sale.meetingDate).toLocaleDateString()}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Meeting Time: {sale.meetingTime}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Contact Person: {sale.contactPerson}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Designation: {sale.designation}
-//                       </Typography>
-//                       <Typography variant="body2">
-//                         Description: {sale.description}
-//                       </Typography>
-//                     </CardContent>
-//                   </Card>
-//                 </Grid>
-//               ))}
-//             </Grid>
-//           )}
-//         </Container>
-//       </Box>
-//     </Box>
-//   );
-// };
-
-// export default JobOpenningReport;
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/hr components/HrNavbar';
@@ -132,9 +6,6 @@ import {
   Container,
   Typography,
   Box,
-  Grid,
-  Card,
-  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -143,51 +14,48 @@ import {
   TableRow,
   Paper,
   Button,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
-import { Download, Visibility } from '@mui/icons-material';
+import { Visibility } from '@mui/icons-material';
 import axios from 'axios';
 
 const JobOpenningReport = () => {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hrForms, setHrForms] = useState([]);
+  const [selectedCVs, setSelectedCVs] = useState([]); // State for selected CVs (multiple selections)
   const navigate = useNavigate();
 
   // Fetch Assigned Sales
   useEffect(() => {
+    const savedSales = localStorage.getItem('salesData');
+    if (savedSales) {
+      setSales(JSON.parse(savedSales));
+    }
+  
     const fetchAssignedSales = async () => {
       try {
-        const token = localStorage.getItem('token'); // Token from localStorage
-
+        const token = localStorage.getItem('token');
         if (token) {
           const response = await axios.get(
-            'http://localhost:5000/api/assignhr',
+            'http://localhost:5000/api/sales/assigned-sales',
             {
               headers: {
                 Authorization: `Bearer ${token}`,
               },
             }
           );
-
-          console.log('Response Data:', response.data); // Console log response to check data structure
-
-          // Agar response mein data property hai toh uska use karein
-          if (Array.isArray(response.data.data)) {
-            setSales(response.data.data);
-          } else {
-            setSales(response.data); // Fallback in case array is directly in data
-          }
-        } else {
-          console.error('No token found');
+  
+          setSales(response.data.data);
+          localStorage.setItem('salesData', JSON.stringify(response.data.data));
         }
-
-        setLoading(false);
       } catch (error) {
         console.error('Error fetching assigned sales:', error);
-        setLoading(false);
       }
+      
     };
-
+  
     fetchAssignedSales();
   }, []);
 
@@ -207,17 +75,54 @@ const JobOpenningReport = () => {
     fetchHRForms();
   }, []);
 
-  // const handleDownload = (filePath) => {
-  //   const fileName = filePath.split('/').pop();
-  //   const link = document.createElement('a');
-  //   link.href = `http://localhost:5000/${filePath}`;
-  //   link.download = fileName;
-  //   link.click();
-  // };
+  const handleCheckboxChange = (form, file) => {
+    const isSelected = selectedCVs.find(
+      (cv) => cv.formId === form._id && cv.filePath === file.path
+    );
 
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+    if (isSelected) {
+      setSelectedCVs(
+        selectedCVs.filter(
+          (cv) => !(cv.formId === form._id && cv.filePath === file.path)
+        )
+      );
+    } else {
+      setSelectedCVs([
+        ...selectedCVs,
+        {
+          formId: form._id,
+          companyName: form.companyName,
+          websiteUrl: form.websiteUrl,
+          createdAt: form.createdAt,
+          filePath: file.path,
+        },
+      ]);
+    }
+  };
+
+  const handleForward = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        await axios.post(
+          'http://localhost:5000/api/form/forward',
+          { selectedCVs },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        alert('CVs forwarded successfully!');
+        setSelectedCVs([]); // Clear the selected CVs
+      } else {
+        console.error('No token found');
+      }
+    } catch (error) {
+      console.error('Error forwarding CVs:', error);
+    }
+  };
+
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -225,63 +130,87 @@ const JobOpenningReport = () => {
       <Box sx={{ flexGrow: 1 }}>
         <Navbar />
         <Container>
-          <Typography variant="h4" gutterBottom>
+          <Typography variant="h4" gutterBottom sx={{ mt: 4 }}>
             Job Openning Report
           </Typography>
 
           {/* Sales Section */}
+          <Typography variant="h4" align="center" gutterBottom>
+            Sales Data
+          </Typography>
           {sales.length === 0 ? (
-            <Typography>No sales assigned</Typography>
+            <Typography align="center" color="textSecondary">
+              No sales assigned
+            </Typography>
           ) : (
-            <Grid container spacing={3}>
-              {sales.map((sale) => (
-                <Grid item xs={12} sm={6} md={4} key={sale._id}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Typography variant="h6">{sale.companyName}</Typography>
-                      <Typography variant="body2">
-                        Lead By: {sale.LeadBy}
-                      </Typography>
-                      <Typography variant="body2">
-                        Phone: {sale.phoneNumber}
-                      </Typography>
-                      <Typography variant="body2">
-                        Email: {sale.emailId}
-                      </Typography>
-                      <Typography variant="body2">
-                        Address: {sale.address}
-                      </Typography>
-                      <Typography variant="body2">
-                        Website: {sale.websiteUrl}
-                      </Typography>
-                      <Typography variant="body2">
-                        Call Status: {sale.callStatus}
-                      </Typography>
-                      <Typography variant="body2">
-                        Meeting Date:{' '}
+            <TableContainer component={Paper} sx={{ mt: 3 }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Company Name
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Lead By
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Phone
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Email
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Address
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Website
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Call Status
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Meeting Date
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Meeting Time
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Contact Person
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Designation
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Description
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sales.map((sale) => (
+                    <TableRow key={sale._id}>
+                      <TableCell>{sale.companyName}</TableCell>
+                      <TableCell>{sale.LeadBy}</TableCell>
+                      <TableCell>{sale.phoneNumber}</TableCell>
+                      <TableCell>{sale.emailId}</TableCell>
+                      <TableCell>{sale.address}</TableCell>
+                      <TableCell>{sale.websiteUrl}</TableCell>
+                      <TableCell>{sale.callStatus}</TableCell>
+                      <TableCell>
                         {new Date(sale.meetingDate).toLocaleDateString()}
-                      </Typography>
-                      <Typography variant="body2">
-                        Meeting Time: {sale.meetingTime}
-                      </Typography>
-                      <Typography variant="body2">
-                        Contact Person: {sale.contactPerson}
-                      </Typography>
-                      <Typography variant="body2">
-                        Designation: {sale.designation}
-                      </Typography>
-                      <Typography variant="body2">
-                        Description: {sale.description}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
+                      </TableCell>
+                      <TableCell>{sale.meetingTime}</TableCell>
+                      <TableCell>{sale.contactPerson}</TableCell>
+                      <TableCell>{sale.designation}</TableCell>
+                      <TableCell>{sale.description}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
 
           {/* HR Forms Section */}
-          <Typography variant="h4" align="center" gutterBottom sx={{ mt: 4 }}>
+          <Typography variant="h4" gutterBottom sx={{ mt: 4 }}>
             HR Form Submissions
           </Typography>
           {hrForms.length === 0 ? (
@@ -293,10 +222,21 @@ const JobOpenningReport = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Company Name</TableCell>
-                    <TableCell>Website URL</TableCell>
-                    <TableCell align="center">Employee Count</TableCell>
-                    <TableCell>CV Files</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Company Name
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      Website URL
+                    </TableCell>
+                    <TableCell
+                      sx={{ fontWeight: 'bold', fontSize: 'medium' }}
+                      align="center"
+                    >
+                      Employee Count
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', fontSize: 'medium' }}>
+                      CV Files
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -315,6 +255,14 @@ const JobOpenningReport = () => {
                               marginBottom: 4,
                             }}
                           >
+                            <Checkbox
+                              checked={!!selectedCVs.find(
+                                (cv) =>
+                                  cv.formId === form._id &&
+                                  cv.filePath === file.path
+                              )}
+                              onChange={() => handleCheckboxChange(form, file)}
+                            />
                             <Button
                               variant="outlined"
                               size="small"
@@ -326,15 +274,6 @@ const JobOpenningReport = () => {
                             >
                               View
                             </Button>
-                            {/* <Button
-                              variant="contained"
-                              size="small"
-                              color="secondary"
-                              startIcon={<Download />}
-                              onClick={() => handleDownload(file.path)}
-                            >
-                              Download
-                            </Button> */}
                           </div>
                         ))}
                       </TableCell>
@@ -344,6 +283,15 @@ const JobOpenningReport = () => {
               </Table>
             </TableContainer>
           )}
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleForward}
+            disabled={selectedCVs.length === 0}
+            sx={{ mt: 3 }}
+          >
+            Forward
+          </Button>
         </Container>
       </Box>
     </Box>

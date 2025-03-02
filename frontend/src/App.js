@@ -30,6 +30,11 @@ import UserSettingsPage from './pages/User Pages/UserSetting';
 import JobOpennings from './pages/sales pages/JobOpennings';
 import JobReport from './pages/admin pages/JobReport';
 import JobOpenningReport from './pages/hr pages/JobOpenningReport';
+import LineUpPage from './pages/hr pages/LineUpPage';
+import PaymentSection from './pages/hr pages/PaymentSection';
+import { Html } from '@mui/icons-material';
+import ClosedSale from './pages/hr pages/ClosedSale';
+import ClosedSaleData from './pages/admin pages/ClosedSaleData';
 
 const App = () => {
   return (
@@ -61,6 +66,10 @@ const App = () => {
           <Route path="/jobopennings" element={<JobOpennings />} />
           <Route path="/job-report" element={<JobReport />} />
           <Route path="/Hr-assign" element={<JobOpenningReport />} />
+          <Route path="/lineup" element={<LineUpPage />} />
+          <Route path="/payment" element={<PaymentSection />} />
+          <Route path="/close" element={<ClosedSale />} />
+          <Route path="/closedsale" element={<ClosedSaleData />} />
         </Routes>
       </Router>
     </ThemeProvider>

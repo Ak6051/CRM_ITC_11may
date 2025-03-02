@@ -14,6 +14,10 @@ const jobOpenningsRoutes = require ('./routes/jobOpennings.route');
 const jobreportRoutes = require ('./routes/jobreport.route')
 const jobassignRoutes = require ('./routes/jobopenningassign.route')
 const hrformRoutes = require ('./routes/hrform.route')
+const forwardcv = require('./routes/forwardcv.route');
+const paymentRoutes = require('./routes/payment.route')
+
+// Import routes
 
 const cors = require('cors');
 require('dotenv').config();
@@ -43,6 +47,9 @@ app.use('/api/openning', jobOpenningsRoutes);
 app.use('/api/job', jobreportRoutes);
 app.use('/api/assignhr', jobassignRoutes);
 app.use('/api/hrform',hrformRoutes)
+app.use('/api/form', forwardcv);
+app.use('api/status',paymentRoutes)
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

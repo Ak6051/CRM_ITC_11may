@@ -12,24 +12,40 @@ const getAllSales = async (req, res) => {
 
 // Create a new sale
 const createSale = async (req, res) => {
-  const sale = new Sale(req.body);
   try {
-    const newSale = await sale.save();
+    const { assignedHR, ...restData } = req.body;
+
+    const saleData = {
+      ...restData,
+      assignedHR,
+      startDate: assignedHR ? new Date() : null, // Assign current date if HR is set
+    };
+
+    const newSale = new Sale(saleData);
+    await newSale.save();
     res.status(201).json(newSale);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: "Error creating sale", error });
   }
 };
+
 
 // Update a sale
 const updateSale = async (req, res) => {
   try {
-    const updatedSale = await Sale.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-    });
-    res.json(updatedSale);
+    const { id } = req.params;
+    const { assignedHR, ...restData } = req.body;
+
+    const updatedData = {
+      ...restData,
+      assignedHR,
+      startDate: assignedHR ? new Date() : null, // Update startDate if HR is reassigned
+    };
+
+    const updatedSale = await Sale.findByIdAndUpdate(id, updatedData, { new: true });
+    res.status(200).json(updatedSale);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(500).json({ message: "Error updating sale", error });
   }
 };
 

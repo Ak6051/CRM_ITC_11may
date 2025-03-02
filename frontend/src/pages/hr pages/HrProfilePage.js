@@ -54,10 +54,25 @@ const HrProfilePage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
+    <div style={{ display: 'flex', height: '100vh',marginLeft:'-10px', backgroundColor: '#f5f5f5' }}>
+    {/* Sidebar is fixed */}
+    <div style={{ position: 'fixed',marginLeft:'-9px', height: '100vh', width: '250px', backgroundColor: '#3f51b5', color: 'white' }}>
       <Sidebar />
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Navbar />
+    </div>
+
+    {/* Main content area */}
+    <Box
+      sx={{
+        flexGrow: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        marginLeft: '250px',
+        height: '100vh',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Navbar is fixed at the top */}
+      <Navbar />
 
         <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
           <Typography variant="h4" gutterBottom>
