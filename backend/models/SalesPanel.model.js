@@ -1,11 +1,10 @@
 const mongoose = require('mongoose');
 
-const jobOpeningsSchema = new mongoose.Schema(
+const salesPanelSchema = new mongoose.Schema(
   {
     industries: { type: String, required: false },
     companyName: { type: String, required: false },
     companyId: { type: Number, required: true },
-
     companyAddress: { type: String, required: false },
     contactName: { type: String, required: false },
     email: { type: String, required: false },
@@ -13,7 +12,7 @@ const jobOpeningsSchema = new mongoose.Schema(
     response: { type: String, required: false },
     jobTitle: { type: String, required: false },
     benefits: { type: String, required: false },
-    numberOfRequirements: { type: Number, required: false },  
+    numberOfRequirements: { type: Number, required: false },
     websiteURL: { type: String, required: false },
     keyResponsibility: { type: String, required: false },
     requiredSkills: { type: String, required: false },
@@ -23,31 +22,12 @@ const jobOpeningsSchema = new mongoose.Schema(
     jobLocation: { type: String, required: false },
     remarks: { type: String, required: false },
     agreementSigned: { type: String, required: false },
-     description: { type: String, required: false },
-    descriptionFile: { type: String, required: false }, // URL of description PDF (optional)
-
-    jobStatus: {
-      type: String,
-      enum: ["Open", "Closed"],
-      default: "Open"
-    },
-   
+    description: { type: String, required: false },
+    descriptionFile: { type: String, required: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    assignedHR: { type: mongoose.Schema.Types.ObjectId, ref: "User", require: false },
-
-    convertedAt: { type: Date, required: false },
-    originalJobId: {
-       type: mongoose.Schema.Types.ObjectId,
-       ref: 'salesPanel',
-       required: false,
-     },
-    startDate: { type: Date },
-    endDate: { type: Date },
-    completionDate: { type: Date },
-    lateByDays: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
 
-const JobOpenings = mongoose.model('JobOpenings', jobOpeningsSchema);
-module.exports = JobOpenings;
+const salesPanel = mongoose.model('salesPanel', salesPanelSchema);
+module.exports = salesPanel;

@@ -1,41 +1,45 @@
-
-const   jobopennings = require ('../models/jobopennings.modal');
+const JobOpenings = require('../models/jobopennings.modal');
 
 exports.createjobopenning = async (req, res) => {
   try {
     const {
-      LeadBy,
       companyName,
+      companyAddress,
+      contactName,
+      email,
       phoneNumber,
-      address,
-      websiteUrl,
-      emailId,
-      callStatus,
-      meetingDate,
-      meetingTime,
-      contactPerson,
-      designation,
-      description,
+      jobTitle,
+      numberOfRequirements,
+      keyResponsibility,
+      requiredSkills,
+      education,
+      experience,
+      salary,
+      jobLocation,
+      description
     } = req.body;
 
-    const job = new jobopennings({
-      LeadBy,
+    const job = new JobOpenings({
       companyName,
+      companyAddress,
+      contactName,
+      email,
       phoneNumber,
-      address,
-      websiteUrl,
-      emailId,
-      callStatus,
-      meetingDate,
-      meetingTime,
-      contactPerson,
-      designation,
+      jobTitle,
+      numberOfRequirements,
+      keyResponsibility,
+      requiredSkills,
+      education,
+      experience,
+      salary,
+      jobLocation,
       description,
+      createdBy: req.user._id 
     });
 
     await job.save();
-    res.status(201).json({ message: 'Sale created successfully!', job });
+    res.status(201).json({ message: 'Job opening created successfully!', job });
   } catch (error) {
-    res.status(500).json({ message: 'Error creating sale', error: error.message });
+    res.status(500).json({ message: 'Error creating job opening', error: error.message });
   }
 };

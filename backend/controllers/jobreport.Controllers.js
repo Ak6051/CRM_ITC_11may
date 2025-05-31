@@ -1,18 +1,36 @@
-const Sale = require('../models/jobopennings.modal');
+const JobOpenings = require('../models/jobopennings.modal');
 
 // Get all sales
 const getAllSales = async (req, res) => {
   try {
-    const sales = await Sale.find();
-    res.json(sales);
+    const salesData = await JobOpenings.find()
+      .populate('assignedHR', 'firstName lastName') // yeh User model se data uthayega
+      .sort({ date: -1 });
+
+    const formattedSales = salesData.map((sale) => {
+      const saleObj = sale.toObject();
+      if (saleObj.assignedHR) {
+        saleObj.hrName = `${saleObj.assignedHR.firstName} ${saleObj.assignedHR.lastName}`;
+      } else {
+        saleObj.hrName = null;
+      }
+      return saleObj;
+    });
+
+    res.status(200).json(formattedSales);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error('Error fetching sales data:', error.message);
+    res.status(500).json({ message: 'Server Error while fetching sales data' });
   }
 };
 
+
+
+
+
 // Create a new sale
 const createSale = async (req, res) => {
-  const sale = new Sale(req.body);
+  const sale = new JobOpenings(req.body);
   try {
     const newSale = await sale.save();
     res.status(201).json(newSale);
@@ -24,7 +42,7 @@ const createSale = async (req, res) => {
 // Update a sale
 const updateSale = async (req, res) => {
   try {
-    const updatedSale = await Sale.findByIdAndUpdate(req.params.id, req.body, {
+    const updatedSale = await JobOpenings.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
     });
     res.json(updatedSale);
@@ -36,7 +54,7 @@ const updateSale = async (req, res) => {
 // Delete a sale
 const deleteSale = async (req, res) => {
   try {
-    await Sale.findByIdAndDelete(req.params.id);
+    await JobOpenings.findByIdAndDelete(req.params.id);
     res.json({ message: 'Sale deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
