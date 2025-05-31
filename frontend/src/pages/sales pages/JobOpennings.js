@@ -1,338 +1,199 @@
-import React, { useState } from 'react';
-import {
-  Typography,
-  Container,
-  Box,
-  TextField,
-  Button,
-  MenuItem,
-  Grid,
-  Paper,
-  Snackbar,
-} from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { DataGrid } from '@mui/x-data-grid';
+import axios from 'axios';
+import { Box, Typography } from '@mui/material';
 import Navbar from '../../components/sales components/SalesNavbar';
 import Sidebar from '../../components/sales components/Sidebar';
-import PhoneIcon from '@mui/icons-material/Phone';
-import BusinessIcon from '@mui/icons-material/Business';
-import HomeIcon from '@mui/icons-material/Home';
-import LinkIcon from '@mui/icons-material/Link';
-import EmailIcon from '@mui/icons-material/Email';
-import PersonIcon from '@mui/icons-material/Person';
-import EventIcon from '@mui/icons-material/Event';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
-const callStatuses = [
-  'Ringing',
-  'Not Reachable',
-  'Interested',
-  'Not Interested',
-  'Meeting Fixed',
-];
+const ConvertedJobsTable = () => {
+  const [rows, setRows] = useState([]);
 
-const JobOpennings = () => {
-  const [formData, setFormData] = useState({
-    LeadBy: '',
-    companyName: '',
-    phoneNumber: '',
-    address: '',
-    websiteUrl: '',
-    emailId: '',
-    callStatus: '',
-    meetingDate: '',
-    meetingTime: '',
-    contactPerson: '',
-    designation: '',
-    description: '',
-  });
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const token = sessionStorage.getItem('token'); // token get karo sessionStorage se
 
-  const [openAlert, setOpenAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('http://localhost:5000/api/openning/job', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      const result = await response.json();
-      console.log(result);
-
-      if (response.ok) {
-        setAlertMessage('Data submitted successfully!');
-        setOpenAlert(true);
-        setFormData({
-          LeadBy: '',
-          companyName: '',
-          phoneNumber: '',
-          address: '',
-          websiteUrl: '',
-          emailId: '',
-          callStatus: '',
-          meetingDate: '',
-          meetingTime: '',
-          contactPerson: '',
-          designation: '',
-          description: '',
+        const res = await axios.get('http://localhost:5000/api/panel/converted-jobs', {
+          headers: {
+            Authorization: `Bearer ${token}`,  // token ko header me bhejo
+          }
         });
-      } else {
-        setAlertMessage('Error submitting data. Please try again.');
-        setOpenAlert(true);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      setAlertMessage('An error occurred. Please try again later.');
-      setOpenAlert(true);
-    }
-  };
 
-  const handleCloseAlert = () => {
-    setOpenAlert(false);
-  };
+        const dataWithIds = res.data.map((item, index) => ({
+          id: item._id || index,
+          ...item,
+        }));
+        setRows(dataWithIds);
+      } catch (error) {
+        console.error('Error fetching jobs:', error);
+      }
+    };
+
+
+    fetchJobs();
+  }, []);
+
+  const columns = [
+    { field: 'industries', headerName: 'Industries', width: 150 },
+    { field: 'companyName', headerName: 'Company Name', width: 180 },
+    { field: 'companyAddress', headerName: 'Company Address', width: 200 },
+    { field: 'contactName', headerName: 'Contact Name', width: 160 },
+    { field: 'email', headerName: 'Email', width: 200 },
+    { field: 'phoneNumber', headerName: 'Phone', width: 140 },
+    { field: 'response', headerName: 'Response', width: 140 },
+    { field: 'jobTitle', headerName: 'Job Title', width: 140 },
+    { field: 'benefits', headerName: 'Benefits', width: 140 },
+    { field: 'numberOfRequirements', headerName: 'Requirements', width: 150 },
+
+    {
+      field: 'websiteURL',
+      headerName: 'Website',
+      width: 180,
+      renderCell: (params) => (
+        <a
+          href={params.value}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#1976d2', textDecoration: 'underline' }}
+        >
+          {params.value}
+        </a>
+      ),
+    },
+    { field: 'keyResponsibility', headerName: 'Key Responsibility', width: 150 },
+    { field: 'requiredSkills', headerName: 'Required Skills', width: 150 },
+    { field: 'education', headerName: 'Education', width: 150 },
+    { field: 'experience', headerName: 'Experience', width: 150 },
+    { field: 'salary', headerName: 'Salary', width: 150 },
+    { field: 'jobLocation', headerName: 'Job Location', width: 150 },
+    { field: 'remarks', headerName: 'Remarks', width: 200 },
+
+    {
+      field: 'agreementSigned',
+      headerName: 'Agreement Signed',
+      width: 150,
+      renderCell: (params) => {
+        const value = params.value;
+
+        // Check if value looks like a PDF URL
+        const isPdfLink = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
+
+        return isPdfLink ? (
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            <button style={{
+              backgroundColor: '#1976d2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '4px 8px',
+              cursor: 'pointer'
+            }}>
+              View
+            </button>
+          </a>
+        ) : (
+          <span>{value || 'No'}</span>
+        );
+      }
+    },
+
+    {
+      field: 'description',
+      headerName: 'Description',
+      width: 200,
+      renderCell: (params) => {
+        const value = params.value;
+
+        // Check if it's a PDF URL
+        const isPdfLink = typeof value === 'string' &&
+          (value.endsWith('.pdf') || value.includes('.pdf')) &&
+          (value.startsWith('http://') || value.startsWith('https://'));
+
+        return isPdfLink ? (
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            <button style={{
+              backgroundColor: '#1976d2',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '4px 8px',
+              cursor: 'pointer'
+            }}>
+              View PDF
+            </button>
+          </a>
+        ) : (
+          <Typography variant="body2">
+            {value || 'No Description'}
+          </Typography>
+        );
+      }
+    },
+
+    {
+      field: 'convertedAt',
+      headerName: 'Converted At',
+      width: 200,
+      renderCell: (params) => {
+        const value = params.value;
+        if (!value) return 'N/A';
+
+        const date = new Date(value);
+        if (isNaN(date)) return 'N/A';
+
+        return date.toLocaleString('en-IN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+      }
+    }
+
+
+  ];
 
   return (
-<div style={{ display: 'flex', height: '100vh',marginLeft:'-10px', backgroundColor: '#f5f5f5' }}>
-      {/* Sidebar is fixed */}
-      <div style={{ position: 'fixed',marginLeft:'-9px', height: '100vh', width: '250px', backgroundColor: '#3f51b5', color: 'white' }}>
+    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5' }}>
+      <div style={{ position: 'fixed', height: '100vh', width: '250px', backgroundColor: '#3f51b5', color: 'white' }}>
         <Sidebar />
       </div>
-
-      {/* Main content area */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          marginLeft: '250px',
-          height: '100vh',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Navbar is fixed at the top */}
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', marginLeft: '250px', height: '100vh', overflow: 'hidden' }}>
         <Navbar />
-        {/* Scrollable Content Area */}
-        <Box
-          sx={{
-            flexGrow: 1,
-            overflowY: 'auto',
-            mt: 8, // Add margin top to avoid overlap with the fixed Navbar
-          }}
-        >
-          <Container maxWidth="md" sx={{ flexGrow: 1, mt: 2, mb: 2 }}>
-            <Paper elevation={3} sx={{ padding: 3 }}>
-              <Typography variant="h4" align="center">
-                JOB OPENNINGS
-              </Typography>
-              <Typography variant="body1" sx={{ mt: 2 }} align="center">
-                Please fill in the details below.
-              </Typography>
-              <form onSubmit={handleSubmit}>
-                <Grid container spacing={2} sx={{ mt: 2 }}>
-                  {/* Form fields */}
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Lead By"
-                      name="LeadBy"
-                      value={formData.LeadBy}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        startAdornment: (
-                          <PersonIcon style={{ marginRight: 8 }} />
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Company Name"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        startAdornment: (
-                          <BusinessIcon style={{ marginRight: 8 }} />
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Phone Number"
-                      name="phoneNumber"
-                      value={formData.phoneNumber}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        startAdornment: (
-                          <PhoneIcon style={{ marginRight: 8 }} />
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Address"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        startAdornment: <HomeIcon style={{ marginRight: 8 }} />,
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Website URL"
-                      name="websiteUrl"
-                      value={formData.websiteUrl}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        startAdornment: <LinkIcon style={{ marginRight: 8 }} />,
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Email ID"
-                      name="emailId"
-                      value={formData.emailId}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        startAdornment: (
-                          <EmailIcon style={{ marginRight: 8 }} />
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Call Status"
-                      name="callStatus"
-                      value={formData.callStatus}
-                      onChange={handleChange}
-                      required
-                    >
-                      {callStatuses.map((status) => (
-                        <MenuItem key={status} value={status}>
-                          {status}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Meeting Date"
-                      type="date"
-                      name="meetingDate"
-                      value={formData.meetingDate}
-                      onChange={handleChange}
-                      InputLabelProps={{ shrink: true }}
-                      InputProps={{
-                        startAdornment: (
-                          <EventIcon style={{ marginRight: 8 }} />
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Meeting Time"
-                      type="time"
-                      name="meetingTime"
-                      value={formData.meetingTime}
-                      onChange={handleChange}
-                      InputLabelProps={{ shrink: true }}
-                      InputProps={{
-                        startAdornment: (
-                          <AccessTimeIcon style={{ marginRight: 8 }} />
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Contact Person"
-                      name="contactPerson"
-                      value={formData.contactPerson}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        startAdornment: (
-                          <PersonIcon style={{ marginRight: 8 }} />
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Designation"
-                      name="designation"
-                      value={formData.designation}
-                      onChange={handleChange}
-                      required
-                      InputProps={{
-                        startAdornment: (
-                          <PersonIcon style={{ marginRight: 8 }} />
-                        ),
-                      }}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Description"
-                      name="description"
-                      value={formData.description}
-                      onChange={handleChange}
-                      multiline
-                      rows={4}
-                      required
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Button type="submit" variant="contained" color="primary">
-                      Submit
-                    </Button>
-                  </Grid>
-                </Grid>
-              </form>
-              <Snackbar
-                open={openAlert}
-                onClose={handleCloseAlert}
-                message={alertMessage}
-                autoHideDuration={6000}
+        <Box sx={{ height: 600, width: '100%' }}>
+          <Box sx={{ textAlign: 'left', paddingLeft: 2 }}>
+            <Typography variant="h5" gutterBottom>
+              Converted Jobs
+            </Typography>
+
+            <Box sx={{ width: '100%', overflowX: 'auto' }}>
+              <DataGrid
+                rows={rows}
+                columns={columns}
+                pageSize={10}
+                rowsPerPageOptions={[10, 20, 50]}
+                autoHeight
               />
-            </Paper>
-          </Container>
+            </Box>
+
+
+          </Box>
         </Box>
       </Box>
     </div>
   );
 };
 
-export default JobOpennings;
+export default ConvertedJobsTable;

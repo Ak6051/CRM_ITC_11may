@@ -19,7 +19,7 @@ const SalesProfilePage = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const response = await axios.get(
           'http://localhost:5000/api/user/profile',
           {
@@ -41,7 +41,7 @@ const SalesProfilePage = () => {
   const handleUpdate = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       await axios.put('http://localhost:5000/api/user/profile', user, {
         headers: { Authorization: token },
       });

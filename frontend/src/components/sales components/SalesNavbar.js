@@ -12,7 +12,7 @@ const SalesNavbar = () => {
     useEffect(() => {
         const fetchUserData = async () => {
             try {
-                const token = localStorage.getItem('token');
+                const token = sessionStorage.getItem('token');
                 if (!token) {
                     console.error("Token is missing");
                     return;
@@ -44,8 +44,8 @@ const SalesNavbar = () => {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('role');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('role');
         navigate('/login');
     };
 
@@ -100,7 +100,7 @@ const SalesNavbar = () => {
                         <MenuItem
                             onClick={() => {
                                 handleClose();
-                                navigate('/hr-profile');
+                                navigate('/sales-profile');
                             }}
                             sx={{
                                 '&:hover': {

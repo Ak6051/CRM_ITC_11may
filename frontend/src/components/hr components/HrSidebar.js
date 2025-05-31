@@ -1,143 +1,4 @@
-// import React, { useEffect, useState } from 'react';
-// import {
-//   Drawer,
-//   List,
-//   ListItem,
-//   ListItemText,
-//   ListItemIcon,
-//   Collapse,
-//   Box,
-//   Typography,
-// } from '@mui/material';
-// import HomeIcon from '@mui/icons-material/Home';
-// import SettingsIcon from '@mui/icons-material/Settings';
-// import ApartmentIcon from '@mui/icons-material/Apartment';
-// import Person4Icon from '@mui/icons-material/Person4';
-// import ExpandLess from '@mui/icons-material/ExpandLess';
-// import ExpandMore from '@mui/icons-material/ExpandMore';
-// import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
-// import { useNavigate } from 'react-router-dom';
-// import axios from 'axios';
 
-// const Sidebar = () => {
-//   const navigate = useNavigate();
-//   const [departmentOpen, setDepartmentOpen] = useState(false);
-//   const [settings, setSettings] = useState({ logoUrl: '', companyName: '' }); // Default initialization
-
-//   const handleDepartmentClick = () => {
-//     setDepartmentOpen(!departmentOpen);
-//   };
-
-//   return (
-//     <Drawer
-//       variant="permanent"
-//       sx={{
-//         width: 240,
-//         flexShrink: 0,
-//         '& .MuiDrawer-paper': {
-//           width: 240,
-//           boxSizing: 'border-box',
-//         },
-//       }}
-//     >
-//       {/* Company Logo and Name */}
-//       <Box
-//         sx={{
-//           display: 'flex',
-//           flexDirection: 'column',
-//           alignItems: 'center',
-//           p: 2,
-//         }}
-//       >
-//         <img
-//           src={settings.logoUrl || 'mascot.png'} // Fallback to a default image if logoUrl is not set
-//           alt="Company Logo"
-//           style={{ width: '180px', height: '80px', marginBottom: '8px' }}
-//         />
-//         <Typography variant="h6">
-//           {settings.companyName || 'SA TECH'}
-//         </Typography>{' '}
-//         {/* Fallback company name */}
-//       </Box>
-
-//       <List>
-//         {/* Dashboard Link */}
-//         <ListItem button onClick={() => navigate('/Hr-dashboard')}>
-//           <ListItemIcon>
-//             <HomeIcon />
-//           </ListItemIcon>
-//           <ListItemText primary="Dashboard" />
-//         </ListItem>
-//         <ListItem button onClick={() => navigate('/Hr-assign')}>
-//           <ListItemIcon>
-//             <HomeIcon />
-//           </ListItemIcon>
-//           <ListItemText primary="Job Openning Report" />
-//         </ListItem>
-//         <ListItem button onClick={() => navigate('/lineup')}>
-//           <ListItemIcon>
-//             <HomeIcon />
-//           </ListItemIcon>
-//           <ListItemText primary="Line up Data" />
-//         </ListItem>
-
-
-//         {/* Settings Link */}
-//         <ListItem button onClick={() => navigate('/hr-settings')}>
-//           <ListItemIcon>
-//             <SettingsIcon />
-//           </ListItemIcon>
-//           <ListItemText primary="Settings" />
-//         </ListItem>
-
-//         {/* Department with Dropdown */}
-//         <ListItem button onClick={handleDepartmentClick}>
-//           <ListItemIcon>
-//             <ApartmentIcon />
-//           </ListItemIcon>
-//           <ListItemText primary="Department" />
-//           {departmentOpen ? <ExpandLess /> : <ExpandMore />}
-//         </ListItem>
-//         <Collapse in={departmentOpen} timeout="auto" unmountOnExit>
-//           <List component="div" disablePadding>
-//             <ListItem button sx={{ pl: 4 }} onClick={() => navigate('/hr')}>
-//               <ListItemIcon>
-//                 <PersonAddAlt1Icon />
-//               </ListItemIcon>
-//               <ListItemText primary="HR Form" />
-//             </ListItem>
-//           </List>
-//           <List component="div" disablePadding>
-//             <ListItem
-//               button
-//               sx={{ pl: 4 }}
-//               onClick={() => navigate('/employee-form')}
-//             >
-//               <ListItemIcon>
-//                 <Person4Icon />
-//               </ListItemIcon>
-//               <ListItemText primary="Employee Form" />
-//             </ListItem>
-//           </List>
-//           <List component="div" disablePadding>
-//             <ListItem
-//               button
-//               sx={{ pl: 4 }}
-//               onClick={() => navigate('/employee-data')}
-//             >
-//               <ListItemIcon>
-//                 <Person4Icon />
-//               </ListItemIcon>
-//               <ListItemText primary="Employee Report" />
-//             </ListItem>
-//           </List>
-//         </Collapse>
-//       </List>
-//     </Drawer>
-//   );
-// };
-
-// export default Sidebar;
 
 import React, { useState } from 'react';
 import {
@@ -146,18 +7,14 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Collapse,
   Box,
   Typography,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
-import SettingsIcon from '@mui/icons-material/Settings';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import Person4Icon from '@mui/icons-material/Person4';
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
-import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
 import { useNavigate } from 'react-router-dom';
+import AddchartIcon from '@mui/icons-material/Addchart';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -172,7 +29,7 @@ const Sidebar = () => {
     <Drawer
       variant="permanent"
       sx={{
-        
+
         width: 240,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
@@ -180,7 +37,7 @@ const Sidebar = () => {
           boxSizing: 'border-box',
           backgroundColor: '#1e1e2f', // Darker background for sidebar
           color: '#ffffff', // White text
-          border:'3px solid DodgerBlue'
+          border: '3px solid DodgerBlue'
         },
       }}
     >
@@ -195,12 +52,12 @@ const Sidebar = () => {
         }}
       >
         <img
-          src={settings.logoUrl || 'mascot.png'} // Fallback to a default image if logoUrl is not set
+          src={settings.logoUrl || 'headerlogo.svg'} // Fallback to a default image if logoUrl is not set
           alt="Company Logo"
           style={{ width: '180px', height: '80px', marginBottom: '8px' }}
         />
-        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#ffcc00' }}>
-          {settings.companyName || 'SA TECH'}
+        <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#ffcc00', fontFamily: "Lora" }}>
+          {settings.companyName || 'Ideal Talent Connect'}
         </Typography>
       </Box>
 
@@ -222,42 +79,14 @@ const Sidebar = () => {
           <ListItemText primary="Dashboard" />
         </ListItem>
 
-        <ListItem
-          button
-          onClick={() => navigate('/Hr-assign')}
-          sx={{
-            '&:hover': {
-              backgroundColor: '#333',
-              color: '#ffcc00',
-            },
-          }}
-        >
-          <ListItemIcon sx={{ color: 'inherit' }}>
-            <HomeIcon />
-          </ListItemIcon>
-          <ListItemText primary="Job Openning Report" />
-        </ListItem>
 
-        <ListItem
-          button
-          onClick={() => navigate('/lineup')}
-          sx={{
-            '&:hover': {
-              backgroundColor: '#333',
-              color: '#ffcc00',
-            },
-          }}
-        >
-          <ListItemIcon sx={{ color: 'inherit' }}>
-            <HomeIcon />
-          </ListItemIcon>
-          <ListItemText primary="Line up Data" />
-        </ListItem>
+
+
 
         {/* Settings Link */}
         <ListItem
           button
-          onClick={() => navigate('/hr-settings')}
+          onClick={() => navigate('/hr-job-post-report')}
           sx={{
             '&:hover': {
               backgroundColor: '#333',
@@ -266,15 +95,30 @@ const Sidebar = () => {
           }}
         >
           <ListItemIcon sx={{ color: 'inherit' }}>
-            <SettingsIcon />
+            <Person4Icon />
           </ListItemIcon>
-          <ListItemText primary="Settings" />
+          <ListItemText primary="Jop Post Report" />
         </ListItem>
 
-        {/* Department with Dropdown */}
         <ListItem
           button
-          onClick={handleDepartmentClick}
+          onClick={() => navigate('/candidate-list')}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#333',
+              color: '#ffcc00',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <AddchartIcon />
+          </ListItemIcon>
+          <ListItemText primary="Sourced Data" />
+        </ListItem>
+
+        <ListItem
+          button
+          onClick={() => navigate('/job-form')}
           sx={{
             '&:hover': {
               backgroundColor: '#333',
@@ -285,93 +129,46 @@ const Sidebar = () => {
           <ListItemIcon sx={{ color: 'inherit' }}>
             <ApartmentIcon />
           </ListItemIcon>
-          <ListItemText primary="Department" />
-          {departmentOpen ? <ExpandLess /> : <ExpandMore />}
+          <ListItemText primary="Job Openings form" />
         </ListItem>
-        <Collapse in={departmentOpen} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
-            <ListItem
-              button
-              sx={{
-                pl: 4,
-                '&:hover': {
-                  backgroundColor: '#444',
-                  color: '#ffcc00',
-                },
-              }}
-              onClick={() => navigate('/hr')}
-            >
-              <ListItemIcon sx={{ color: 'inherit' }}>
-                <PersonAddAlt1Icon />
-              </ListItemIcon>
-              <ListItemText primary="HR Form" />
-            </ListItem>
-            <ListItem
-              button
-              sx={{
-                pl: 4,
-                '&:hover': {
-                  backgroundColor: '#444',
-                  color: '#ffcc00',
-                },
-              }}
-              onClick={() => navigate('/employee-form')}
-            >
-              <ListItemIcon sx={{ color: 'inherit' }}>
-                <Person4Icon />
-              </ListItemIcon>
-              <ListItemText primary="Employee Form" />
-            </ListItem>
-            <ListItem
-              button
-              sx={{
-                pl: 4,
-                '&:hover': {
-                  backgroundColor: '#444',
-                  color: '#ffcc00',
-                },
-              }}
-              onClick={() => navigate('/employee-data')}
-            >
-              <ListItemIcon sx={{ color: 'inherit' }}>
-                <Person4Icon />
-              </ListItemIcon>
-              <ListItemText primary="Employee Report" />
-            </ListItem>
-            <ListItem
-              button
-              sx={{
-                pl: 4,
-                '&:hover': {
-                  backgroundColor: '#444',
-                  color: '#ffcc00',
-                },
-              }}
-              onClick={() => navigate('/payment')}
-            >
-              <ListItemIcon sx={{ color: 'inherit' }}>
-                <Person4Icon />
-              </ListItemIcon>
-              <ListItemText primary="Payment Section" />
-            </ListItem>
-            <ListItem
-              button
-              sx={{
-                pl: 4,
-                '&:hover': {
-                  backgroundColor: '#444',
-                  color: '#ffcc00',
-                },
-              }}
-              onClick={() => navigate('/close')}
-            >
-              <ListItemIcon sx={{ color: 'inherit' }}>
-                <Person4Icon />
-              </ListItemIcon>
-              <ListItemText primary="Closed Sales " />
-            </ListItem>
-          </List>
-        </Collapse>
+
+        <ListItem
+          button
+          onClick={() => navigate('/all-candidates-form')}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#333',
+              color: '#ffcc00',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <HomeIcon />
+          </ListItemIcon>
+          <ListItemText primary="Candidates Form " />
+        </ListItem>
+        <ListItem
+          button
+          onClick={() => navigate('/all-candidates')}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#333',
+              color: '#ffcc00',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <HomeIcon />
+          </ListItemIcon>
+          <ListItemText primary="Candidates Details " />
+        </ListItem>
+
+
+     
+
+
+
+
       </List>
     </Drawer>
   );
