@@ -27,7 +27,7 @@
 //     formData.append('companyName', companyName); // Append company name
 
 //     try {
-//       await axios.post('http://localhost:5000/api/settings/logo', formData, {
+//       await axios.post(`${API_BASE_URL}/settings/logo`, formData, {
 //         headers: {
 //           'Content-Type': 'multipart/form-data',
 //         },
@@ -88,17 +88,13 @@
 //             </Button>
 //           </Box>
 //         </Container>
-//       </Box>
-//     </div>
-//   );
-// };
-
-// export default AdminSetting;
 import React, { useState, useEffect } from 'react';
 import { Typography, Container, Box, Button, TextField } from '@mui/material';
 import Navbar from '../../components/admin components/AdminNavbar';
 import Sidebar from '../../components/admin components/AdminSidebar';
 import axios from 'axios';
+// Add this import at the top of the file, after the other imports
+import { API_BASE_URL } from '../../config/api.config';
 
 const AdminSetting = () => {
   const [logo, setLogo] = useState(null); // Logo preview (Base64)
@@ -109,7 +105,7 @@ const AdminSetting = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/settings/logo');
+        const response = await axios.get(`${API_BASE_URL}/settings/logo`);
         const { companyName, logoUrl } = response.data;
         setCompanyName(companyName || '');
         setSavedLogo(logoUrl || null);
@@ -139,7 +135,7 @@ const AdminSetting = () => {
     formData.append('companyName', companyName); // Append company name
 
     try {
-      const response = await axios.post('http://localhost:5000/api/settings/logo', formData, {
+      const response = await axios.post(`${API_BASE_URL}/settings/logo`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

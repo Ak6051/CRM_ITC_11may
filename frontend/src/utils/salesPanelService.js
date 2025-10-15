@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api.config';
 
-const API_URL = 'http://localhost:5000/api/panel';
+const API_URL = `${API_BASE_URL}/panel`;
 
 export const isTokenValid = () => {
   const token = sessionStorage.getItem('token');
@@ -17,46 +18,125 @@ export const isTokenValid = () => {
 
 export const fetchMySales = async () => {
   try {
-    // Check if token is valid
-    if (!isTokenValid()) {
-      console.error('Token is invalid or expired');
+    const token = sessionStorage.getItem('token');
+    
+    // If no token exists, redirect to login
+    if (!token) {
+      redirectToLogin();
       return [];
     }
     
     const response = await axios.get(`${API_URL}/all-sales`, {
-      headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` }, // Include token in the request headers
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+      validateStatus: function (status) {
+        return status >= 200 && status < 500; // Resolve only if the status code is less than 500
+      }
     });
-    return response.data; // This will contain the list of jobs
+    
+    // If unauthorized or token expired
+    if (response.status === 401) {
+      redirectToLogin();
+      return [];
+    }
+    
+    // If other error
+    if (response.status >= 400) {
+      console.error('Error fetching sales data:', response.data?.message || 'Unknown error');
+      return [];
+    }
+    
+    return response.data || [];
   } catch (error) {
-    console.error('Error fetching job openings:', error);
+    console.error('Error in fetchMySales:', error);
+    if (error.response?.status === 401) {
+      redirectToLogin();
+    }
     return [];
   }
 };
 
-export const createMySale = async (formData, isMultipart = false) => {
-  const token = sessionStorage.getItem('token');
-  const response = await fetch('http://localhost:5000/api/panel/create-sale', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(isMultipart ? {} : { 'Content-Type': 'application/json' })
-    },
-    body: isMultipart ? formData : JSON.stringify(formData)
-  });
+// Helper function to handle redirection to login
+const redirectToLogin = () => {
+  // Clear any existing session data
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('tokenExpiration');
+  sessionStorage.removeItem('userRole');
+  
+  // Redirect to login page
+  window.location.href = '/login';
+};
 
-  return await response.json();
+export const createMySale = async (formData, isMultipart = false) => {
+  try {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      redirectToLogin();
+      return { error: true, message: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${API_BASE_URL}/panel/create-sale`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+      body: isMultipart ? formData : JSON.stringify(formData)
+    });
+
+    if (response.status === 401) {
+      redirectToLogin();
+      return { error: true, message: 'Session expired' };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in createMySale:', error);
+    if (error.response?.status === 401) {
+      redirectToLogin();
+    }
+    return { error: true, message: error.message || 'Failed to create sale' };
+  }
 };
 
 export const updateMySale = async (id, formData, isMultipart = false) => {
-  const token = sessionStorage.getItem('token');
-  const response = await fetch(`http://localhost:5000/api/panel/update-sale/${id}`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(isMultipart ? {} : { 'Content-Type': 'application/json' })
-    },
-    body: isMultipart ? formData : JSON.stringify(formData)
-  });
+  try {
+    const token = sessionStorage.getItem('token');
+    if (!token) {
+      redirectToLogin();
+      return { error: true, message: 'Not authenticated' };
+    }
 
-  return await response.json();
+    const response = await fetch(`${API_BASE_URL}/panel/update-sale/${id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(isMultipart ? {} : { 'Content-Type': 'application/json' }),
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      },
+      body: isMultipart ? formData : JSON.stringify(formData)
+    });
+
+    if (response.status === 401) {
+      redirectToLogin();
+      return { error: true, message: 'Session expired' };
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in updateMySale:', error);
+    if (error.response?.status === 401) {
+      redirectToLogin();
+    }
+    return { error: true, message: error.message || 'Failed to update sale' };
+  }
 };

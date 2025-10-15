@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
 import { Box, Typography } from '@mui/material';
+import API_BASE_URL from '../../config/api.config';
 import Navbar from '../../components/admin components/AdminNavbar';
 import Sidebar from '../../components/admin components/AdminSidebar';
 import * as XLSX from 'xlsx';
@@ -15,7 +16,7 @@ const SalesOpeningData = () => {
 useEffect(() => {
   const fetchHRs = async () => {
     const token = sessionStorage.getItem('token');
-    const res = await axios.get("http://localhost:5000/api/panel/hr-users", {
+    const res = await axios.get(`${API_BASE_URL}/panel/hr-users`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     setHrList(res.data);
@@ -30,7 +31,7 @@ useEffect(() => {
   try {
     const token = sessionStorage.getItem('token'); // token get karo sessionStorage se
 
-    const res = await axios.get('http://localhost:5000/api/panel/converted-jobs', {
+    const res = await axios.get(`${API_BASE_URL}/panel/converted-jobs`, {
       headers: {
         Authorization: `Bearer ${token}`,  // token ko header me bhejo
       }
@@ -86,7 +87,7 @@ useEffect(() => {
           const token = sessionStorage.getItem('token');
           try {
             await axios.put(
-              `http://localhost:5000/api/panel/assign-hr/${jobId}`,
+              `${API_BASE_URL}/panel/assign-hr/${jobId}`,
               { hrId },
               { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -186,44 +187,30 @@ useEffect(() => {
 },
 
     {
-  field: 'description',
-  headerName: 'Description',
-  width: 200,
-  renderCell: (params) => {
-    const value = params.value;
-
-    // Check if it's a PDF URL
-    const isPdfLink = typeof value === 'string' &&
-      (value.endsWith('.pdf') || value.includes('.pdf')) &&
-      (value.startsWith('http://') || value.startsWith('https://'));
-
-    return isPdfLink ? (
-      <a
-        href={value}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ textDecoration: 'none' }}
-      >
-        <button style={{
-          backgroundColor: '#1976d2',
-          color: 'white',
-          border: 'none',
-          borderRadius: '4px',
-          padding: '4px 8px',
-          cursor: 'pointer'
-        }}>
+      field:'descriptionFile',
+      headerName:'Job Description (PDF)',
+      width:200,
+      renderCell:(params)=>{
+        const fileUrl=params.row.descriptionFile;
+        return fileUrl?(<a href={fileUrl} target="_blank" rel="noopener noreferrer" style={{color:'#1976d2',textDecoration:'underline'}}>
           View PDF
-        </button>
-      </a>
-    ) : (
-      <Typography variant="body2">
-        {value || 'No Description'}
-      </Typography>
-    );
-  }
-},
+        </a>):(<span>N/A</span>);
+      },
+    },
+    {
+      field:'description',
+      headerName:'Job Description (Text)',
+      width:300,
+      renderCell:(params)=>{
+        const text=params.row.description;
+        return text?(<span style={{whiteSpace:'normal',wordBreak:'break-word'}}>
+          {text}
+        </span>):(<span>N/A</span>);
+      },
+    },
 
     { field: 'jobLocation', headerName: 'Job Location', width: 150 },
+    { field: 'jobTiming', headerName: 'Job Timing', width: 150 },
     { field: 'remarks', headerName: 'Remarks', width: 200 },
  {
   field: 'convertedAt',

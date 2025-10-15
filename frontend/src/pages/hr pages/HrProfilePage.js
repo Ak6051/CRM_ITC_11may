@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { TextField, Button, Box, Typography } from '@mui/material';
+import { TextField, Button, Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Alert } from '@mui/material';
 import Navbar from '../../components/hr components/HrNavbar';
 import Sidebar from '../../components/hr components/HrSidebar';
 import axios from 'axios';
+// Add this import after the other imports
+import { API_BASE_URL } from '../../config/api.config';
 
 const HrProfilePage = () => {
   const [user, setUser] = useState({
@@ -15,13 +17,20 @@ const HrProfilePage = () => {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const token = sessionStorage.getItem('token');
-        const response = await axios.get(
-          'http://localhost:5000/api/user/profile',
+        const response = await axios.get(`${API_BASE_URL}/hr/profile`, 
           {
             headers: { Authorization: token },
           }
@@ -42,7 +51,7 @@ const HrProfilePage = () => {
     try {
       setIsLoading(true);
       const token = sessionStorage.getItem('token');
-      await axios.put('http://localhost:5000/api/user/profile', user, {
+      await axios.put(`${API_BASE_URL}/hr/profile`, user, {
         headers: { Authorization: token },
       });
       alert('Profile updated successfully');
@@ -53,8 +62,62 @@ const HrProfilePage = () => {
     }
   };
 
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleChangePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('New passwords do not match');
+      return;
+    }
+    if (passwordData.newPassword.length < 6) {
+      setPasswordError('Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const token = sessionStorage.getItem('token');
+      await axios.post(
+        `${API_BASE_URL}/hr/change-password`,
+        {
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword
+        },
+        {
+          headers: { 
+            'Authorization': token,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      setPasswordSuccess('Password changed successfully');
+      setPasswordError('');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setTimeout(() => {
+        setChangePasswordOpen(false);
+        setPasswordSuccess('');
+      }, 2000);
+    } catch (error) {
+      console.error('Error changing password:', error);
+      setPasswordError(error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', height: '100vh',marginLeft:'-10px', backgroundColor: '#f5f5f5' }}>
+    <div style={{ display: 'flex', height: '100vh', marginLeft: '-10px', backgroundColor: '#f5f5f5' }}>
     {/* Sidebar is fixed */}
     <div style={{ position: 'fixed',marginLeft:'-9px', height: '100vh', width: '250px', backgroundColor: '#3f51b5', color: 'white' }}>
       <Sidebar />
@@ -126,17 +189,90 @@ const HrProfilePage = () => {
             fullWidth
             margin="normal"
           />
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleUpdate}
-            disabled={isLoading}
-            sx={{ mt: 2 }}
-          >
-            {isLoading ? 'Updating...' : 'Update Profile'}
-          </Button>
+          <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleUpdate}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Updating...' : 'Update Profile'}
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => setChangePasswordOpen(true)}
+              disabled={isLoading}
+            >
+              Change Password
+            </Button>
+          </Box>
         </Box>
       </Box>
+      {/* Change Password Dialog */}
+      <Dialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)}>
+        <DialogTitle>Change Password</DialogTitle>
+        <DialogContent>
+          {passwordError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {passwordError}
+            </Alert>
+          )}
+          {passwordSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {passwordSuccess}
+            </Alert>
+          )}
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="currentPassword"
+            label="Current Password"
+            type="password"
+            id="currentPassword"
+            value={passwordData.currentPassword}
+            onChange={handlePasswordChange}
+            disabled={isLoading}
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="newPassword"
+            label="New Password"
+            type="password"
+            id="newPassword"
+            value={passwordData.newPassword}
+            onChange={handlePasswordChange}
+            disabled={isLoading}
+          />
+          <TextField
+            margin="normal"
+            required
+            fullWidth
+            name="confirmPassword"
+            label="Confirm New Password"
+            type="password"
+            id="confirmPassword"
+            value={passwordData.confirmPassword}
+            onChange={handlePasswordChange}
+            disabled={isLoading}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChangePasswordOpen(false)} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleChangePassword} 
+            color="primary"
+            disabled={isLoading || !passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
+          >
+            {isLoading ? 'Changing...' : 'Change Password'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api.config';
 
-const API_URL = 'http://localhost:5000/api/allType';
+const API_URL = `${API_BASE_URL}/allType`;
 
 // Function to check if token is valid
 export const isTokenValid = () => {
@@ -51,7 +52,7 @@ export const fetchAllSales = async () => {
     if (currentTime >= parseInt(expirationTime)) {
       // Token expired, try to refresh
       try {
-        const refreshResponse = await axios.post('http://localhost:5000/api/auth/refresh-token', {}, {
+        const refreshResponse = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -149,6 +150,6 @@ export const createSale = async (jobData ,isMultipart = false) => {
   
 
 export const fetchHRUsers = async () => {
-    return await axios.get('http://localhost:5000/api/hr/hr-users'); // Adjust the path according to your setup
+    return await axios.get(`${API_BASE_URL}/hr/hr-users`);
 };
 

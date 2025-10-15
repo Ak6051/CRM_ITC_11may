@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api.config';
 import { Box, Typography } from '@mui/material';
 import Navbar from '../../components/sales components/SalesNavbar';
 import Sidebar from '../../components/sales components/Sidebar';
@@ -13,7 +14,7 @@ const ConvertedJobsTable = () => {
       try {
         const token = sessionStorage.getItem('token'); // token get karo sessionStorage se
 
-        const res = await axios.get('http://localhost:5000/api/panel/converted-jobs', {
+        const res = await axios.get(`${API_BASE_URL}/panel/converted-jobs`, {
           headers: {
             Authorization: `Bearer ${token}`,  // token ko header me bhejo
           }
@@ -42,6 +43,7 @@ const ConvertedJobsTable = () => {
     { field: 'phoneNumber', headerName: 'Phone', width: 140 },
     { field: 'response', headerName: 'Response', width: 140 },
     { field: 'jobTitle', headerName: 'Job Title', width: 140 },
+    
     { field: 'benefits', headerName: 'Benefits', width: 140 },
     { field: 'numberOfRequirements', headerName: 'Requirements', width: 150 },
 
@@ -66,6 +68,8 @@ const ConvertedJobsTable = () => {
     { field: 'experience', headerName: 'Experience', width: 150 },
     { field: 'salary', headerName: 'Salary', width: 150 },
     { field: 'jobLocation', headerName: 'Job Location', width: 150 },
+    { field: 'jobTiming', headerName: 'Job Timing', width: 150 },
+    { field: 'gender', headerName: 'Gender', width: 150 },
     { field: 'remarks', headerName: 'Remarks', width: 200 },
 
     {
@@ -103,42 +107,41 @@ const ConvertedJobsTable = () => {
     },
 
     {
-      field: 'description',
-      headerName: 'Description',
+      field: 'descriptionFile',
+      headerName: 'Job Description (PDF)',
       width: 200,
       renderCell: (params) => {
-        const value = params.value;
-
-        // Check if it's a PDF URL
-        const isPdfLink = typeof value === 'string' &&
-          (value.endsWith('.pdf') || value.includes('.pdf')) &&
-          (value.startsWith('http://') || value.startsWith('https://'));
-
-        return isPdfLink ? (
+        const fileUrl = params.row.descriptionFile;
+        return fileUrl ? (
           <a
-            href={value}
+            href={fileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ textDecoration: 'none' }}
+            style={{ color: '#1976d2', textDecoration: 'underline' }}
           >
-            <button style={{
-              backgroundColor: '#1976d2',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              padding: '4px 8px',
-              cursor: 'pointer'
-            }}>
-              View PDF
-            </button>
+            View PDF
           </a>
         ) : (
-          <Typography variant="body2">
-            {value || 'No Description'}
-          </Typography>
+          <span>N/A</span>
         );
-      }
+      },
     },
+    // {
+    //   field: 'description',
+    //   headerName: 'Job Description (Text)',
+    //   width: 300,
+    //   renderCell: (params) => {
+    //     const text = params.row.description;
+    //     return text ? (
+    //       <span style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
+    //         {text}
+    //       </span>
+    //     ) : (
+    //       <span>N/A</span>
+    //     );
+    //   },
+    // },
+    
 
     {
       field: 'convertedAt',
@@ -167,28 +170,76 @@ const ConvertedJobsTable = () => {
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5' }}>
-      <div style={{ position: 'fixed', height: '100vh', width: '250px', backgroundColor: '#3f51b5', color: 'white' }}>
-        <Sidebar />
-      </div>
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', marginLeft: '250px', height: '100vh', overflow: 'hidden' }}>
-        <Navbar />
-        <Box sx={{ height: 600, width: '100%' }}>
-          <Box sx={{ textAlign: 'left', paddingLeft: 2 }}>
-            <Typography variant="h5" gutterBottom>
-              Converted Jobs
-            </Typography>
+        <div style={{ position: 'fixed', height: '100vh', width: '250px', backgroundColor: '#3f51b5', color: 'white' }}>
+          <Sidebar />
+        </div>
+        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', marginLeft: '250px', height: '100vh', overflow: 'hidden' }}>
+          <Navbar />
+        <Box sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          flexDirection: 'column',
+          minHeight: 0, // Important for proper scrolling
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          padding: '16px',
+          width: 'calc(100% - 32px)' // Account for padding
+        }}>
+          <Typography variant="h5" gutterBottom sx={{ mb: 2, fontWeight: 600, color: '#333' }}>
+            Converted Jobs
+          </Typography>
 
-            <Box sx={{ width: '100%', overflowX: 'auto' }}>
-              <DataGrid
-                rows={rows}
-                columns={columns}
-                pageSize={10}
-                rowsPerPageOptions={[10, 20, 50]}
-                autoHeight
-              />
-            </Box>
-
-
+          <Box sx={{ 
+            flex: 1, 
+            width: '100%',
+            height: '90%',
+            '& .MuiDataGrid-root': {
+              border: 'none',
+              '& .MuiDataGrid-columnHeaders': {
+                backgroundColor: '#f5f5f5',
+                borderBottom: '1px solid #e0e0e0',
+              },
+              '& .MuiDataGrid-cell': {
+                borderBottom: '1px solid #f0f0f0',
+              },
+              '& .MuiDataGrid-virtualScroller': {
+                overflowX: 'auto',
+              },
+              '& .MuiDataGrid-row:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              },
+            },
+          }}>
+            <DataGrid
+              rows={rows}
+              columns={columns}
+              pageSize={10}
+              rowsPerPageOptions={[10, 20, 50]}
+              disableSelectionOnClick
+              disableColumnMenu
+              sx={{
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  fontWeight: 600,
+                  color: '#333',
+                },
+                '& .MuiDataGrid-cell:focus': {
+                  outline: 'none',
+                },
+              }}
+              components={{
+                LoadingOverlay: () => (
+                  <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+                    Loading...
+                  </Box>
+                ),
+                NoRowsOverlay: () => (
+                  <Box display="flex" justifyContent="center" alignItems="center" height="100%" color="#666">
+                    No data available
+                  </Box>
+                ),
+              }}
+            />
           </Box>
         </Box>
       </Box>

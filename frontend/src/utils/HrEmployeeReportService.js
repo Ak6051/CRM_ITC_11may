@@ -1,14 +1,15 @@
 import axios from 'axios';
+import API_BASE_URL from '../api.config';
 
-const API_BASE_URL = 'http://localhost:5000/api/form/employees-data';
+const API_URL = `${API_BASE_URL}/form/employees-data`;
 
 export const fetchEmployees = async () => {
-  return axios.get(API_BASE_URL);
+  return axios.get(API_URL);
 };
 
 // Create a new HR Employee entry
 export const newcreateEmployee = async (employeeData) => {
-  return axios.post(API_BASE_URL, employeeData);
+  return axios.post(API_URL, employeeData);
 };
 
 export const updateEmployee = async (id, employeeData) => {
@@ -20,5 +21,5 @@ export const deleteEmployee = async (id) => {
 };
 
 export const getCompanyNames = async () => {
-  return await axios.get('http://localhost:5000/api/form/company-names'); // Adjust the path according to your setup
+  return await axios.get(`${API_BASE_URL}/form/company-names`);
 };

@@ -1,130 +1,19 @@
-// import React, { useEffect, useState } from "react";
-// import axios from "axios";
-// import { Box, Typography } from "@mui/material";
-// import { DataGrid } from "@mui/x-data-grid";
-// import Navbar from '../../components/hr components/HrNavbar';
-// import Sidebar from '../../components/hr components/HrSidebar';
-
-// const CandidateList = () => {
-//   const [candidates, setCandidates] = useState([]);
-
-//   useEffect(() => {
-//     const fetchCandidates = async () => {
-//       try {
-//         const token = sessionStorage.getItem("token");
-//         const response = await axios.get("http://localhost:5000/api/candidate/all-candidates", {
-//           headers: {
-//             Authorization: `Bearer ${token}`,
-//           },
-//         });
-//         const formattedData = response.data.map((candidate) => ({
-//           id: candidate._id,
-//           name: candidate.name,
-//           phoneNumber: candidate.phoneNumber,
-//           positionName: candidate.positionName,
-//           experience: candidate.experience,
-//           currentLocation: candidate.currentLocation,
-//           currentPosition: candidate.currentPosition,
-//           currentCTC: candidate.currentCTC,
-//           expectedCTC: candidate.expectedCTC,
-//           noticePeriod: candidate.noticePeriod,
-//           reasonforLeaving: candidate.reasonforLeaving,
-//           currentCompany: candidate.currentCompany,
-//           remark: candidate.remark,
-//           resumeUpload: candidate.resumeUpload,
-//         }));
-
-//         setCandidates(formattedData);
-//       } catch (error) {
-//         console.error("Error fetching candidates:", error);
-//       }
-//     };
-
-//     fetchCandidates();
-//   }, []);
-
-//   const columns = [
-//     { field: "name", headerName: "Name", width: 150 },
-//     { field: "phoneNumber", headerName: "Phone", width: 130 },
-//     { field: "positionName", headerName: "Position", width: 150 },
-//     { field: "experience", headerName: "Experience", width: 120 },
-//     { field: "currentLocation", headerName: "Current Location", width: 120 },
-//     { field: "currentPosition", headerName: "Current Position", width: 120 },
-//     { field: "currentCTC", headerName: "Current CTC", width: 120 },
-//     { field: "expectedCTC", headerName: "Expected CTC", width: 130 },
-//     { field: "noticePeriod", headerName: "Notice Period", width: 120 },
-//     { field: "reasonforLeaving", headerName: "Reason For Leaving", width: 120 },
-//     { field: "currentCompany", headerName: "Current Commpany", width: 120 },
-//     { field: "remark", headerName: "Remark", width: 150 },
-//     {
-//       field: "resumeUpload",
-//       headerName: "Resume",
-//       width: 150,
-//       renderCell: (params) =>
-//         params.value ? (
-//           <a
-//             href={params.value}
-//             target="_blank"
-//             rel="noopener noreferrer"
-//           >
-//             View
-//           </a>
-//         ) : (
-//           "No Resume"
-//         ),
-//     },
-    
-
-//   ];
-
-//   return (
-//     <div style={{ display: "flex", height: "100vh", backgroundColor: "#f5f5f5", overflow: "hidden" }}>
-//       <div style={{ position: "fixed", height: "100vh", width: "250px", backgroundColor: "#3f51b5", color: "white" }}>
-//         <Sidebar />
-//       </div>
-
-//       <Box
-//         sx={{
-//           flexGrow: 1,
-//           display: "flex",
-//           flexDirection: "column",
-//           marginLeft: "250px",
-//           height: "100vh",
-//           overflow: "hidden",
-//         }}
-//       >
-//         <Navbar />
-//         <Box p={4} sx={{ height: 600, width: "100%" }}>
-//           <Typography variant="h5" gutterBottom>
-//             Candidate List
-//           </Typography>
-//           <DataGrid
-//             rows={candidates}
-//             columns={columns}
-//             pageSize={10}
-//             rowsPerPageOptions={[10, 25, 50]}
-//             pagination
-//           />
-//         </Box>
-//       </Box>
-//     </div>
-//   );
-// };
-
-// export default CandidateList;
 import React, { useEffect, useState } from "react";
-import { Grid } from '@mui/material';
 import axios from "axios";
-import {
-  Box,
+import { API_BASE_URL } from "../../config/api.config";
+import { 
+  Box, 
   Typography,
+  Grid,
   Modal,
   TextField,
-  Button,
+  Button 
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import Navbar from '../../components/hr components/HrNavbar';
 import Sidebar from '../../components/hr components/HrSidebar';
+
+
 
 const style = {
   position: 'absolute',
@@ -146,16 +35,19 @@ const CandidateList = () => {
   const fetchCandidates = async () => {
     try {
       const token = sessionStorage.getItem("token");
-      const response = await axios.get("http://localhost:5000/api/candidate/all-candidates", {
+      const hrId = sessionStorage.getItem("userId");
+      const response = await axios.get(`${API_BASE_URL}/candidate/all-candidates/${hrId}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
-        },
+          Authorization: `Bearer ${token}`
+        }
       });
       const formattedData = response.data.map((candidate) => ({
         id: candidate._id,
-        name: candidate.name,
-        phoneNumber: candidate.phoneNumber,
+        name: candidate.candidateName,
+        phoneNumber: candidate.candidatePhone,
+        email: candidate.candidateEmail,
         positionName: candidate.positionName,
+        qualification: candidate.qualification,
         experience: candidate.experience,
         currentLocation: candidate.currentLocation,
         currentPosition: candidate.currentPosition,
@@ -165,7 +57,7 @@ const CandidateList = () => {
         reasonforLeaving: candidate.reasonforLeaving,
         currentCompany: candidate.currentCompany,
         remark: candidate.remark,
-        resumeUpload: candidate.resumeUpload,
+        resumeLink: candidate.resumeLink,
       }));
       setCandidates(formattedData);
     } catch (error) {
@@ -181,10 +73,10 @@ const CandidateList = () => {
     if (window.confirm("Are you sure you want to delete this candidate?")) {
       try {
         const token = sessionStorage.getItem("token");
-        await axios.delete(`http://localhost:5000/api/candidate/delete/${id}`, {
+        await axios.delete(`${API_BASE_URL}/candidate/delete/${id}`, {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
+            Authorization: `Bearer ${token}`
+          }
         });
         setCandidates(candidates.filter(candidate => candidate.id !== id));
       } catch (error) {
@@ -209,23 +101,37 @@ const CandidateList = () => {
     try {
       const token = sessionStorage.getItem("token");
       const formData = new FormData();
- for (let key in selectedCandidate) {
-  if (key === 'id') continue;
-  if (key === 'resumeFile') {
-    formData.append('resumeUpload', selectedCandidate.resumeFile);
-  } else {
-    formData.append(key, selectedCandidate[key]);
-  }
-}
+      
+      // Add all fields to formData
+      for (let key in selectedCandidate) {
+        if (key === 'id' || key === 'modelType') continue;
+        
+        // Handle file upload
+        if (key === 'resumeFile' && selectedCandidate.resumeFile) {
+          formData.append('resumeUpload', selectedCandidate.resumeFile);
+        } 
+        // For existing resume link
+        else if (key === 'resumeLink' && typeof selectedCandidate[key] === 'string') {
+          formData.append('resumeLink', selectedCandidate[key]);
+        }
+        // For other fields
+        else if (selectedCandidate[key] !== undefined && selectedCandidate[key] !== null) {
+          formData.append(key, selectedCandidate[key]);
+        }
+      }
 
-
+      // Add modelType to formData if available
+      if (selectedCandidate.modelType) {
+        formData.append('modelType', selectedCandidate.modelType);
+      }
 
       await axios.put(
-        `http://localhost:5000/api/candidate/update/${selectedCandidate.id}`,
+        `${API_BASE_URL}/candidate/update/${selectedCandidate.id}`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
           },
         }
       );
@@ -237,31 +143,6 @@ const CandidateList = () => {
   };
 
   const columns = [
-    { field: "name", headerName: "Name", width: 150 },
-    { field: "phoneNumber", headerName: "Phone", width: 130 },
-    { field: "positionName", headerName: "Position", width: 150 },
-    { field: "experience", headerName: "Experience", width: 120 },
-    { field: "currentLocation", headerName: "Current Location", width: 120 },
-    { field: "currentPosition", headerName: "Current Position", width: 120 },
-    { field: "currentCTC", headerName: "Current CTC", width: 120 },
-    { field: "expectedCTC", headerName: "Expected CTC", width: 130 },
-    { field: "noticePeriod", headerName: "Notice Period", width: 120 },
-    { field: "reasonforLeaving", headerName: "Reason For Leaving", width: 120 },
-    { field: "currentCompany", headerName: "Current Company", width: 120 },
-    { field: "remark", headerName: "Remark", width: 150 },
-    {
-      field: "resumeUpload",
-      headerName: "Resume",
-      width: 150,
-      renderCell: (params) =>
-        params.value ? (
-          <a href={params.value} target="_blank" rel="noopener noreferrer">
-            View
-          </a>
-        ) : (
-          "No Resume"
-        ),
-    },
     {
       field: "actions",
       headerName: "Actions",
@@ -283,6 +164,34 @@ const CandidateList = () => {
         </>
       ),
     },
+    { field: "name", headerName: "Name", width: 150 },
+    { field: "phoneNumber", headerName: "Phone", width: 130 },
+    { field: "email", headerName: "Email", width: 130 },
+    { field: "qualification", headerName: "Qualification", width: 130 },
+    { field: "positionName", headerName: "Position", width: 150 },
+    { field: "experience", headerName: "Experience", width: 120 },
+    { field: "currentLocation", headerName: "Current Location", width: 120 },
+    { field: "currentPosition", headerName: "Current Position", width: 120 },
+    { field: "currentCTC", headerName: "Current CTC", width: 120 },
+    { field: "expectedCTC", headerName: "Expected CTC", width: 130 },
+    { field: "noticePeriod", headerName: "Notice Period", width: 120 },
+    { field: "reasonforLeaving", headerName: "Reason For Leaving", width: 120 },
+    { field: "currentCompany", headerName: "Current Company", width: 120 },
+    { field: "remark", headerName: "Remark", width: 150 },
+    {
+      field: "resumeLink",
+      headerName: "Resume",
+      width: 150,
+      renderCell: (params) =>
+        params.value ? (
+          <a href={params.value} target="_blank" rel="noopener noreferrer">
+            View Resume
+          </a>
+        ) : (
+          "No Resume"
+        ),
+    },
+   
   ];
 
   return (
@@ -302,7 +211,7 @@ const CandidateList = () => {
         }}
       >
         <Navbar />
-        <Box p={4} sx={{ height: 600, width: "100%" }}>
+        <Box p={4} sx={{ height: 800, width: "100%" }}>
           <Typography variant="h5" gutterBottom>
             Candidate List
           </Typography>
@@ -360,9 +269,27 @@ const CandidateList = () => {
           </Grid>
           <Grid item xs={12} sm={4}>
             <TextField
+              label="Email"
+              name="email"
+              value={selectedCandidate.email}
+              onChange={handleInputChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <TextField
               label="Position"
               name="positionName"
               value={selectedCandidate.positionName}
+              onChange={handleInputChange}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <TextField
+              label="Qualification"
+              name="qualification"
+              value={selectedCandidate.qualification}
               onChange={handleInputChange}
               fullWidth
             />

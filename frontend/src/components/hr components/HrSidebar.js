@@ -11,10 +11,17 @@ import {
   Typography,
 } from '@mui/material';
 import HomeIcon from '@mui/icons-material/Home';
-import ApartmentIcon from '@mui/icons-material/Apartment';
-import Person4Icon from '@mui/icons-material/Person4';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import WorkIcon from '@mui/icons-material/Work';
+import DescriptionIcon from '@mui/icons-material/Description';
+import TaskIcon from '@mui/icons-material/Task';
+import RecentActorsIcon from '@mui/icons-material/RecentActors';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { useNavigate } from 'react-router-dom';
 import AddchartIcon from '@mui/icons-material/Addchart';
+import BeenhereIcon from '@mui/icons-material/Beenhere';
 
 const Sidebar = () => {
   const navigate = useNavigate();
@@ -95,9 +102,9 @@ const Sidebar = () => {
           }}
         >
           <ListItemIcon sx={{ color: 'inherit' }}>
-            <Person4Icon />
+            <AssessmentIcon />
           </ListItemIcon>
-          <ListItemText primary="Jop Post Report" />
+          <ListItemText primary="Job Post Report" />
         </ListItem>
 
         <ListItem
@@ -118,6 +125,22 @@ const Sidebar = () => {
 
         <ListItem
           button
+          onClick={() => navigate('/placed-candidate-list')}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#333',
+              color: '#ffcc00',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <BeenhereIcon />
+          </ListItemIcon>
+          <ListItemText primary="Placed Data" />
+        </ListItem>
+
+        <ListItem
+          button
           onClick={() => navigate('/job-form')}
           sx={{
             '&:hover': {
@@ -127,7 +150,7 @@ const Sidebar = () => {
           }}
         >
           <ListItemIcon sx={{ color: 'inherit' }}>
-            <ApartmentIcon />
+            <WorkIcon />
           </ListItemIcon>
           <ListItemText primary="Job Openings form" />
         </ListItem>
@@ -143,9 +166,25 @@ const Sidebar = () => {
           }}
         >
           <ListItemIcon sx={{ color: 'inherit' }}>
-            <HomeIcon />
+            <AssignmentIcon />
           </ListItemIcon>
-          <ListItemText primary="Candidates Form " />
+          <ListItemText primary="Candidates Form" />
+        </ListItem>
+
+        <ListItem
+          button
+          onClick={() => navigate('/hr-dasboard-task')}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#333',
+              color: '#ffcc00',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <TaskIcon />
+          </ListItemIcon>
+          <ListItemText primary="Assigned Task" />
         </ListItem>
         <ListItem
           button
@@ -158,12 +197,57 @@ const Sidebar = () => {
           }}
         >
           <ListItemIcon sx={{ color: 'inherit' }}>
-            <HomeIcon />
+            <PeopleAltIcon />
           </ListItemIcon>
-          <ListItemText primary="Candidates Details " />
+          <ListItemText primary="Candidates Details" />
         </ListItem>
 
+        <ListItem
+          button
+          onClick={() => navigate('/hr-candidates')}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#333',
+              color: '#ffcc00',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <RecentActorsIcon />
+          </ListItemIcon>
+          <ListItemText primary="All Candidates Details" />
+        </ListItem>
 
+        <ListItem
+          button
+          onClick={() => navigate('/recent-data')}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#333',
+              color: '#ffcc00',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <DescriptionIcon />
+          </ListItemIcon>
+          <ListItemText primary="Recent Data" />
+        </ListItem>
+        <ListItem
+          button
+          onClick={() => navigate('/daily-hr-task')}
+          sx={{
+            '&:hover': {
+              backgroundColor: '#333',
+              color: '#ffcc00',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <CalendarTodayIcon />
+          </ListItemIcon>
+          <ListItemText primary="Daily Task Data" />
+        </ListItem>
      
 
 

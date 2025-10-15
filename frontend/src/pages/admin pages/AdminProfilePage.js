@@ -15,6 +15,7 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import Navbar from '../../components/admin components/AdminNavbar';
 import Sidebar from '../../components/admin components/AdminSidebar';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api.config';
 
 const ProfilePage = () => {
   const [user, setUser] = useState({
@@ -43,12 +44,9 @@ const ProfilePage = () => {
     const fetchUserData = async () => {
       try {
         const token = sessionStorage.getItem('token');
-        const response = await axios.get(
-          'http://localhost:5000/api/user/profile',
-          {
-            headers: { Authorization: token },
-          }
-        );
+        const response = await axios.get(`${API_BASE_URL}/user/profile`, {
+          headers: { Authorization: token },
+        });
         setUser(response.data);
       } catch (error) {
         console.error('Error fetching user data', error);
@@ -65,7 +63,7 @@ const ProfilePage = () => {
     try {
       setIsLoading(true);
       const token = sessionStorage.getItem('token');
-      await axios.put('http://localhost:5000/api/user/profile', user, {
+      await axios.put(`${API_BASE_URL}/user/profile`, user, {
         headers: { Authorization: token },
       });
       alert('Profile updated successfully');
@@ -90,13 +88,9 @@ const ProfilePage = () => {
   const handlePasswordUpdate = async () => {
     try {
       const token = sessionStorage.getItem('token');
-      await axios.put(
-        'http://localhost:5000/api/user/change-password',
-        passwordData,
-        {
-          headers: { Authorization: token },
-        }
-      );
+      await axios.put(`${API_BASE_URL}/user/change-password`, passwordData, {
+        headers: { Authorization: token },
+      });
       alert('Password updated successfully');
       setPasswordModalOpen(false);
       setPasswordData({ currentPassword: '', newPassword: '' });

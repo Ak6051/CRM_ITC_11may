@@ -29,9 +29,21 @@ import HrReport from './pages/admin pages/HrReport';
 import ForgotPassword from './components/ForgotPassword';
 import CandidateForm from './pages/hr pages/CandidatesForm';
 import CandidateList from './pages/hr pages/CandidateDetails';
-import AdminCandidateList from './pages/admin pages/AdminCandidatesDetails';
+import AdminCandidateList from './pages/admin pages/AllCandidatesDetails';
 import HRCompanyCandidateReport from './pages/admin pages/HRCompanyCandidateReport';
 import InterViewReport from './pages/admin pages/InterViewReport';
+import AssignedTask from './pages/admin pages/AssignedTask';
+import HrAssignedTask from './pages/admin pages/HrAssignedTask';
+import HrDashboardTask from './pages/hr pages/Assigned-Task';
+import AllCandidateData from './pages/hr pages/AllCandidateData';
+import RecentData from './pages/hr pages/RecentData';
+import DailyTaskReport from './pages/admin pages/DailyTaskReport';
+import DailyTaskData from './pages/hr pages/DailyTaskData';
+import SalesCompanyDetails from './pages/admin pages/SalesCompanyDetails';
+import PlacedData from './pages/hr pages/PlacedData';
+import AdminCandidateForm from './pages/admin pages/AdminCandidateForm';
+import AdminCandidateDetails from './pages/admin pages/AdminCandidateDetails';
+import MasterSheet from './pages/admin pages/MasterSheet';
 
 const App = () => {
   return (
@@ -60,11 +72,23 @@ const App = () => {
           <Route path="/all-candidates-form" element={<CandidateForm/>  }/>
           <Route path="/all-candidates" element={<CandidateList/>  }/>
           <Route path="/can-rep" element={<AdminCandidateList/>  }/>
+          <Route path="/master-sheet" element={<MasterSheet/>  }/>
+          
+
 <Route path="/hr/:hrId" element={<HRCompanyCandidateReport />} />
+<Route path="/sales/:salesId/:salesName" element={<SalesCompanyDetails />} />
           <Route path="/interview-repo" element={<InterViewReport/>  }/>
-
-
-
+<Route path="/assigned-tasks" element={<AssignedTask/>  }/>
+<Route path="/hr-assigned-tasks" element={<HrAssignedTask/>  }/>
+<Route path="/hr-dasboard-task" element={<HrDashboardTask/>  }/>
+<Route path="/hr-candidates" element={<AllCandidateData/>  }/>
+<Route path="/recent-data" element={<RecentData/>  }/>
+    
+<Route path="/daily-task-report" element={<DailyTaskReport/>  }/>
+<Route path="/daily-hr-task" element={<DailyTaskData/>  }/>
+<Route path="/placed-candidate-list" element={<PlacedData/>  }/>
+<Route path="/candidate-form" element={<AdminCandidateForm/>  }/>
+<Route path="/admin-candidate-details" element={<AdminCandidateDetails/>  }/>
 
         </Routes>
          <ToastContainer />

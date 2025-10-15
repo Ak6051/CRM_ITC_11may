@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import Sidebar from '../../components/hr components/HrSidebar';
 import Navbar from '../../components/hr components/HrNavbar';
 import dayjs from 'dayjs';
+import { API_BASE_URL } from '../../config/api.config';
 
 
 const HRJobList = () => {
@@ -40,8 +41,8 @@ const fetchJobs = async () => {
 
   setLoading(true);
   try {
-    const res = await fetch('http://localhost:5000/api/allType/my-jobs', {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`${API_BASE_URL}/allType/my-jobs`, {
+      headers: { Authorization: `Bearer ${token}` }
     });
 
     const data = await res.json();
@@ -56,6 +57,7 @@ const fetchJobs = async () => {
       id: item._id, // Use MongoDB ID
       industries:item.industries,
       companyName: item.companyName,
+      companyId: item.companyId,
       companyAddress: item.companyAddress,
       contactName: item.contactName,
       email: item.email,
@@ -68,9 +70,12 @@ const fetchJobs = async () => {
       experience: item.experience,
       salary: item.salary,
       jobLocation: item.jobLocation,
-      description: item.description,
+      jobTiming: item.jobTiming,
+      gender: item.gender,
+      // description: item.description,
       descriptionFile: item.descriptionFile,
       agreementSigned: item.agreementSigned,
+      gstUpload: item.gstUpload,
       websiteURL: item.websiteURL,
       createdAt: item.createdAt
         ? dayjs(item.createdAt).format('DD/MM/YYYY hh:mm A')
@@ -90,48 +95,50 @@ const fetchJobs = async () => {
 };
 
 
-  // const handleFileUpload = (e) => {
-  //   const file = e.target.files[0];
-  //   if (!file) return;
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  //   const reader = new FileReader();
-  //   reader.onload = (evt) => {
-  //     const bstr = evt.target.result;
-  //     const wb = XLSX.read(bstr, { type: 'binary' });
-  //     const wsname = wb.SheetNames[0];
-  //     const ws = wb.Sheets[wsname];
-  //     const data = XLSX.utils.sheet_to_json(ws);
-  //     setParsedJobs(data);
-  //     setUploadedFileName(file.name);
-  //     setImportModalOpen(true);
-  //   };
-  //   reader.readAsBinaryString(file);
-  // };
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const bstr = evt.target.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const data = XLSX.utils.sheet_to_json(ws);
+      setParsedJobs(data);
+      setUploadedFileName(file.name);
+      setImportModalOpen(true);
+    };
+    reader.readAsBinaryString(file);
+  };
 
-  // const handleConfirmImport = async () => {
-  //   try {
-  //     const token = sessionStorage.getItem('token');
-  //     const res = await fetch('http://localhost:5000/api/allType/import', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //         Authorization: `Bearer ${token}`,
-  //       },
-  //       body: JSON.stringify({ jobs: parsedJobs }),
-  //     });
+  const handleConfirmImport = async () => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const options = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ jobs: parsedJobs })
+      };
 
-  //     if (res.ok) {
-  //       alert('Jobs imported successfully!');
-  //       setImportModalOpen(false);
-  //       fetchJobs(); // Refresh
-  //     } else {
-  //       alert('Failed to import jobs.');
-  //     }
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert('Error while importing jobs.');
-  //   }
-  // };
+      const res = await fetch(`${API_BASE_URL}/allType/import`, options);
+
+      if (res.ok) {
+        alert('Jobs imported successfully!');
+        setImportModalOpen(false);
+        fetchJobs(); // Refresh
+      } else {
+        alert('Failed to import jobs.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error while importing jobs.');
+    }
+  };
 
   useEffect(() => {
     fetchJobs();
@@ -141,6 +148,8 @@ const columns = [
     { field: 'industries', headerName: 'Industries', width: 180 },
 
   { field: 'companyName', headerName: 'Company Name', width: 180 },
+  { field: 'companyId', headerName: 'Company ID', width: 180 },
+
   { field: 'companyAddress', headerName: 'Company Address', width: 180 },
   { field: 'contactName', headerName: 'Contact Name', width: 150 },
   { field: 'email', headerName: 'Email', width: 180 },
@@ -153,6 +162,8 @@ const columns = [
   { field: 'experience', headerName: 'Experience', width: 150 },
   { field: 'salary', headerName: 'Salary', width: 150 },
   { field: 'jobLocation', headerName: 'Job Location', width: 150 },
+  { field: 'jobTiming', headerName: 'Job Timing', width: 150 },
+  { field: 'gender', headerName: 'Gender', width: 150 },
 
   // 📄 Description: if PDF exists, show button, else show text
   {
@@ -171,9 +182,7 @@ const columns = [
             View PDF
           </a>
         );
-      } else {
-        return <span>{params.row.description || 'N/A'}</span>;
-      }
+      } 
     },
   },
 
@@ -181,6 +190,26 @@ const columns = [
   {
     field: 'agreementSigned',
     headerName: 'Agreement',
+    width: 150,
+    renderCell: (params) =>
+      params.value ? (
+        <a
+          href={params.value}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#1976d2', textDecoration: 'underline' }}
+        >
+          View PDF
+        </a>
+      ) : (
+        'N/A'
+      ),
+  },
+
+  // 📝 GST PDF
+  {
+    field: 'gstUpload',
+    headerName: 'GST',
     width: 150,
     renderCell: (params) =>
       params.value ? (
@@ -247,10 +276,10 @@ const columns = [
           <Paper elevation={3} sx={{ borderRadius: 3, p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
               <Typography variant="h5" fontWeight="bold">Job Openings</Typography>
-              {/* <Button variant="contained" component="label">
+              <Button variant="contained" component="label">
                 Import from Excel
                 <input hidden accept=".xlsx, .xls" type="file" onChange={handleFileUpload} />
-              </Button> */}
+              </Button>
             </Box>
 
             {loading ? (
@@ -270,7 +299,6 @@ const columns = [
             )}
           </Paper>
         </Box>
-{/* 
         <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)}>
           <Box sx={{
             position: 'absolute',
@@ -287,7 +315,7 @@ const columns = [
               <Button variant="contained" color="success" onClick={handleConfirmImport}>Import</Button>
             </Box>
           </Box>
-        </Modal> */}
+        </Modal>
       </div>
     </div>
   );

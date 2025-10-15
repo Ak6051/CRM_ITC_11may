@@ -1,8 +1,9 @@
 import axios from 'axios';
+import API_BASE_URL from '../api.config';
 
 // Create axios instance with base URL
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api/panel',
+    baseURL: `${API_BASE_URL}/panel`,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -63,7 +64,7 @@ export const refreshToken = async () => {
         if (!token) {
             throw new Error('No token available');
         }
-        const response = await axios.post('http://localhost:5000/api/auth/refresh-token', {}, {
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
         

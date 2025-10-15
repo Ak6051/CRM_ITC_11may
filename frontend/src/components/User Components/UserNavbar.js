@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppBar, Toolbar, Button, Menu, MenuItem, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/api.config';
 
 const UserNavbar = () => {
     const navigate = useNavigate();
@@ -18,7 +19,7 @@ const UserNavbar = () => {
                     return;
                 }
 
-                const response = await axios.get('http://localhost:5000/api/user/profile', {
+                const response = await axios.get(`${API_BASE_URL}/user/profile`, {
                     headers: { Authorization: token },
                 });
 

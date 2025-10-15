@@ -1,6 +1,7 @@
 import axios from 'axios';
+import API_BASE_URL from '../api.config';
 
-const API_URL = 'http://localhost:5000/api/report';
+const API_URL = `${API_BASE_URL}/report`;
 
 export const fetchSales = async () => {
     return axios.get(API_URL);
@@ -20,5 +21,5 @@ export const deleteSale = async (id) => {
 };
 
 export const fetchHRUsers = async () => {
-    return await axios.get('http://localhost:5000/api/hr/hr-users'); // Adjust the path according to your setup
+    return await axios.get(`${API_BASE_URL}/hr/hr-users`);
 };

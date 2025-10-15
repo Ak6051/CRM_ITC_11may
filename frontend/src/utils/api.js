@@ -1,11 +1,13 @@
 import axios from 'axios';
+import { API_BASE_URL } from '../config/api.config';
 
 // Create axios instance with base URL
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
+    timeout: 10000,
 });
 
 // Add request interceptor to add token to all requests
@@ -33,6 +35,7 @@ api.interceptors.response.use(
             // Clear token and redirect to login
             sessionStorage.removeItem('token');
             sessionStorage.removeItem('role');
+            sessionStorage.removeItem('userId');
             sessionStorage.removeItem('tokenExpiration');
             
             // Only redirect if we're not already on the login page
@@ -63,13 +66,13 @@ export const refreshToken = async () => {
         if (!token) {
             throw new Error('No token available');
         }
-        const response = await axios.post('http://localhost:5000/api/auth/refresh-token', {}, {
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
         
         if (response.data.token) {
             // Update token in sessionStorage with new expiration (1 hour)
-            const expirationTime = new Date().getTime() + 60 * 60 * 1000;
+            const expirationTime = new Date().getTime() + 4 * 60 * 60 * 1000;
             sessionStorage.setItem('token', response.data.token);
             sessionStorage.setItem('tokenExpiration', expirationTime.toString());
             return response.data.token;
@@ -81,6 +84,7 @@ export const refreshToken = async () => {
         if (window.location.pathname !== '/login') {
             sessionStorage.removeItem('token');
             sessionStorage.removeItem('role');
+            sessionStorage.removeItem('userId');
             sessionStorage.removeItem('tokenExpiration');
             window.location.href = '/login';
         }

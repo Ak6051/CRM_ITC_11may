@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TextField, Button, Box, Typography } from '@mui/material';
+import { API_BASE_URL } from '../../config/api.config';
 import Navbar from '../../components/sales components/SalesNavbar';
 import Sidebar from '../../components/sales components/Sidebar';
 import axios from 'axios';
@@ -21,7 +22,7 @@ const SalesProfilePage = () => {
       try {
         const token = sessionStorage.getItem('token');
         const response = await axios.get(
-          'http://localhost:5000/api/user/profile',
+          `${API_BASE_URL}/user/profile`,
           {
             headers: { Authorization: token },
           }
@@ -42,7 +43,7 @@ const SalesProfilePage = () => {
     try {
       setIsLoading(true);
       const token = sessionStorage.getItem('token');
-      await axios.put('http://localhost:5000/api/user/profile', user, {
+      await axios.put(`${API_BASE_URL}/user/profile`, user, {
         headers: { Authorization: token },
       });
       alert('Profile updated successfully');
