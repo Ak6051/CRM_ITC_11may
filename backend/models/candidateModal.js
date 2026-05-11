@@ -1,34 +1,43 @@
 const mongoose = require("mongoose");
 
 const candidateSchema = new mongoose.Schema({
-  candidateName: { type: String, required: false },
-  candidateEmail: { type: String, required: false },
-  candidatePhone: { type: String, required: false },
-  qualification: { type: String, required: false },
-  remark: { type: String, required: false },
-  resumeLink: { type: String, required: false },
-  jobId: { type: mongoose.Schema.Types.ObjectId, ref: "JobOpenings", required: false },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+  candidateName:     { type: String, required: false },
+  candidateEmail:    { type: String, required: true  },
+  candidatePhone:    { type: String, required: false },
+  qualification:     { type: String, required: false },
+  positionName:      { type: String, required: false },
+  experience:        { type: String, required: false },
+  currentLocation:   { type: String, required: false },
+  preferredLocation: { type: String, required: false },
+  currentPosition:   { type: String, required: false },
+  currentCTC:        { type: String, required: false },
+  expectedCTC:       { type: String, required: false },
+  noticePeriod:      { type: String, required: false },
+  reasonforLeaving:  { type: String, required: false },
+  currentCompany:    { type: String, required: false },
+  industry:          { type: String, required: false },
+  remark:            { type: String, required: false },
+  resumeLink:        { type: String, required: false },
+  candidateAgreement:{ type: String, required: false },
 
-    // New fields for manual entry
-    interviewDate:{ type: Date, required: false },
-    lineupStatus:{ type: String, required: false },
-    joiningDate:{ type: Date, required: false },
-    candidateRemarks: { type: String, required: false },
-    rescheduledDates: [{ 
-      date: { type: Date, required: true },
-      reason: { type: String, required: false }
-    }],
+  jobId:    { type: mongoose.Schema.Types.ObjectId, ref: "JobOpenings", required: false },
+  createdBy:{ type: mongoose.Schema.Types.ObjectId, ref: "User",        required: false },
 
-    billingDate: { type: Date, required: false },
-    billingAmount: { type: Number, required: false },
-    paymentStatus: {
-      type: String,
-      enum: ['Pending', 'Paid', 'Failed'],
-      default: 'Pending',
-    },
-    paymentDate: { type: Date, required: false },
+  // ── Admin / HR assignment ─────────────────────────────────────────────────
+  assignedTo:       { type: mongoose.Schema.Types.ObjectId, ref: "User",        required: false },
+  assignedPosition: { type: mongoose.Schema.Types.ObjectId, ref: "JobOpenings", required: false },
+  assignedBy:       { type: mongoose.Schema.Types.ObjectId, ref: "User",        required: false },
+  assignedAt:       { type: Date, required: false },
+
 }, { timestamps: true });
 
 const Candidate = mongoose.model("Candidate", candidateSchema);
+
+// Indexes for fast aggregation queries
+candidateSchema.index({ createdBy: 1, createdAt: -1 });
+candidateSchema.index({ createdAt: -1 });
+candidateSchema.index({ candidateName: 1 });
+candidateSchema.index({ currentLocation: 1 });
+candidateSchema.index({ positionName: 1 });
+
 module.exports = Candidate;

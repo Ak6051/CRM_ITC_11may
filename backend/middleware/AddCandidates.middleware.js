@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const SessionBlacklist = require("../models/SessionBlacklist.model");
 
 const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -12,8 +13,35 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Check if this token's JTI has been blacklisted (force logout)
+    if (decoded.jti) {
+      const blacklisted = await SessionBlacklist.findOne({ jti: decoded.jti });
+      if (blacklisted) {
+        return res.status(401).json({ message: "Session has been terminated by an administrator" });
+      }
+    }
+
+    // Check for userId-level force-logout sentinel
+    const uid = decoded._id || decoded.userId;
+    if (uid) {
+      try {
+        const sentinelPrefix = `force_logout:${uid}:`;
+        const forcedOut = await SessionBlacklist.findOne({
+          jti: { $regex: `^${sentinelPrefix}` },
+          expiresAt: { $gt: new Date() },
+        });
+        if (forcedOut) {
+          return res.status(401).json({ message: "Session has been terminated by an administrator" });
+        }
+      } catch (sentinelErr) {
+        console.error('[verifyToken] Sentinel check error:', sentinelErr.message);
+      }
+    }
+
     // Fetch the user from database and exclude password
-    req.user = await User.findById(decoded.userId).select("-password");
+    // Support both old token format (userId) and new format (_id)
+    req.user = await User.findById(decoded._id || decoded.userId).select("-password");
     
     if (!req.user) {
       return res.status(404).json({ message: "User not found" });

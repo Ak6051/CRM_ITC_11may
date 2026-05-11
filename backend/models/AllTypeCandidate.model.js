@@ -4,7 +4,9 @@ const allTypeCandidateSchema = new mongoose.Schema(
   {
     name:{type:String , required:false},
      phoneNumber: { type: String, required: false },
+     email:{type:String , required:false},
     positionName: { type: String, required: false },
+    qualification:{type:String , required:false}, 
     experience: { type: String, required: false },
     currentLocation: { type: String, required: false },
     currentPosition: { type: String, required: false },
@@ -23,4 +25,12 @@ const allTypeCandidateSchema = new mongoose.Schema(
 );
 
 const allcandidate = mongoose.model('allcandidate', allTypeCandidateSchema);
+
+// Indexes for fast aggregation queries
+allTypeCandidateSchema.index({ createdBy: 1, createdAt: -1 });
+allTypeCandidateSchema.index({ createdAt: -1 });
+allTypeCandidateSchema.index({ name: 1 });
+allTypeCandidateSchema.index({ currentLocation: 1 });
+allTypeCandidateSchema.index({ positionName: 1 });
+
 module.exports = allcandidate;

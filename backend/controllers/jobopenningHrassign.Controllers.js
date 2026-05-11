@@ -6,11 +6,11 @@ exports.getAssignedjob = async (req, res) => {
   try {
     const hrId = req.user._id;
 
-    // Find all jobs assigned to this HR, regardless of end date
+    // Only show Open jobs assigned to this HR
     const assignedSales = await JobOpenings.find({ 
       assignedHR: hrId,
-      // Remove any date-based filtering if it exists
-    }).sort({ createdAt: -1 }); // Sort by newest first
+      jobStatus: 'Open',
+    }).sort({ createdAt: -1 });
 
 
     res.status(200).json({

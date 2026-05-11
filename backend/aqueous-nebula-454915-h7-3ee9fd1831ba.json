@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "aqueous-nebula-454915-h7",
+  "private_key_id": "3ee9fd1831ba61d992b231e6c1f7d5c9d0f0554a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDhzautWH+t+Nsv\n1SCWWSnV4FURGoYmcniKQqmyywQmemhWL9NlPWmdByP8fAAtdpl/5OrlZQGkqQgz\n/7Uow3XgYmvAtGuinr5nK5YPt34yaMqccvoR5qSFGFX2dCge0vqtqrEiovHrsPOu\nBPDyIP3p3pDFv5/lEADgpVVqkU5BtdAvZhid8yzWLkz3CqllNyCE+8zK/jXrhaSu\nvTwA41HctO/ReJ4QZquVTjjTy6kLbA+Gz2Mq78kREchbmvEBYc4i9g6Lu08enSQW\nclWX82SCdLpFRnCNyrl3X9aJCYsuPQexedzd6s/MQSYeU2vg7k5Rn4oEZ+X6rsy9\n3rDeuU4FAgMBAAECggEAON5dKfO7eFvQDCxvoB4FqM1ubzfQaHd0/1FJvvNdcLls\ndKRn57v/UOJ/ADRUsR6JC0pilHKLZuaBX+M7Q3ByzBfNjoOCBjtXtdEm4n9yo4x7\n1sooTADcF38pC0B26Eh3hOyT3ybNqe/vdzjcXAbOHCwHJx6bTQvqRKmvKP8+h9Ki\n5WMGUm05NUF24Mgh99yKbgmAEtfNXM/nEJRdHmEo8CV9fAvsoS5e8pnHKNWJGP8x\nS8OjyspyiluyjpM4Tu1oxFChCAs9BruslvAseB4XEB+8+LQcZTYi1OGEn1H6l8fb\nr+IO9um3BARUEdiNdHOvWJBQuhcxG1UBXMpUQia3cwKBgQDz3LBFm7XB1hsFUBUb\nTSHjuUgu85Zu/GlOxSJ/KMhSxrkG0WfHR/uaqxk49drIogpgkCt43fmjSL/UXrP7\nYXM6Ek8HJIDaYoh4e+wJn7AGvETIfUResh8NXJOrwWsRgpYLkOyq3zie0wnxbAe+\nwX73Uo95fiFp7SS+cIjlpmpXnwKBgQDtCuCDIhLNXWth3DhmMdpHjvU23Yanfldc\nWXSuTL5zgb2gtyWimRD1dm/hDACmvL5EB9GPa8S0Un6vaAKDx3ilLUUd5dUHAoAu\nNh/Y1azK6CZDxpRzkOOD6wV3+7MyrWPhpdskoDDivNB/VeaX0dwNa78XFjGW7mqx\nESdHVMUH2wKBgQDe3VOjafikG346TsPbXZSZP91+O1PCPqAnQvaR672YGNFEL+B+\nOYTyB2hXrCi0r5J4SYnRPlxFI9lcxugJ1zetXMoopu2zp9U891PyP6Rpo2nhKMpx\nGKxUU8UJdQzaxdNG4r3IM5TVYd12a9pwNPpKIYPJ7sGuwvGPsd0KtBn/1QKBgQDj\nlKLTI76bjwqO7Qj1DP394AIMCAnE+6bSUkyVH7dmXHT8PXqTrpO6p1ho38YsT1/5\nHuyS3yv+2IkqzRhE/xkUtO778nJhhYQdWfefjh6UvOgoABr9DWlyeQ1KEc0NZa1U\nspFAi9ADkLY42vdGYcT82aqgdr1rpEGo+MgWUwvMKwKBgQChkkR05aC2cX3W2yQ3\nx/Ys8m+CXf74UxBjge7sSXfhbE65xIO7kOjNi1lYCwOZyYMqw9uF6l2aR192RlBh\n5pT3nxRA5yWWq+ufpzWwrbTeMDdlYLcFyeqvdV81MXGW/PODRgRwr4kb7vRKseIV\nC0RV+HE4yJ+IQB3HV9pj4e3+1A==\n-----END PRIVATE KEY-----\n",
+  "client_email": "italentconnectserviceaccount@aqueous-nebula-454915-h7.iam.gserviceaccount.com",
+  "client_id": "103457834507251034601",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/italentconnectserviceaccount%40aqueous-nebula-454915-h7.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

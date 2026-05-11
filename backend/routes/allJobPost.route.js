@@ -10,21 +10,21 @@ const {
   deleteJobOpening,
   getAllSales,
   toggleJobStatus,
-  getUniqueIndustries 
+  getUniqueIndustries,
 } = require('../controllers/allJobPost.controller');
 const JobOpenings = require('../models/jobopennings.modal');
 const Candidate = require("../models/candidateModal");
 const Company = require("../models/company.model");
 const SalesPanel = require('../models/SalesPanel.model'); // import salesPanel model
-
+const User = require('../models/User'); // import user model
 
 const {upload} = require("../middleware/gcsMulter"); // multer config
 
 
-router.post('/create',protect,upload.fields([ { name: 'agreementSigned', maxCount: 1 }, { name: 'descriptionFile', maxCount: 1 }]),createJobOpening);
+router.post('/create',protect,upload.fields([ { name: 'agreementSigned', maxCount: 1 }, { name: 'descriptionFile', maxCount: 1 }, { name: 'gstUpload', maxCount: 1 }]),createJobOpening);
 router.get('/all', protect, getAllJobOpenings);                // Admin: All Jobs
 router.get('/my-jobs', protect, getMyJobs);                    // View own jobs
-router.put('/edit/:id',protect,upload.fields([{ name: 'agreementSigned', maxCount: 1 },{ name: 'descriptionFile', maxCount: 1 }]), updateJobOpening);
+router.put('/edit/:id',protect,upload.fields([{ name: 'agreementSigned', maxCount: 1 },{ name: 'descriptionFile', maxCount: 1 }, { name: 'gstUpload', maxCount: 1 }]), updateJobOpening);
 router.delete('/delete/:id', protect, deleteJobOpening);       // Delete job by id
 router.get('/sales', protect, getAllSales);
 router.put('/:id/toggle-status', protect, toggleJobStatus);
@@ -82,7 +82,7 @@ router.post('/import', protect, async (req, res) => {
       };
     }));
 
-    const inserted = await JobOpenings.insertMany(jobsWithCompanyId);
+    const inserted = await JobOpenings.insertMany(jobsWithCompanyId, { ordered: false });
     res.status(201).json(inserted);
   } catch (err) {
     console.error(err);
@@ -92,14 +92,86 @@ router.post('/import', protect, async (req, res) => {
 
 router.get('/company-names', async (req, res) => {
   try {
-    const companies = await JobOpenings.distinct('companyName');
-    res.json(companies);
+    const companies = await JobOpenings.aggregate([
+      {
+        // First group by both companyId and companyName to handle case sensitivity
+        $group: {
+          _id: {
+            companyId: '$companyId',
+            companyName: { $toLower: '$companyName' }
+          },
+          originalName: { $first: '$companyName' } // Keep the original case
+        }
+      },
+      {
+        // Then group by companyId to handle any remaining duplicates
+        $group: {
+          _id: '$_id.companyId',
+          companyName: { $first: '$originalName' }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          companyId: '$_id',
+          formattedName: {
+            $concat: [
+              '$companyName',
+              ' (ID: ',
+              { $toString: '$_id' },
+              ')'
+            ]
+          }
+        }
+      },
+      { $sort: { formattedName: 1 } }
+    ]);
+    
+    // Extract just the formatted names
+    const companyNames = companies.map(c => c.formattedName);
+    res.json(companyNames);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching company names' });
+    console.error('Error fetching company names:', error);
+    res.status(500).json({ message: 'Error fetching company names', error: error.message });
   }
 });
 
 
+router.get('/jobTitle-names', async (req, res) => {
+  try {
+    const jobTitles = await JobOpenings.distinct('jobTitle');
+    res.json(jobTitles);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching job title names' });
+  }
+});
+
+// ── Fetch open jobs matching a job title (for WhatsApp dialog dropdown) ──────
+router.get('/by-title', protect, async (req, res) => {
+  try {
+    const { title } = req.query;
+    if (!title) return res.json([]);
+    const jobs = await JobOpenings.find({
+      jobTitle: { $regex: title, $options: 'i' },
+      jobStatus: 'Open',
+    })
+      .select('jobTitle companyName jobLocation salary experience phoneNumber contactName')
+      .sort({ createdAt: -1 })
+      .limit(20);
+    res.json(jobs);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching jobs by title' });
+  }
+});
+
+router.get('/salary-names', async (req, res) => {
+  try {
+    const salaries = await JobOpenings.distinct('salary');
+    res.json(salaries);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching salary names' });
+  }
+});
 
 
 
@@ -111,34 +183,19 @@ router.get('/companies', async (req, res) => {
     const queryNumber = !isNaN(query) ? parseInt(query) : null;
 
     // Parallel fetch from JobOpenings, Company, and SalesPanel
-    const [jobOpenings, companies, salesPanels] = await Promise.all([
+    const [jobOpenings, salesPanels] = await Promise.all([
       JobOpenings.find({
         $or: [
           { companyName: { $regex: query, $options: 'i' } },
           ...(queryNumber ? [{ companyId: queryNumber }] : []),
         ],
       })
-        .select('companyName companyId companyAddress contactName email phoneNumber')
-        .limit(10),
-
-      Company.find({
-        $or: [
-          { companyName: { $regex: query, $options: 'i' } },
-          ...(queryNumber ? [{ companyId: queryNumber }] : []),
-        ],
-      })
-        .select('companyName companyId')
-        .limit(10),
-
-      SalesPanel.find({
-        $or: [
-          { companyName: { $regex: query, $options: 'i' } },
-          ...(queryNumber ? [{ companyId: queryNumber }] : []),
-        ],
-      })
-        .select('companyName companyId companyAddress contactName email phoneNumber')
-        .limit(10),
+        .select('companyName companyId companyAddress contactName email phoneNumber websiteURL industries agreementSigned gstUpload')
+        // Remove limit when query is empty to show all companies
+        .limit(query === '' ? 0 : 10),
+    
     ]);
+    
 
     // Combine and deduplicate results
     const uniqueResults = [];
@@ -155,15 +212,19 @@ router.get('/companies', async (req, res) => {
           contactName: c.contactName || '',
           email: c.email || '',
           phoneNumber: c.phoneNumber || '',
-          source, // optional field to identify where the result came from
+          websiteURL: c.websiteURL || '',
+          industries: c.industries || '',
+          agreementSigned: c.agreementSigned || '',
+          gstUpload: c.gstUpload || '',
+          source,
           _id: c._id,
         });
       }
     };
 
     jobOpenings.forEach((c) => addIfUnique(c, 'JobOpenings'));
-    salesPanels.forEach((c) => addIfUnique(c, 'SalesPanel'));
-    companies.forEach((c) => addIfUnique(c, 'Company'));
+    // salesPanels.forEach((c) => addIfUnique(c, 'SalesPanel'));
+    // companies.forEach((c) => addIfUnique(c, 'Company'));
 
     res.json(uniqueResults);
   } catch (err) {
@@ -173,20 +234,87 @@ router.get('/companies', async (req, res) => {
 });
 
 
+// router.get('/hr/:hrId/assigned-data', protect, async (req, res) => {
+//   try {
+//     const hrId = req.params.hrId;
+
+//     // Get JobOpenings assigned to this HR
+//     const jobOpenings = await JobOpenings.find({ assignedHR: hrId });
+
+//     // Get all jobOpening IDs
+//     const jobOpeningIds = jobOpenings.map((job) => job._id);
+
+//     // Find candidates linked to JobOpenings
+//     const candidates = await Candidate.find({ jobId: { $in: jobOpeningIds } });
+
+//     res.json({ jobOpenings, candidates }); // Removed convertedJobs and convertedCandidates
+//   } catch (error) {
+//     console.error('Error fetching HR assigned data:', error);
+//     res.status(500).json({ message: 'Server Error' });
+//   }
+// });
+
 router.get('/hr/:hrId/assigned-data', protect, async (req, res) => {
   try {
     const hrId = req.params.hrId;
+    const mongoose = require('mongoose');
+    const CandidateApplication = require('../models/CandidateApplication.model');
+
+    // Get HR info
+    const hr = await User.findById(hrId).select('firstName lastName email mobileNo role');
+    if (!hr) return res.status(404).json({ message: 'HR not found' });
 
     // Get JobOpenings assigned to this HR
-    const jobOpenings = await JobOpenings.find({ assignedHR: hrId });
+    const jobOpenings = await JobOpenings.find({ assignedHR: hrId })
+      .populate('createdBy', 'firstName lastName')
+      .lean();
 
-    // Get all jobOpening IDs
-    const jobOpeningIds = jobOpenings.map((job) => job._id);
+    const jobOpeningIds = jobOpenings.map(j => j._id);
 
-    // Find candidates linked to JobOpenings
-    const candidates = await Candidate.find({ jobId: { $in: jobOpeningIds } });
+    // Get all CandidateApplications for these jobs that were created by this HR
+    const applications = await CandidateApplication.find({
+      jobId: { $in: jobOpeningIds },
+      createdBy: hrId,
+    })
+      .populate('candidateId', 'candidateName candidatePhone candidateEmail positionName experience currentLocation currentCTC expectedCTC noticePeriod currentCompany qualification resumeLink remark')
+      .populate('jobId', 'companyName jobTitle numberOfRequirements salary jobLocation')
+      .lean();
 
-    res.json({ jobOpenings, candidates }); // Removed convertedJobs and convertedCandidates
+    // Build per-job stats
+    const jobStatsMap = {};
+    applications.forEach(app => {
+      const jid = app.jobId?._id?.toString() || app.jobId?.toString();
+      if (!jid) return;
+      if (!jobStatsMap[jid]) {
+        jobStatsMap[jid] = { sourced: 0, selected: 0, rejected: 0, onHold: 0, joined: 0, backout: 0, offerAccepted: 0 };
+      }
+      jobStatsMap[jid].sourced++;
+      if (app.interviewStatus === 'Selected')   jobStatsMap[jid].selected++;
+      if (app.interviewStatus === 'Rejected')   jobStatsMap[jid].rejected++;
+      if (app.interviewStatus === 'On Hold')    jobStatsMap[jid].onHold++;
+      if (app.hasJoined === 'Yes')              jobStatsMap[jid].joined++;
+      if (app.hasJoined === 'Backout')          jobStatsMap[jid].backout++;
+      if (app.offeredStatus === 'Accepted')     jobStatsMap[jid].offerAccepted++;
+    });
+
+    // Attach stats to each job
+    const jobsWithStats = jobOpenings.map(j => ({
+      ...j,
+      stats: jobStatsMap[j._id.toString()] || { sourced: 0, selected: 0, rejected: 0, onHold: 0, joined: 0, backout: 0, offerAccepted: 0 },
+    }));
+
+    // Overall summary
+    const summary = {
+      totalJobs: jobOpenings.length,
+      totalSourced: applications.length,
+      totalSelected: applications.filter(a => a.interviewStatus === 'Selected').length,
+      totalRejected: applications.filter(a => a.interviewStatus === 'Rejected').length,
+      totalJoined: applications.filter(a => a.hasJoined === 'Yes').length,
+      totalBackout: applications.filter(a => a.hasJoined === 'Backout').length,
+      totalOfferAccepted: applications.filter(a => a.offeredStatus === 'Accepted').length,
+    };
+
+    res.json({ hr, jobOpenings: jobsWithStats, applications, summary });
   } catch (error) {
     console.error('Error fetching HR assigned data:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -196,17 +324,15 @@ router.get('/hr/:hrId/assigned-data', protect, async (req, res) => {
 
 
 
-
 // Update company details route
 router.get('/companies/:id', async (req, res) => {
   try {
-    // First try to find in JobOpenings
     let company = await JobOpenings.findById(req.params.id);
     
     // If not found in JobOpenings, try Company collection
-    if (!company) {
-      company = await Company.findById(req.params.id);
-    }
+    // if (!company) {
+    //   company = await Company.findById(req.params.id);
+    // }
 
     if (company) {
       res.json(company);
@@ -243,8 +369,10 @@ router.get('/export-data',protect,  async (req, res) => {
         'experience',
         'salary',
         'jobLocation',
+        'jobTiming',
+        'gender',
         'remarks',
-        'description',
+        // 'description',
         'assignedHR',
         'createdBy',
         'createdAt'
@@ -257,5 +385,16 @@ router.get('/export-data',protect,  async (req, res) => {
   }
 });
 
+router.get('/userlist/hr-admin', protect, async (req, res) => {
+  try {
+    const users = await User.find({ role: { $in: ['HR', 'admin'] } }).select('firstName lastName _id role');
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+
+// Add new route for verifying assignments
 
 module.exports = router;

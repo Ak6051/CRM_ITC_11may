@@ -1,7 +1,8 @@
-// routes/userRoutes.js (or similar)
 const express = require('express');
 const User = require('../models/User');
 const router = express.Router();
+const { authenticate } = require('../middleware/profile.middleware');
+const { updateUserProfile, getUserProfile, changeUserPassword } = require('../controllers/profile.controllers');
 
 // Fetch all HR users
 router.get('/hr-users', async (req, res) => {
@@ -12,5 +13,25 @@ router.get('/hr-users', async (req, res) => {
         res.status(500).json({ message: 'Error fetching HR users', error });
     }
 });
+
+router.get('/hr-admins', async (req, res) => {
+  try {
+    // Fetch users whose role is either 'HR' or 'Admin'
+    const hrAndAdminUsers = await User.find({ role: { $in: ['HR', 'admin'] } });
+    res.json(hrAndAdminUsers);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching HR and Admin users', error });
+  }
+});
+
+
+// Get HR profile
+router.get('/profile', authenticate, getUserProfile);
+
+// Update HR profile
+router.put('/profile', authenticate, updateUserProfile);
+
+// Change password
+router.post('/change-password', authenticate, changeUserPassword);
 
 module.exports = router;

@@ -1,124 +1,152 @@
-const { uploadToGCS } = require('../middleware/gcsMulter');
+const { uploadToS3 } = require('../middleware/gcsMulter');
 const salesPanel = require('../models/SalesPanel.model');
 const ConvertedJob = require('../models/convertOpening.model');
 const mongoose = require('mongoose')
 const convertSourceData = require("../models/convertSourceData.model");
+const Reminder = require('../models/reminder.model');
 const JobOpenings = require('../models/jobopennings.modal');
 const Company = require('../models/company.model');
+const CompanyCreate = require('../models/companycreate.model');
+const RescheduledMeeting = require('../models/rescheduleMeeting.modal');
+
+const getTodaysAndUpcomingReminders = async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // start of today
+
+    const reminders = await Reminder.find({
+      user: req.user._id,
+      salesPanelId: { $ne: null },     // salesPanelId present hona chahiye
+      candidateId: null,               // candidateId null hona chahiye
+      remindAt: { $gte: today },
+      isShown: false
+    }).sort({ remindAt: 1 });
+
+    res.status(200).json(reminders);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch reminders', error: error.message });
+  }
+};
 
 
 
 const getMySales = async (req, res) => {
   try {
-    let sales;
+    let salesQuery = ['admin', 'teamleader'].includes(req.user.role) ? {} : { createdBy: req.user._id };
 
-    if (req.user.role === 'admin') {
-      // Admin: fetch all sales with createdBy's firstName and lastName
-      sales = await salesPanel
-        .find({})
-        .populate('createdBy', 'firstName lastName');
-    } else {
-      // Non-admin: fetch only own sales
-      sales = await salesPanel.find({ createdBy: req.user._id });
-    }
+    const [sales, reschedules] = await Promise.all([
+      salesPanel.find(salesQuery).populate('createdBy', 'firstName lastName'),
+      RescheduledMeeting.find(salesQuery).populate('salesId').populate('createdBy', 'firstName lastName')
+    ]);
 
-    res.status(200).json(sales);
+    // Merge original sales and reschedules into one array
+    const formattedReschedules = reschedules
+    .filter(r => r.salesId) // only include if salesId is populated
+    .map(r => ({
+      ...r.salesId.toObject(),
+      _id: r._id, // use reschedule id
+      createdAt: r.createdAt,
+      rescheduledDate: r.newDate,
+      rescheduleReason: r.reason,
+      isRescheduled: true
+    }));
+  
+
+    const allRows = [...sales, ...formattedReschedules];
+
+    res.status(200).json(allRows);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch sales', error: error.message });
+  }
+};
+
+// POST /api/sales/reschedule
+
+const createReschedule = async (req, res) => {
+  try {
+    const { salesId, newDate, reason } = req.body;
+
+    const reschedule = new RescheduledMeeting({
+      salesId,
+      newDate,
+      reason,
+      createdBy: req.user._id,
+    });
+
+    await reschedule.save();
+
+    res.status(201).json({ message: 'Meeting rescheduled successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to reschedule meeting', error: error.message });
   }
 };
 
 
 
 
+
+
+
+
+
 const createJobOpening = async (req, res) => {
   try {
-    const allowedRoles = ['admin', 'Sales', 'HR'];
+    const allowedRoles = ['admin', 'teamleader', 'Sales', 'HR'];
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({ message: 'You are not allowed to create job openings.' });
     }
 
-    let { assignedHR, companyName } = req.body;
-    if (!assignedHR) assignedHR = null;
-    if (!companyName) return res.status(400).json({ message: "companyName is required" });
+    let { companyName, companyId, branchId, branchName } = req.body;
 
-    companyName = companyName.trim();
+    if (!companyName) return res.status(400).json({ message: 'companyName is required' });
+    if (!companyId)   return res.status(400).json({ message: 'companyId is required' });
 
-    // 1. Check if company already exists in Company collection
-    let company = await Company.findOne({ companyName: { $regex: new RegExp(`^${companyName}$`, 'i') } });
+    // Validate company exists in CompanyCreate
+    const company = await CompanyCreate.findOne({ companyId: Number(companyId) });
+    if (!company) return res.status(404).json({ message: `Company with ID ${companyId} not found` });
 
-    // 2. If company does not exist, create new with incremented companyId
-    if (!company) {
-      try {
-        // Find the last company with highest companyId
-        const lastCompany = await Company.findOne({})
-          .sort({ companyId: -1 }) // Sort in descending order
-          .limit(1);
-
-        let newCompanyId;
-        if (lastCompany && lastCompany.companyId) {
-          // If companies exist, increment the last ID
-          newCompanyId = lastCompany.companyId + 1;
-        } else {
-          // If no companies exist, start with 10001
-          newCompanyId = 10001;
-        }
-
-        // Create new company with incremented ID
-        company = new Company({
-          companyName,
-          companyId: newCompanyId,
-        });
-
-        await company.save();
-      } catch (error) {
-        console.error('Error creating new company:', error);
-        return res.status(500).json({ message: 'Error creating company', error: error.message });
-      }
-    } else {
-    }
-
-    // 3. Create job data with company ID and name from the found/created company
     const jobData = {
-      companyId: company.companyId,
-      companyName: company.companyName, // Use the company name from the database
       ...req.body,
-      createdBy: req.user._id,
+      companyName: company.companyName,
+      companyId:   company.companyId,
+      branchId:    branchId   || '',
+      branchName:  branchName || '',
+      createdBy:   req.user._id,
     };
 
-    // Validate that companyId is set
-    if (!jobData.companyId) {
-      console.error('Company ID is missing from job data:', jobData);
-      return res.status(500).json({ message: 'Company ID is required' });
-    }
-
-    console.log('Creating job with data:', {
-      ...jobData,
-      companyId: jobData.companyId,
-      companyName: jobData.companyName
-    });
-
-    // File upload logic remains same
     if (req.files) {
-      if (req.files.agreementSigned && req.files.agreementSigned[0]) {
+      if (req.files.agreementSigned?.[0]) {
         const file = req.files.agreementSigned[0];
-        const filename = `agreement_signed/${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
-        const url = await uploadToGCS(file.buffer, filename, file.mimetype);
+        const url = await uploadToS3(file.buffer, `agreement_signed/${Date.now()}-${file.originalname.replace(/\s+/g,'_')}`, file.mimetype);
         jobData.agreementSigned = url;
       }
-
-      if (req.files.descriptionFile && req.files.descriptionFile[0]) {
+      if (req.files.descriptionFile?.[0]) {
         const file = req.files.descriptionFile[0];
-        const filename = `description_files/${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
-        const url = await uploadToGCS(file.buffer, filename, file.mimetype);
+        const url = await uploadToS3(file.buffer, `description_files/${Date.now()}-${file.originalname.replace(/\s+/g,'_')}`, file.mimetype);
         jobData.descriptionFile = url;
       }
     }
 
-    // Create new job with validated data
     const newJob = new salesPanel(jobData);
-
     await newJob.save();
+
+    // Handle Reminder creation
+    if (jobData.remarks?.toLowerCase().includes('reminder:')) {
+      const match = jobData.remarks.match(/reminder\s*:\s*(.*?)\s*(\d{2})-(\d{2})-(\d{4})/i);
+      if (match) {
+        const message = `reminder: ${match[1]} on ${match[2]}`;
+        const remindUntil = new Date(`${match[4]}-${match[3]}-${match[2]}`);
+        const reminder = new Reminder({
+          user: req.user._id,
+          salesPanelId: newJob._id,
+          message,
+          remindAt: new Date(),
+          remindUntil,
+          remindRepeat: true,
+        });
+        await reminder.save();
+      }
+    }
 
     res.status(201).json({ message: 'Job opening created successfully', job: newJob });
   } catch (error) {
@@ -129,34 +157,34 @@ const createJobOpening = async (req, res) => {
 
 
 
+// UPDATE JOB OPENING
 const updateJobOpening = async (req, res) => {
   try {
     const job = await salesPanel.findById(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
-    if (job.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+    if (job.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'teamleader') {
       return res.status(403).json({ message: 'You are not allowed to edit this job' });
     }
 
     let updateData = { ...req.body };
 
     if (req.files) {
-      if (req.files.agreementSigned && req.files.agreementSigned[0]) {
+      if (req.files.agreementSigned?.[0]) {
         const file = req.files.agreementSigned[0];
         const filename = `agreement_signed/${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
-        const url = await uploadToGCS(file.buffer, filename, file.mimetype);
+        const url = await uploadToS3(file.buffer, filename, file.mimetype);
         updateData.agreementSigned = url;
       }
 
-      if (req.files.descriptionFile && req.files.descriptionFile[0]) {
+      if (req.files.descriptionFile?.[0]) {
         const file = req.files.descriptionFile[0];
         const filename = `description_files/${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
-        const url = await uploadToGCS(file.buffer, filename, file.mimetype);
+        const url = await uploadToS3(file.buffer, filename, file.mimetype);
         updateData.descriptionFile = url;
       }
     }
 
-    // Optional: prevent overwriting description if not sent in form
     if (!updateData.description) {
       delete updateData.description;
     }
@@ -166,12 +194,36 @@ const updateJobOpening = async (req, res) => {
       runValidators: true,
     });
 
+    // Handle Reminder update
+    if (updateData.remarks?.toLowerCase().includes('reminder:')) {
+      const match = updateData.remarks.match(/reminder\s*:\s*(.*?)\s*(\d{2})-(\d{2})-(\d{4})/i);
+if (match) {
+  const message = `reminder: ${match[1]} on ${match[2]}`; // ✅ Fix: full message
+  const day = match[2];
+  const month = match[3];
+  const year = match[4];
+
+  const remindUntil = new Date(`${year}-${month}-${day}`); // ✅ ISO-safe format
+
+  const reminder = new Reminder({
+    user: req.user._id,
+    salesPanelId: req.params.id,
+    message,
+    remindAt: new Date(),     // start now
+    remindUntil,              // stop at specified date
+    remindRepeat: true
+  });
+
+  await reminder.save();
+}
+    }
+
     res.status(200).json({ message: 'Job updated successfully', job: updatedJob });
   } catch (error) {
+    console.error('Error in updateJobOpening:', error);
     res.status(500).json({ message: 'Failed to update job', error: error.message });
   }
 };
-
 
 
 const saveConvertedJob = async (req, res) => {
@@ -195,9 +247,12 @@ const saveConvertedJob = async (req, res) => {
       experience,
       salary,
       jobLocation,
+      jobTiming,
+      gender,
       remarks,
       agreementSigned,
-      description,
+      //description,
+      descriptionFile,
       companyId, // ✅ include this
       convertedAt,
     } = req.body;
@@ -228,9 +283,12 @@ const saveConvertedJob = async (req, res) => {
       experience,
       salary,
       jobLocation,
+      jobTiming,
+      gender,
       remarks,
       agreementSigned,
-      description,
+      //description,
+      descriptionFile,
       convertedAt,
       companyId, // ✅ include this
       createdBy: req.user._id,
@@ -250,7 +308,7 @@ const getConvertedJobs = async (req, res) => {
   try {
     let jobs;
 
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'admin' || req.user.role === 'teamleader') {
       // Admin: fetch all converted jobs with createdBy's and assignedHR's names
       jobs = await JobOpenings
         .find({})
@@ -345,12 +403,79 @@ const addMultipleCandidates = async (req, res) => {
 
 
 
+// DELETE JOB OPENING
+const deleteJobOpening = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if user has permission
+    const allowedRoles = ['admin', 'teamleader', 'Sales', 'HR'];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: 'You are not allowed to delete job openings.' });
+    }
+
+    // Check if the job exists
+    const job = await salesPanel.findById(id);
+    if (!job) {
+      return res.status(404).json({ message: 'Job opening not found' });
+    }
+
+    // Check if the user is the creator or admin
+    if (req.user.role !== 'admin' && req.user.role !== 'teamleader' && job.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'You can only delete your own job openings' });
+    }
+
+    // Delete the job
+    await salesPanel.findByIdAndDelete(id);
+    
+    res.status(200).json({ message: 'Job opening deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting job opening:', error);
+    res.status(500).json({ message: 'Error deleting job opening', error: error.message });
+  }
+};
+
+
+const getLeadsBySalesId = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if ID exists
+    if (!id || id === 'undefined') {
+      return res.status(400).json({ message: 'Sales user ID is required' });
+    }
+
+    // Convert to ObjectId
+    let objectId;
+    try {
+      objectId = new mongoose.Types.ObjectId(id);
+    } catch (e) {
+      return res.status(400).json({ message: 'Invalid sales user ID format' });
+    }
+
+    // Find leads
+    const leads = await salesPanel.find({ createdBy: objectId });
+    res.status(200).json(leads);
+    
+  } catch (error) {
+    console.error('Error in getLeadsBySalesId:', error);
+    res.status(500).json({ 
+      message: 'Error fetching leads', 
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   createJobOpening,
+  deleteJobOpening,
   getMySales,
   updateJobOpening,
   saveConvertedJob,
   getConvertedJobs,
   getAssignedjob,
-  addMultipleCandidates
+  addMultipleCandidates,
+  createReschedule,
+  getTodaysAndUpcomingReminders,
+  getLeadsBySalesId
 };
