@@ -93,6 +93,8 @@ api.interceptors.request.use(async (config) => {
     // ✅ Skip token refresh on login or refresh-token endpoints
     if (
       config.url.includes('/auth/login') ||
+      config.url.includes('/auth/pre-login') ||
+      config.url.includes('/auth/verify-otp') ||
       config.url.includes('/auth/refresh-token')
     ) {
       return config;

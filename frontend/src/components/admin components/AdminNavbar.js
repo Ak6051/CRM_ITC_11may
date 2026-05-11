@@ -573,7 +573,7 @@ const AdminNavbar = () => {
       }}
     >
       <Toolbar sx={{ minHeight: 56 }}>
-        <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 'bold', color: '#ffcc00', fontFamily: 'Lora' }}>
+        <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 'bold', color: '#f6b93b', fontFamily: 'Lora' }}>
           Admin Dashboard
         </Typography>
 

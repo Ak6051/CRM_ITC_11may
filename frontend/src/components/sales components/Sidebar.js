@@ -5,144 +5,152 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Collapse,
   Box,
   Typography,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
-import HomeIcon from '@mui/icons-material/Home';
-import SettingsIcon from '@mui/icons-material/Settings';
-import ApartmentIcon from '@mui/icons-material/Apartment';
-import BusinessIcon from '@mui/icons-material/Business';
-import ExpandLess from '@mui/icons-material/ExpandLess';
-import ExpandMore from '@mui/icons-material/ExpandMore';
-import { useNavigate } from 'react-router-dom';
+import {
+  DashboardOutlined,
+  AssessmentOutlined,
+  BusinessCenterOutlined,
+  ApartmentOutlined,
+  TrendingUpOutlined,
+  CalendarTodayOutlined,
+  Menu,
+  ChevronLeft,
+} from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
+
+const drawerWidth = 260;
+const collapsedWidth = 70;
 
 const Sidebar = () => {
   const navigate = useNavigate();
-  const [departmentOpen, setDepartmentOpen] = useState(false);
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const handleDepartmentClick = () => {
-    setDepartmentOpen(!departmentOpen);
-  };
+  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+
+  const menuItems = [
+    { text: 'Master Dashboard', icon: <AssessmentOutlined />, route: '/sales-master-dashboard' },
+    { text: 'Lead Management', icon: <TrendingUpOutlined />, route: '/lead-management' },
+    { text: 'Create Company', icon: <ApartmentOutlined />, route: '/sales-company-create' },
+        { text: 'Job Openings', icon: <DashboardOutlined />, route: '/sales-dashboard' },
+    { text: 'Daily Task Data', icon: <CalendarTodayOutlined />, route: '/daily-sales-task' },
+  ];
+
+  const isActive = (route) => location.pathname === route;
 
   return (
     <Drawer
       variant="permanent"
       sx={{
-        width: 240,
+        width: sidebarOpen ? drawerWidth : collapsedWidth,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
-          width: 240,
+          width: sidebarOpen ? drawerWidth : collapsedWidth,
           boxSizing: 'border-box',
-          backgroundColor: '#1e1e2f', // Sidebar background color
-          color: '#ffffff', // White text color
-          border:'3px solid DodgerBlue'
+          background: 'rgba(28,28,42,0.92)',
+          backdropFilter: 'blur(14px)',
+          color: '#fff',
+          borderRight: 'none',
+          transition: 'width 0.3s',
+          overflowX: 'hidden',
         },
       }}
     >
-      {/* Company Logo and Name */}
+      {/* Toggle Button */}
       <Box
         sx={{
           display: 'flex',
-          flexDirection: 'column',
           alignItems: 'center',
-          p: 2,
+          justifyContent: sidebarOpen ? 'flex-end' : 'center',
+          px: 1,
+          py: 1.5,
         }}
       >
-        <img
-          src={'headerlogo.svg'} // Replace with `settings.logoUrl` if dynamic logos are needed
-          alt="Company Logo"
-          style={{
-            width: '180px',
-            height: '80px',
-            marginBottom: '8px',
-          }}
-        />
-        <Typography
-          variant="h6"
-          sx={{
-            color: '#ffcc00', // Highlighted text color for branding
-            fontWeight: 'bold',
-            fontFamily:"Lora"
-          }}
-        >
-         Ideal Talent Connect
-        </Typography>
+        <IconButton onClick={toggleSidebar} sx={{ color: '#FFD700' }}>
+          {sidebarOpen ? <ChevronLeft /> : <Menu />}
+        </IconButton>
       </Box>
 
-      <List>
-        {/* Dashboard Link */}
-        <ListItem
-          button
-          onClick={() => navigate('/sales-dashboard')}
+      {/* Logo */}
+      {sidebarOpen && (
+        <Box
           sx={{
-            '&:hover': {
-              backgroundColor: '#333', // Hover background
-              color: '#ffcc00', // Highlight text color
-            },
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            py: 3,
+            mx: 2,
+            mb: 2,
+            background: 'rgba(39,40,63,0.75)',
+            borderRadius: 3,
+            boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
           }}
         >
-          <ListItemIcon sx={{ color: 'inherit' }}>
-            <HomeIcon />
-          </ListItemIcon>
-          <ListItemText primary="Dashboard" />
-        </ListItem>
+          <img
+            src={'headerlogo.svg'}
+            alt="Logo"
+            style={{ width: '160px', height: '70px', marginBottom: 8, borderRadius: 10 }}
+          />
+          <Typography
+            variant="h6"
+            sx={{ fontWeight: 700, color: '#f6b93b', fontFamily: '"Poppins", "Lora", serif', textAlign: 'center', fontSize: '1.1rem', letterSpacing: '0.5px' }}
+          >
+            Ideal Talent Connect
+          </Typography>
+        </Box>
+      )}
 
-        {/* Settings Link */}
-        <ListItem
-          button
-          onClick={() => navigate('/settings')}
-          sx={{
-            '&:hover': {
-              backgroundColor: '#333',
-              color: '#ffcc00',
-            },
-          }}
-        >
-          <ListItemIcon sx={{ color: 'inherit' }}>
-            <SettingsIcon />
-          </ListItemIcon>
-          <ListItemText primary="Settings" />
-        </ListItem>
-
-        {/* Department with Dropdown */}
-        <ListItem
-          button
-          onClick={handleDepartmentClick}
-          sx={{
-            '&:hover': {
-              backgroundColor: '#333',
-              color: '#ffcc00',
-            },
-          }}
-        >
-          <ListItemIcon sx={{ color: 'inherit' }}>
-            <ApartmentIcon />
-          </ListItemIcon>
-          <ListItemText primary="Department" />
-          {departmentOpen ? <ExpandLess /> : <ExpandMore />}
-        </ListItem>
-        <Collapse in={departmentOpen} timeout="auto" unmountOnExit>
-          <List component="div" disablePadding>
-            
+      {/* Menu */}
+      <List sx={{ py: 1 }}>
+        {menuItems.map((item) => (
+          <Tooltip key={item.text} title={!sidebarOpen ? item.text : ''} placement="right">
             <ListItem
               button
+              onClick={() => navigate(item.route)}
               sx={{
-                pl: 4,
+                my: 0.5,
+                mx: 1,
+                borderRadius: 2,
+                transition: 'all 0.3s ease',
+                backgroundColor: isActive(item.route) ? 'rgba(255,215,0,0.15)' : 'transparent',
+                boxShadow: isActive(item.route) ? '0 0 12px rgba(255,215,0,0.5)' : 'none',
                 '&:hover': {
-                  backgroundColor: '#333',
-                  color: '#ffcc00',
+                  backgroundColor: 'rgba(255,215,0,0.25)',
+                  transform: 'translateX(5px)',
+                  boxShadow: '0 0 12px rgba(255,215,0,0.5)',
                 },
               }}
-              onClick={() => navigate('/jobopennings')}
             >
-              <ListItemIcon sx={{ color: 'inherit' }}>
-                <BusinessIcon />
+              <ListItemIcon
+                sx={{
+                  color: isActive(item.route) ? '#FFD700' : '#fff',
+                  minWidth: 40,
+                  transition: 'all 0.3s ease',
+                  filter: isActive(item.route) ? 'drop-shadow(0 0 2px #FFD700)' : 'none',
+                }}
+              >
+                {item.icon}
               </ListItemIcon>
-              <ListItemText primary="Job Opennings" />
+              {sidebarOpen && (
+                <ListItemText
+                  primary={item.text}
+                  sx={{
+                    '& .MuiTypography-root': { 
+                      fontWeight: 600, 
+                      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+                      fontSize: '0.9rem',
+                      letterSpacing: '0.3px',
+                    },
+                  }}
+                />
+              )}
             </ListItem>
-          </List>
-        </Collapse>
+          </Tooltip>
+        ))}
       </List>
     </Drawer>
   );

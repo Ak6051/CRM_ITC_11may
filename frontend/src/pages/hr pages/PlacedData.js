@@ -166,6 +166,99 @@ const PlacedData = () => {
       },
     },
     {
+          field: "offerLetter",
+          headerName: "Offer Letter",
+          width: 180,
+          editable: false,
+          renderCell: (params) => {
+            const offerLetterUrl = params.value && params.value !== "No Offer Letter" ? params.value : null;
+    
+            return offerLetterUrl ? (
+              <Button
+                variant="outlined"
+                size="small"
+                href={offerLetterUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  borderColor: '#3f51b5',
+                  color: '#3f51b5',
+                  '&:hover': {
+                    borderColor: '#303f9f',
+                    backgroundColor: 'rgba(63, 81, 181, 0.04)',
+                  },
+                }}
+              >
+                View Offer Letter
+              </Button>
+            ) : (
+              <Typography sx={{ color: '#9e9e9e' }}>N/A</Typography>
+            );
+          },
+        },
+        {
+          field: "candidateAgreement",
+          headerName: "Candidate Agreement",
+          width: 180,
+          editable: false,
+          renderCell: (params) => {
+            const agreementUrl = params.value && params.value !== "No Agreement" ? params.value : null;
+    
+            return agreementUrl ? (
+              <Button
+                variant="outlined"
+                size="small"
+                href={agreementUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  borderColor: '#3f51b5',
+                  color: '#3f51b5',
+                  '&:hover': {
+                    borderColor: '#303f9f',
+                    backgroundColor: 'rgba(63, 81, 181, 0.04)',
+                  },
+                }}
+              >
+                View Agreement
+              </Button>
+            ) : (
+              <Typography sx={{ color: '#9e9e9e' }}>N/A</Typography>
+            );
+          },
+        },
+        {
+          field: "resumeLink",
+          headerName: "Resume",
+          width: 180,
+          editable: false,
+          renderCell: (params) => {
+            const resumeUrl = params.value && params.value !== "No Resume" ? params.value : null;
+    
+            return resumeUrl ? (
+              <Button
+                variant="outlined"
+                size="small"
+                href={resumeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  borderColor: '#3f51b5',
+                  color: '#3f51b5',
+                  '&:hover': {
+                    borderColor: '#303f9f',
+                    backgroundColor: 'rgba(63, 81, 181, 0.04)',
+                  },
+                }}
+              >
+                View Resume
+              </Button>
+            ) : (
+              <Typography sx={{ color: '#9e9e9e' }}>N/A</Typography>
+            );
+          },
+        },
+    {
       field: 'companyName',
       headerName: 'Company Name',
       
@@ -348,6 +441,14 @@ const PlacedData = () => {
       field: 'currentCompany',
       headerName: 'Current Company',
       width: 200,
+      renderCell: (params) => (
+        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
+      ),
+    },
+    {
+      field: 'industry',
+      headerName: 'Industry',
+      width: 160,
       renderCell: (params) => (
         <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
       ),

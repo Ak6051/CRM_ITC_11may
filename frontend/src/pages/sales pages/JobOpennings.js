@@ -69,6 +69,7 @@ const ConvertedJobsTable = () => {
     { field: 'salary', headerName: 'Salary', width: 150 },
     { field: 'jobLocation', headerName: 'Job Location', width: 150 },
     { field: 'jobTiming', headerName: 'Job Timing', width: 150 },
+    { field: 'weekOff', headerName: 'Week Off', width: 150 },
     { field: 'gender', headerName: 'Gender', width: 150 },
     { field: 'remarks', headerName: 'Remarks', width: 200 },
 

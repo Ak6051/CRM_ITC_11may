@@ -1,4 +1,6 @@
+﻿
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   Box,
   Button,
@@ -9,16 +11,16 @@ import {
   Grid,
   Divider,
   Chip,
-  Card,
-  CardContent,
   Stack,
   Snackbar,
   Alert,
   TextField,
   MenuItem,
+  Tooltip,
+  InputAdornment,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import GroupIcon from "@mui/icons-material/Group";
 import EditIcon from "@mui/icons-material/Edit";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import axios from "axios";
@@ -26,9 +28,9 @@ import { API_BASE_URL } from "../../config/api.config";
 import Navbar from '../../components/hr components/HrNavbar';
 import Sidebar from '../../components/hr components/HrSidebar';
 import WorkIcon from '@mui/icons-material/Work';
+import WorkOutlineIcon from '@mui/icons-material/WorkOutline';
 import BusinessIcon from '@mui/icons-material/Business';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
-import InputAdornment from '@mui/material/InputAdornment';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -36,6 +38,18 @@ import PeopleIcon from '@mui/icons-material/People';
 import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DescriptionIcon from '@mui/icons-material/Description';
+import EventNoteIcon from '@mui/icons-material/EventNote';
+import BadgeIcon from '@mui/icons-material/Badge';
+import CloseIcon from '@mui/icons-material/Close';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import PersonEditIcon from '@mui/icons-material/ManageAccounts';
+import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
+import EventRepeatIcon from '@mui/icons-material/EventRepeat';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 
 const modalStyle = {
   position: "absolute",
@@ -45,14 +59,15 @@ const modalStyle = {
   width: "100%",
   maxWidth: "1800px",
   bgcolor: "background.paper",
-  boxShadow: 24,
-  p: 4,
-  borderRadius: 2,
+  boxShadow: "0 24px 64px rgba(63,81,181,0.18)",
+  p: 3,
+  borderRadius: 3,
   maxHeight: "100vh",
-  height: "865px",
+  height: "98vh",
   display: "flex",
   flexDirection: "column",
-  overflow: "auto"
+  overflow: "auto",
+  border: "1px solid #e8eaf6",
 };
 
 const JobListWithCandidates = () => {
@@ -70,21 +85,139 @@ const JobListWithCandidates = () => {
   const [editCandidateModalOpen, setEditCandidateModalOpen] = useState(false);
   const [resumeFile, setResumeFile] = useState(null);
   const [agreementFile, setAgreementFile] = useState(null);
+  const [hrUsers, setHrUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [autoOpenAddDetails, setAutoOpenAddDetails] = useState(false);
+
+  // ── WhatsApp Interview Call Letter Dialog ───────────────────────────────────
+  const [waOpen, setWaOpen]           = useState(false);
+  const [waRow, setWaRow]             = useState(null);   // candidate row
+  const [waMessage, setWaMessage]     = useState('');
+  const [senderName, setSenderName]   = useState('');
+  const [senderPhone, setSenderPhone] = useState('');
+
+  // Fetch logged-in HR name + phone once
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = sessionStorage.getItem('token');
+        if (!token) return;
+        const res = await axios.get(`${API_BASE_URL}/profile`, {
+          headers: { Authorization: token },
+        });
+        const { firstName = '', lastName = '', phoneNumber = '' } = res.data || {};
+        const name = `${firstName} ${lastName}`.trim();
+        if (name) setSenderName(name);
+        if (phoneNumber) setSenderPhone(phoneNumber);
+      } catch (e) { /* silent */ }
+    };
+    fetchProfile();
+  }, []);
+
+  const buildInterviewMessage = (row, job, hrName, hrPhone) => {
+    // Pull interview details from latest round if available
+    const rounds = row.interviewRounds;
+    const latest = rounds && rounds.length > 0 ? rounds[rounds.length - 1] : null;
+
+    const interviewDate = latest?.roundDate
+      ? new Date(latest.roundDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+      : row.internalInterviewDate
+      ? new Date(row.internalInterviewDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+      : '[Date]';
+
+    const interviewTime  = latest?.roundTime         || '[Time]';
+    const interviewMode  = latest?.interviewMode     || 'Face To Face';
+    const interviewer    = latest?.interviewedByWhom || row.interviewByWhom || '[Interviewer Name]';
+
+    const companyName    = job?.companyName    || '[Company Name]';
+    const designation    = row.positionName    || job?.jobTitle || '[Designation]';
+    const companyAddress = job?.companyAddress || job?.jobLocation || '[Company Address]';
+    const websiteURL     = job?.websiteURL     || '[Website]';
+    const gpsLocation    = job?.gpsLocation    || '';
+
+    return (
+`Subject: Interview Call Letter
+
+Dear ${row.candidateName || 'Not Provided'},
+
+Greetings from Ideal Talent Connect Pvt. Ltd. 
+
+We are pleased to inform you that your profile has been shortlisted for the position of ${designation} at our company.
+
+You are requested to attend the interview as per the details mentioned below:
+
+Company Name: ${companyName}
+Website: ${websiteURL}
+Interview Date: ${interviewDate }
+Interview Time: ${interviewTime }
+Interview Mode: ${interviewMode}
+Interview Location: ${companyAddress }
+Interviewer: ${interviewer}${gpsLocation ? `\n GPS Location: ${gpsLocation}` : ''}
+
+Please carry the following documents:
+• Updated Resume
+• Passport Size Photograph
+• Educational Certificates
+• Salary Slip / Bank Statement
+• ID Proof
+
+Kindly confirm your availability for the interview.
+
+We look forward to meeting you.
+
+Best Regards,
+${hrName || '[HR Name]'}${hrPhone ? `\n📞 ${hrPhone}` : ''}
+Ideal Talent Connect Pvt. Ltd.`
+    );
+  };
+
+  const openWaDialog = (row) => {
+    const msg = buildInterviewMessage(row, selectedJob, senderName, senderPhone);
+    setWaRow(row);
+    setWaMessage(msg);
+    setWaOpen(true);
+  };
+
+  const sendWaMessage = () => {
+    if (!waRow?.candidatePhone) return;
+    const url = `https://wa.me/${waRow.candidatePhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(waMessage)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setWaOpen(false);
+  };
+
+  // ── Remove candidate from position ─────────────────────────────────────────
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [candidateToRemove, setCandidateToRemove] = useState(null);
 
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const [editFormData, setEditFormData] = useState({
-    interviewDate: '',
-    selectionStatus: '',
-    selectionDate: '',
-    salaryOffered: '',
-    offerStatus: '',
-    offerLetter: null,
+    // legacy
+    interviewDate: '', selectionStatus: '', selectionDate: '',
+    salaryOffered: '', offerStatus: '', offerLetter: null,
+    candidateRemarks: '',
+    // 16 new fields
+    internalInterviewDate: '',
+    interviewByWhom: '',
+    candidateReview: '',
+    candidateRemark: '',
+    resumeSubmitDate: '',
     lineupStatus: '',
+    remarks1: '',
+    interviewRounds: [{ roundName: 'Round 1', roundDate: '', roundTime: '', interviewMode: 'Face To Face', interviewedByWhom: '' }],
+    interviewStatus: '',
+    trailDays: '',
+    remarks2: '',
+    offeredSalary: '',
+    offeredStatus: '',
+    remarks3: '',
+    joiningDateStatus: '',
     joiningDate: '',
-    candidateRemarks: ''
+    hasJoined: '',
   });
   const [offerLetterFile, setOfferLetterFile] = useState(null);
+  // ── Wizard step tracking for Add Details modal ────────────────────────────
+  const [activeStep, setActiveStep] = useState(0);
 
   const [rescheduleFormData, setRescheduleFormData] = useState({
     newDate: '',
@@ -252,7 +385,7 @@ const JobListWithCandidates = () => {
     }
   };
 
-  const handleOpenModal = async (job) => {
+  const handleOpenModal = async (job, autoOpenDetails = false) => {
     try {
       const token = sessionStorage.getItem("token");
       setSelectedJob(job);
@@ -261,10 +394,17 @@ const JobListWithCandidates = () => {
           Authorization: `Bearer ${token}`
         }
       });
-      // setCandidates(res.data);
-      setSelectedJob(res.data.job);  // Set job data including keyResponsibility and description
-      setCandidates(res.data.candidates);
+      setSelectedJob(res.data.job);
+      const loadedCandidates = res.data.candidates;
+      setCandidates(loadedCandidates);
       setModalOpen(true);
+
+      // If auto-open requested, open Add Details for the first candidate
+      if (autoOpenDetails && loadedCandidates.length > 0) {
+        setTimeout(() => {
+          handleEditClick(loadedCandidates[0]);
+        }, 400);
+      }
     } catch (error) {
       console.error("Failed to fetch candidates:", error);
     }
@@ -277,18 +417,44 @@ const JobListWithCandidates = () => {
 
   const handleEditClick = (candidate) => {
     setSelectedCandidate(candidate);
+    const fmt = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
     setEditFormData({
-      interviewDate: candidate.interviewDate || '',
-      selectionStatus: candidate.selectionStatus || '',
-      selectionDate: candidate.selectionDate || '',
-      salaryOffered: candidate.salaryOffered || '',
-      offerStatus: candidate.offerStatus || '',
-      offerLetter: candidate.offerLetter || null,
-      lineupStatus: candidate.lineupStatus || '',
-      joiningDate: candidate.joiningDate || '',
-      candidateRemarks: candidate.candidateRemarks || ''
+      interviewDate:         fmt(candidate.interviewDate),
+      selectionStatus:       candidate.selectionStatus       || '',
+      selectionDate:         fmt(candidate.selectionDate),
+      salaryOffered:         candidate.salaryOffered         || '',
+      offerStatus:           candidate.offerStatus           || '',
+      offerLetter:           candidate.offerLetter           || null,
+      candidateRemarks:      candidate.candidateRemarks      || '',
+      // 16 new
+      internalInterviewDate: fmt(candidate.internalInterviewDate),
+      interviewByWhom:       candidate.interviewByWhom?._id  || candidate.interviewByWhom || '',
+      candidateReview:       candidate.candidateReview       || '',
+      candidateRemark:       candidate.candidateRemark       || '',
+      resumeSubmitDate:      fmt(candidate.resumeSubmitDate),
+      lineupStatus:          candidate.lineupStatus          || '',
+      remarks1:              candidate.remarks1              || '',
+      interviewRounds:       candidate.interviewRounds?.length
+        ? candidate.interviewRounds.map(r => ({
+            roundName:         r.roundName         || 'Round 1',
+            roundDate:         fmt(r.roundDate),
+            roundTime:         r.roundTime         || '',
+            interviewMode:     r.interviewMode     || 'Face To Face',
+            interviewedByWhom: r.interviewedByWhom || '',
+          }))
+        : [{ roundName: 'Round 1', roundDate: '', roundTime: '', interviewMode: 'Face To Face', interviewedByWhom: '' }],
+      interviewStatus:       candidate.interviewStatus       || '',
+      trailDays:             candidate.trailDays != null ? String(candidate.trailDays) : '',
+      remarks2:              candidate.remarks2              || '',
+      offeredSalary:         candidate.offeredSalary         || '',
+      offeredStatus:         candidate.offeredStatus         || '',
+      remarks3:              candidate.remarks3              || '',
+      joiningDateStatus:     candidate.joiningDateStatus     || '',
+      joiningDate:           fmt(candidate.joiningDate),
+      hasJoined:             candidate.hasJoined             || '',
     });
     setOfferLetterFile(null);
+    setActiveStep(0);
     setEditModalOpen(true);
   };
 
@@ -332,6 +498,11 @@ const JobListWithCandidates = () => {
           formData.append(key, editFormData[key]);
         }
       });
+
+      // Always send jobId so the correct CandidateApplication is updated
+      if (selectedJob?._id) {
+        formData.set('jobId', selectedJob._id);
+      }
 
       // If a new offer letter file is selected, append it
       if (offerLetterFile) {
@@ -458,6 +629,43 @@ const JobListWithCandidates = () => {
     setSelectedRescheduleHistory(null);
   };
 
+  // ── Remove candidate from position ─────────────────────────────────────────
+  const handleRemoveClick = (candidate) => {
+    setCandidateToRemove(candidate);
+    setRemoveConfirmOpen(true);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!candidateToRemove) return;
+    try {
+      const token = sessionStorage.getItem("token");
+      const applicationId = candidateToRemove.applicationId;
+      if (!applicationId) {
+        setSnackbar({ open: true, message: 'Application ID not found. Cannot remove.', severity: 'error' });
+        setRemoveConfirmOpen(false);
+        return;
+      }
+      await axios.delete(`${API_BASE_URL}/applications/${applicationId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSnackbar({ open: true, message: `${candidateToRemove.candidateName || 'Candidate'} removed from this position.`, severity: 'success' });
+      setRemoveConfirmOpen(false);
+      setCandidateToRemove(null);
+      // Refresh both: modal candidates list + job cards count
+      await Promise.all([
+        selectedJob ? handleOpenModal(selectedJob) : Promise.resolve(),
+        fetchJobs(),
+      ]);
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || 'Failed to remove candidate.',
+        severity: 'error',
+      });
+      setRemoveConfirmOpen(false);
+    }
+  };
+
   const updateCandidateDetails = async (candidateId, updatedData) => {
     try {
       const token = sessionStorage.getItem("token");
@@ -475,6 +683,11 @@ const JobListWithCandidates = () => {
       // Add resume file if selected
       if (resumeFile) {
         formData.append('resume', resumeFile);
+      }
+      
+      // Add candidate agreement file if selected
+      if (agreementFile) {
+        formData.append('candidateAgreement', agreementFile);
       }
       
       const response = await axios.put(
@@ -524,6 +737,8 @@ const JobListWithCandidates = () => {
       
       setEditCandidateModalOpen(false);
       setSelectedCandidate(null);
+      setResumeFile(null); // Clear resume file after successful update
+      setAgreementFile(null); // Clear agreement file after successful update
     } catch (error) {
       // Error is already handled in updateCandidateDetails
     }
@@ -588,7 +803,9 @@ const JobListWithCandidates = () => {
 
   const handleEditCandidateClick = (candidate) => {
     setSelectedCandidate(candidate);
-    setEditFormData({
+    setEditFormData(prev => ({
+      // preserve all existing fields (especially interviewRounds)
+      ...prev,
       candidateName: candidate.candidateName || '',
       candidateEmail: candidate.candidateEmail || '',
       candidatePhone: candidate.candidatePhone || '',
@@ -603,15 +820,39 @@ const JobListWithCandidates = () => {
       reasonforLeaving: candidate.reasonforLeaving || '',
       currentCompany: candidate.currentCompany || '',
       remark: candidate.remark || '',
-      resumeLink: candidate.resumeLink || ''
-    });
-    setResumeFile(null); // Reset resume file when opening new candidate
+      resumeLink: candidate.resumeLink || '',
+      // ensure interviewRounds always has a valid array
+      interviewRounds: prev.interviewRounds?.length
+        ? prev.interviewRounds
+        : [{ roundName: 'Round 1', roundDate: '', roundTime: '', interviewMode: 'Face To Face', interviewedByWhom: '' }],
+    }));
+    setResumeFile(null);
+    setAgreementFile(null);
     setEditCandidateModalOpen(true);
   };
 
   useEffect(() => {
     fetchJobs();
+    // Fetch HR users for Interview By Whom dropdown
+    const token = sessionStorage.getItem("token");
+    axios.get(`${API_BASE_URL}/hr/hr-users`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => setHrUsers(res.data || []))
+      .catch(() => {});
   }, []);
+
+  // ── Auto-open job modal when navigated from AllCandidateData after assign ──
+  const location = useLocation();
+  useEffect(() => {
+    const openJobId = location.state?.openJobId;
+    const openAddCandidateDialog = location.state?.openAddCandidateDialog;
+    if (!openJobId || jobs.length === 0) return;
+    const job = jobs.find(j => j._id === openJobId);
+    if (job) {
+      handleOpenModal(job, !!openAddCandidateDialog);
+      // Clear state so it doesn't re-open on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [jobs, location.state?.openJobId]);
 
   const jobColumns = [
     {
@@ -679,12 +920,16 @@ const JobListWithCandidates = () => {
           variant="contained"
           onClick={() => handleOpenModal(params.row)}
           sx={{
-            backgroundColor: '#3f51b5',
+            background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
             '&:hover': {
-              backgroundColor: '#303f9f',
+              background: 'linear-gradient(135deg, #303f9f, #3f51b5)',
             },
             width: '100%',
-            textTransform: 'none'
+            textTransform: 'none',
+            borderRadius: '8px',
+            fontWeight: 600,
+            fontSize: '0.8rem',
+            boxShadow: '0 2px 8px rgba(63,81,181,0.25)',
           }}
         >
           View Candidates ({params.row.candidateCount || 0})
@@ -695,672 +940,418 @@ const JobListWithCandidates = () => {
 
 
   const candidateColumns = [
-    {
-      field: "candidateName",
-      headerName: "Name",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Typography sx={{ fontWeight: 'medium' }}>{params.value}</Typography>
-      )
-    },
-    {
-      field: "candidateEmail",
-      headerName: "Email",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              color: '#3f51b5',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "candidatePhone",
-      headerName: "Phone",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "qualification",
-      headerName: "Qualification",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "positionName",
-      headerName: "Position",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              fontWeight: 'medium',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "experience",
-      headerName: "Experience",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              fontWeight: 'medium',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "currentLocation",
-      headerName: "Location",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              fontWeight: 'medium',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "currentCTC",
-      headerName: "CTC",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              fontWeight: 'medium',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "expectedCTC",
-      headerName: "CTC",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              fontWeight: 'medium',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "noticePeriod",
-      headerName: "Notice Period",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              fontWeight: 'medium',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "reasonforLeaving",
-      headerName: "Reason for Leaving",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              fontWeight: 'medium',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "currentCompany",
-      headerName: "Current Company",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              fontWeight: 'medium',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "remark",
-      headerName: "Remark",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => (
-        <Box sx={{ width: '100%' }}>
-          <Typography 
-            noWrap
-            title={params.value || ''}
-            sx={{
-              color: params.value && params.value.toLowerCase().includes('selected') ? '#4caf50' :
-                params.value && params.value.toLowerCase().includes('rejected') ? '#f44336' :
-                  '#757575',
-              width: '100%',
-              '&:hover': {
-                overflow: 'visible',
-                whiteSpace: 'normal',
-                position: 'absolute',
-                zIndex: 1,
-                backgroundColor: 'background.paper',
-                p: 1,
-              }
-            }}
-          >
-            {params.value || 'N/A'}
-          </Typography>
-        </Box>
-      )
-    },
-    {
-      field: "interviewDate",
-      headerName: "Interview Date",
-      flex: 1.5,
-      editable: true,
-      renderCell: (params) => {
-        const date = params.row.interviewDate ? new Date(params.row.interviewDate) : null;
-        return (
-          <Typography>
-            {date ? date.toLocaleDateString() : 'Not Set'}
-          </Typography>
-        );
-      }
-    },
-    {
-      field: "selectionStatus",
-      headerName: "Selection Status",
-      flex: 1.5,
-      editable: true,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          color="primary"
-          variant="outlined"
-          size="small"
-        />
-      )
-    },
-    {
-      field: "selectionDate",
-      headerName: "Selection Date",
-      flex: 1.5,
-      editable: true,
-      renderCell: (params) => {
-        const date = params.row.selectionDate ? new Date(params.row.selectionDate) : null;
-        return (
-          <Typography>
-            {date ? date.toLocaleDateString() : 'Not Set'}
-          </Typography>
-        );
-      }
-    },
-    {
-      field: "salaryOffered",
-      headerName: "Salary Offered",
-      flex: 1.5,
-      editable: true,
-      renderCell: (params) => (
-        <Typography>
-          {params.value || 'Not Set'}
-        </Typography>
-      )
-    },
-    
-    {
-      field: "offerStatus",
-      headerName: "Offer Status",
-      flex: 1.5,
-      editable: true,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          color="primary"
-          variant="outlined"
-          size="small"
-        />
-      )
-    },
-    {
-      field: "lineupStatus",
-      headerName: "Lineup Status",
-      flex: 1.5,
-      editable: true,
-      type: 'singleSelect',
-      valueOptions: ['Pending', 'Scheduled', 'Completed', 'Cancelled'],
-      renderCell: (params) => {
-        const status = params.row.lineupStatus || 'Pending';
-        return (
-          <Typography>
-            {status}
-          </Typography>
-        );
-      }
-    },
-    {
-      field: "joiningDate",
-      headerName: "Joining Date",
-      flex: 1.5,
-      editable: true,
-      renderCell: (params) => {
-        const date = params.row.joiningDate ? new Date(params.row.joiningDate) : null;
-        return (
-          <Typography>
-            {date ? date.toLocaleDateString() : 'Not Set'}
-          </Typography>
-        );
-      }
-    },
-    {
-      field: "candidateRemarks",
-      headerName: "Candidate Remarks",
-      flex: 2,
-      editable: true,
-      renderCell: (params) => {
-        const remarks = params.row.candidateRemarks || '';
-        return (
-          <Typography>
-            {remarks}
-          </Typography>
-        );
-      }
-    },
-    
 
-    {
-      field: "originalInterviewDate",
-      headerName: "Original Interview Date",
-      flex: 1.5,
-      editable: false,
-      renderCell: (params) => {
-        const date = params.row.originalInterviewDate ? new Date(params.row.originalInterviewDate) : null;
-        return <Typography>{date ? date.toLocaleDateString() : "Not Set"}</Typography>;
-      }
-    },
+  // ── Copy helpers ─────────────────────────────────────────────────────────
+  // CV Copy: company name, candidate name, position, current ctc, expected ctc, notice period, experience, location
+  // Interview Copy: company name, candidate name, experience, position, current ctc, expected ctc, notice period, location, interview date, interview time, interview mode, interviewer
 
+  // ── Actions (first) ──────────────────────────────────────────────────────
+    // ── CV Copy ──────────────────────────────────────────────────────────────
     {
-      field: "rescheduleDate",
-      headerName: "Reschedule Date",
-      flex: 1.5,
-      editable: false,
+      field: "cvCopy",
+      headerName: "CV",
+      width:55, sortable: false,
       renderCell: (params) => {
-        if (params.row.type === "reschedule") {
-          const date = params.row.rescheduleDate ? new Date(params.row.rescheduleDate) : null;
-          return <Typography>{date ? date.toLocaleDateString() : "N/A"}</Typography>;
-        }
-        return <Typography sx={{ color: '#999', fontStyle: 'italic' }}>-</Typography>;
-      }
-    },
-
-    {
-      field: "rescheduleReason",
-      headerName: "Reschedule Reason",
-      flex: 3, // Increased flex value to give more space
-      width: 300, // Set a minimum width
-      minWidth: 250, // Ensure it doesn't get too small
-      editable: false,
-      renderCell: (params) => {
-        if (params.row.type === "reschedule") {
-          return (
-            <Box sx={{ width: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              <Typography
-                sx={{
-                  fontStyle: 'italic',
-                  color: '#555',
-                  whiteSpace: 'normal', // Allow text to wrap
-                  lineHeight: '1.2',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 3, // Show up to 3 lines
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}
-              >
-                {params.row.reason || "N/A"}
-              </Typography>
-            </Box>
-          );
-        }
-        return <Typography sx={{ color: '#999', fontStyle: 'italic' }}>-</Typography>;
-      }
-    },
-
-    {
-      field: "status",
-      headerName: "Status",
-      flex: 1,
-      editable: false,
-      renderCell: (params) => (
-        <Chip
-          label={params.row.type === "candidate" ? "Original" : "Rescheduled"}
-          color={params.row.type === "candidate" ? "primary" : "secondary"}
-          size="small"
-        />
-      )
-    },
-    {
-      field: "offerLetter",
-      headerName: "Offer Letter",
-      flex: 1.9,
-      editable: false,
-      renderCell: (params) => {
-        const offerLetterUrl = params.value && params.value !== "No Offer Letter" ? params.value : null;
-
-        return offerLetterUrl ? (
-          <Button
-            variant="outlined"
-            size="small"
-            href={offerLetterUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{
-              borderColor: '#3f51b5',
-              color: '#3f51b5',
-              '&:hover': {
-                borderColor: '#303f9f',
-                backgroundColor: 'rgba(63, 81, 181, 0.04)',
-              },
-            }}
-          >
-            View Offer Letter
-          </Button>
-        ) : (
-          <Typography sx={{ color: '#9e9e9e' }}>N/A</Typography>
+        const r = params.row;
+        const company = selectedJob?.companyName || '—';
+        const text = [
+          `📋 CV Details`,
+          `🏢 Company     : ${company}`,
+          `👤 Name        : ${r.candidateName || '—'}`,
+          `💼 Position    : ${r.positionName || '—'}`,
+          `💰 Current CTC : ${r.currentCTC || '—'}`,
+          `💵 Expected CTC: ${r.expectedCTC || '—'}`,
+          `⏳ Notice Period: ${r.noticePeriod || '—'}`,
+          `📅 Experience  : ${r.experience || '—'}`,
+          `📍 Location    : ${r.currentLocation || '—'}`,
+        ].join('\n');
+        return (
+          <Tooltip title="Copy CV Details" arrow>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(text).then(() => {
+                  setSnackbar({ open: true, message: `CV details copied for ${r.candidateName || 'candidate'}`, severity: 'success' });
+                }).catch(() => {
+                  setSnackbar({ open: true, message: 'Failed to copy', severity: 'error' });
+                });
+              }}
+              sx={{
+                bgcolor: '#e8eaf6', color: '#3f51b5',
+                '&:hover': { bgcolor: '#c5cae9' },
+                borderRadius: '8px', width: 32, height: 32,
+              }}
+            >
+              <AssignmentIndIcon sx={{ fontSize: 17 }} />
+            </IconButton>
+          </Tooltip>
         );
       },
     },
+    // ── Interview Copy ────────────────────────────────────────────────────────
     {
-      field: "resumeLink",
-      headerName: "Resume",
-      flex: 1.9,
-      editable: false,
+      field: "interviewCopy",
+      headerName: "Interview",
+      width: 60, sortable: false,
       renderCell: (params) => {
-        const resumeUrl = params.value && params.value !== "No Resume" ? params.value : null;
+        const r = params.row;
+        const company = selectedJob?.companyName || '—';
+        // Use latest interview round if available
+        const rounds = r.interviewRounds;
+        const latestRound = rounds && rounds.length > 0 ? rounds[rounds.length - 1] : null;
+        const interviewDate = latestRound?.roundDate
+          ? new Date(latestRound.roundDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+          : r.internalInterviewDate
+          ? new Date(r.internalInterviewDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+          : '—';
+        const interviewTime = latestRound?.roundTime || '—';
+        const interviewMode = latestRound?.interviewMode || '—';
+        const interviewer   = latestRound?.interviewedByWhom || '—';
 
-        return resumeUrl ? (
-          <Button
-            variant="outlined"
-            size="small"
-            href={resumeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{
-              borderColor: '#3f51b5',
-              color: '#3f51b5',
-              '&:hover': {
-                borderColor: '#303f9f',
-                backgroundColor: 'rgba(63, 81, 181, 0.04)',
-              },
-            }}
-          >
-            View Resume
-          </Button>
-        ) : (
-          <Typography sx={{ color: '#9e9e9e' }}>N/A</Typography>
+        const text = [
+          `📅 Interview Details`,
+          `🏢 Company      : ${company}`,
+          `👤 Name         : ${r.candidateName || '—'}`,
+          `📅 Experience   : ${r.experience || '—'}`,
+          `💼 Position     : ${r.positionName || '—'}`,
+          `💰 Current CTC  : ${r.currentCTC || '—'}`,
+          `💵 Expected CTC : ${r.expectedCTC || '—'}`,
+          `⏳ Notice Period : ${r.noticePeriod || '—'}`,
+          `📍 Location     : ${r.currentLocation || '—'}`,
+          `📆 Interview Date: ${interviewDate}`,
+          `🕐 Interview Time: ${interviewTime}`,
+          `🖥️  Mode          : ${interviewMode}`,
+          `🧑‍💼 Interviewer   : ${interviewer}`,
+        ].join('\n');
+        return (
+          <Tooltip title="Copy Interview Details" arrow>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(text).then(() => {
+                  setSnackbar({ open: true, message: `Interview details copied for ${r.candidateName || 'candidate'}`, severity: 'success' });
+                }).catch(() => {
+                  setSnackbar({ open: true, message: 'Failed to copy', severity: 'error' });
+                });
+              }}
+              sx={{
+                bgcolor: '#e8f5e9', color: '#2e7d32',
+                '&:hover': { bgcolor: '#c8e6c9' },
+                borderRadius: '8px', width: 32, height: 32,
+              }}
+            >
+              <CalendarMonthIcon sx={{ fontSize: 17 }} />
+            </IconButton>
+          </Tooltip>
         );
       },
     },
-    {
-      field :"editCandidate",
-      headerName: "Edit Candidate",
-      flex: 1,
-      editable: false,
+  
+  
+  {
+      field: "whatsapp",
+      headerName: "WA",
+      width: 52, sortable: false,
       renderCell: (params) => (
-        <Button
-          variant="contained"
-          size="small"
-          onClick={(event) => {
-            event.stopPropagation();
-            handleEditCandidateClick(params.row);
-          }}
-          sx={{
-            backgroundColor: '#3f51b5',
-            '&:hover': {
-              backgroundColor: '#303f9f',
-            },
-            minWidth: '100px',
-            fontSize: '0.7rem'
-          }}
-        >
-          Edit Details
-        </Button>
-      )
+        <Tooltip title={params.row.candidatePhone ? `Send Interview Call Letter via WhatsApp` : "No phone available"} arrow>
+          <span>
+            <IconButton
+              size="small"
+              disabled={!params.row.candidatePhone}
+              onClick={(e) => { e.stopPropagation(); openWaDialog(params.row); }}
+              sx={{
+                bgcolor: params.row.candidatePhone ? '#f0fdf4' : '#f8fafc',
+                color: params.row.candidatePhone ? '#22c55e' : '#cbd5e1',
+                border: `1px solid ${params.row.candidatePhone ? '#bbf7d0' : '#e2e8f0'}`,
+                '&:hover': { bgcolor: '#dcfce7' },
+                borderRadius: '8px', width: 34, height: 34,
+              }}
+            >
+              <WhatsAppIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      ),
     },
 
+  {
+      field: "editCandidate",
+      headerName: "Edit",
+      width: 50, sortable: false,
+      renderCell: (params) => (
+        <Tooltip title="Edit Candidate Details" arrow>
+          <IconButton
+            size="small"
+            onClick={(e) => { e.stopPropagation(); handleEditCandidateClick(params.row); }}
+            sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', '&:hover': { bgcolor: '#c5cae9' }, borderRadius: '8px', width: 34, height: 34 }}
+          >
+            <PersonEditIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Tooltip>
+      ),
+    },
 
     {
       field: "actions",
       headerName: "Actions",
-      flex: 2.0,
-      minWidth: 250,
+      width: 130, sortable: false,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 1, minWidth: '240px' }}>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={() => handleEditClick(params.row)}
-            sx={{
-              backgroundColor: '#3f51b5',
-              '&:hover': {
-                backgroundColor: '#303f9f',
-              },
-              minWidth: '100px',
-              fontSize: '0.7rem'
-            }}
-          >
-            Add Details
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => handleRescheduleClick(params.row)}
-            sx={{
-              borderColor: '#3f51b5',
-              color: '#3f51b5',
-              '&:hover': {
-                borderColor: '#303f9f',
-                backgroundColor: 'rgba(63, 81, 181, 0.04)',
-              },
-              minWidth: '100px',
-              fontSize: '0.7rem',
-            }}
-          >
-            Reschedule
-          </Button>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+          {/* Add Details */}
+          <Tooltip title="Add Details" arrow>
+            <IconButton
+              size="small"
+              onClick={() => handleEditClick(params.row)}
+              sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', '&:hover': { bgcolor: '#c5cae9' }, borderRadius: '8px', width: 34, height: 34 }}
+            >
+              <PlaylistAddIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          {/* Reschedule */}
+          <Tooltip title="Reschedule Interview" arrow>
+            <IconButton
+              size="small"
+              onClick={() => handleRescheduleClick(params.row)}
+              sx={{ bgcolor: '#e3f2fd', color: '#0288d1', '&:hover': { bgcolor: '#b3e5fc' }, borderRadius: '8px', width: 34, height: 34 }}
+            >
+              <EventRepeatIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
+          {/* Remove — only for original entries */}
+          {!params.row.isRescheduleEntry && (
+            <Tooltip title="Remove from Position" arrow>
+              <IconButton
+                size="small"
+                onClick={() => handleRemoveClick(params.row)}
+                sx={{ bgcolor: '#fef2f2', color: '#ef4444', '&:hover': { bgcolor: '#fee2e2' }, borderRadius: '8px', width: 34, height: 34 }}
+              >
+                <PersonRemoveIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
-      )
-    }
+      ),
+    },
+
+    // ── Candidate Profile ────────────────────────────────────────────────────
+    { field: "candidateName",    headerName: "Name",             width: 140, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap sx={{ fontWeight: 600 }}>{p.value || '—'}</Typography></Tooltip> },
+    { field: "candidatePhone",   headerName: "Phone",            width: 130, renderCell: (p) => <Typography noWrap>{p.value || '—'}</Typography> },
+    { field: "candidateEmail",   headerName: "Email",            width: 180, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap sx={{ color: '#3f51b5' }}>{p.value || '—'}</Typography></Tooltip> },
+    { field: "positionName",     headerName: "Position",         width: 150, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap>{p.value || '—'}</Typography></Tooltip> },
+    { field: "experience",       headerName: "Experience",       width: 110, renderCell: (p) => <Typography noWrap>{p.value || '—'}</Typography> },
+    { field: "currentLocation",  headerName: "Location",         width: 120, renderCell: (p) => <Typography noWrap>{p.value || '—'}</Typography> },
+    { field: "currentPosition",  headerName: "Current Position", width: 150, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap>{p.value || '—'}</Typography></Tooltip> },
+    { field: "currentCTC",       headerName: "Current CTC",      width: 120, renderCell: (p) => <Typography noWrap>{p.value || '—'}</Typography> },
+    { field: "expectedCTC",      headerName: "Expected CTC",     width: 120, renderCell: (p) => <Typography noWrap>{p.value || '—'}</Typography> },
+    { field: "noticePeriod",     headerName: "Notice Period",    width: 120, renderCell: (p) => <Typography noWrap>{p.value || '—'}</Typography> },
+    { field: "currentCompany",   headerName: "Current Company",  width: 150, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap>{p.value || '—'}</Typography></Tooltip> },
+    { field: "qualification",    headerName: "Qualification",    width: 130, renderCell: (p) => <Typography noWrap>{p.value || '—'}</Typography> },
+    { field: "reasonforLeaving", headerName: "Reason for Leaving", width: 160, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap>{p.value || '—'}</Typography></Tooltip> },
+    { field: "remark",           headerName: "Remark",           width: 140, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap sx={{ color: p.value?.toLowerCase().includes('selected') ? '#4caf50' : p.value?.toLowerCase().includes('rejected') ? '#f44336' : '#757575' }}>{p.value || '—'}</Typography></Tooltip> },
+
+    // ── Assignment Info ──────────────────────────────────────────────────────
+    {
+      field: "assignedBy", headerName: "Assigned By", width: 140,
+      renderCell: (p) => {
+        const v = p.row.assignedBy;
+        if (!v) return <Typography sx={{ color: '#9e9e9e', fontStyle: 'italic' }}>Self</Typography>;
+        if (typeof v === 'object') return <Typography>{`${v.firstName || ''} ${v.lastName || ''}`.trim() || '—'}</Typography>;
+        return <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+      },
+    },
+    {
+      field: "assignedAt", headerName: "Assigned At", width: 130,
+      renderCell: (p) => { const d = p.row.assignedAt ? new Date(p.row.assignedAt) : null; return <Typography>{d ? d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</Typography>; },
+    },
+
+    // ── Internal Interview (new fields) ──────────────────────────────────────
+    {
+      field: "internalInterviewDate", headerName: "Internal Interview Date", width: 170,
+      renderCell: (p) => { const d = p.value ? new Date(p.value) : null; return <Typography>{d ? d.toLocaleDateString('en-IN') : '—'}</Typography>; },
+    },
+    {
+      field: "interviewByWhom", headerName: "Interview By", width: 140,
+      renderCell: (p) => {
+        const v = p.value;
+        if (!v) return <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+        if (typeof v === 'object') return <Typography>{`${v.firstName || ''} ${v.lastName || ''}`.trim() || '—'}</Typography>;
+        return <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+      },
+    },
+    {
+      field: "candidateReview", headerName: "Candidate Review", width: 140,
+      renderCell: (p) => {
+        const colorMap = { Green: '#4caf50', Yellow: '#ff9800', Red: '#f44336' };
+        return p.value ? (
+          <Chip label={p.value} size="small"
+            sx={{ bgcolor: `${colorMap[p.value]}20`, color: colorMap[p.value], fontWeight: 700, border: `1px solid ${colorMap[p.value]}40` }} />
+        ) : <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+      },
+    },
+    { field: "candidateRemark", headerName: "Candidate Remark", width: 160, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap>{p.value || '—'}</Typography></Tooltip> },
+
+    // ── Resume & Lineup ──────────────────────────────────────────────────────
+    {
+      field: "resumeSubmitDate", headerName: "Resume Submit Date", width: 160,
+      renderCell: (p) => { const d = p.value ? new Date(p.value) : null; return <Typography>{d ? d.toLocaleDateString('en-IN') : '—'}</Typography>; },
+    },
+    {
+      field: "lineupStatus", headerName: "Lineup Status", width: 130,
+      renderCell: (p) => {
+        const colorMap = { Shortlisted: '#3f51b5', Scheduled: '#0288d1', Completed: '#4caf50', Cancelled: '#f44336', Pending: '#ff9800' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40` }} /> : <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+      },
+    },
+    { field: "remarks1", headerName: "Remarks 1", width: 150, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap>{p.value || '—'}</Typography></Tooltip> },
+
+    // ── Interview Rounds ─────────────────────────────────────────────────────
+    {
+      field: "interviewRounds", headerName: "Interview Rounds", width: 160,
+      renderCell: (p) => {
+        const rounds = p.value;
+        if (!rounds || rounds.length === 0) return <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+        const latest = rounds[rounds.length - 1];
+        return (
+          <Tooltip title={rounds.map(r => `${r.roundName}: ${r.roundDate ? new Date(r.roundDate).toLocaleDateString('en-IN') : 'TBD'} (${r.interviewMode})`).join('\n')}>
+            <Chip label={`${rounds.length} Round${rounds.length > 1 ? 's' : ''}`} size="small"
+              sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 700 }} />
+          </Tooltip>
+        );
+      },
+    },
+
+    // ── Interview Outcome ────────────────────────────────────────────────────
+    {
+      field: "interviewStatus", headerName: "Interview Status", width: 150,
+      renderCell: (p) => {
+        const colorMap = { Selected: '#4caf50', Rejected: '#f44336', 'On Hold': '#ff9800', 'On Discussion': '#0288d1', Trail: '#9c27b0' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40` }} /> : <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+      },
+    },
+    { field: "trailDays",  headerName: "Trail Days",  width: 100, renderCell: (p) => <Typography>{p.value != null ? p.value : '—'}</Typography> },
+    { field: "remarks2",   headerName: "Remarks 2",   width: 150, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap>{p.value || '—'}</Typography></Tooltip> },
+
+    // ── Offer Details ────────────────────────────────────────────────────────
+    { field: "offeredSalary", headerName: "Offered Salary", width: 130, renderCell: (p) => <Typography>{p.value || '—'}</Typography> },
+    {
+      field: "offeredStatus", headerName: "Offered Status", width: 130,
+      renderCell: (p) => {
+        const colorMap = { Accepted: '#4caf50', Rejected: '#f44336' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40` }} /> : <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+      },
+    },
+    { field: "remarks3", headerName: "Remarks 3", width: 150, renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap>{p.value || '—'}</Typography></Tooltip> },
+
+    // ── Selection ────────────────────────────────────────────────────────────
+    {
+      field: "selectionStatus", headerName: "Selection Status", width: 140,
+      renderCell: (p) => {
+        const colorMap = { Accepted: '#4caf50', Rejected: '#f44336' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value
+          ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40` }} />
+          : <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+      },
+    },
+    {
+      field: "selectionDate", headerName: "Selection Date", width: 130,
+      renderCell: (p) => { const d = p.value ? new Date(p.value) : null; return <Typography>{d ? d.toLocaleDateString('en-IN') : '—'}</Typography>; },
+    },
+
+    // ── Joining ──────────────────────────────────────────────────────────────
+    { field: "joiningDateStatus", headerName: "Joining Status", width: 160, renderCell: (p) => <Typography noWrap>{p.value || '—'}</Typography> },
+    {
+      field: "joiningDate", headerName: "Joining Date", width: 130,
+      renderCell: (p) => { const d = p.value ? new Date(p.value) : null; return <Typography>{d ? d.toLocaleDateString('en-IN') : '—'}</Typography>; },
+    },
+    {
+      field: "hasJoined", headerName: "Has Joined", width: 160,
+      renderCell: (p) => {
+        const colorMap = { Yes: '#4caf50', No: '#f44336', Backout: '#ff5722', 'Confirmation Awaited': '#ff9800' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40` }} /> : <Typography sx={{ color: '#9e9e9e' }}>—</Typography>;
+      },
+    },
+
+    // ── Reschedule Info ──────────────────────────────────────────────────────
+    {
+      field: "originalInterviewDate", headerName: "Original Interview Date", width: 170,
+      renderCell: (p) => { const d = p.value ? new Date(p.value) : null; return <Typography>{d ? d.toLocaleDateString('en-IN') : '—'}</Typography>; },
+    },
+    {
+      field: "rescheduleDate", headerName: "Reschedule Date", width: 150,
+      renderCell: (p) => {
+        if (p.row.isRescheduleEntry) { const d = p.value ? new Date(p.value) : null; return <Typography>{d ? d.toLocaleDateString('en-IN') : '—'}</Typography>; }
+        return <Typography sx={{ color: '#999', fontStyle: 'italic' }}>—</Typography>;
+      },
+    },
+    {
+      field: "reason", headerName: "Reschedule Reason", width: 200,
+      renderCell: (p) => {
+        if (p.row.isRescheduleEntry) return <Tooltip title={p.value || ''}><Typography noWrap sx={{ fontStyle: 'italic', color: '#555' }}>{p.value || '—'}</Typography></Tooltip>;
+        return <Typography sx={{ color: '#999', fontStyle: 'italic' }}>—</Typography>;
+      },
+    },
+    {
+      field: "status", headerName: "Entry Type", width: 110,
+      renderCell: (p) => (
+        <Chip label={p.row.isRescheduleEntry ? 'Rescheduled' : 'Original'} size="small"
+          color={p.row.isRescheduleEntry ? 'secondary' : 'primary'} />
+      ),
+    },
+
+    // ── Documents ────────────────────────────────────────────────────────────
+    {
+      field: "offerLetter", headerName: "Offer Letter", width: 140,
+      renderCell: (p) => p.value ? (
+        <Button variant="outlined" size="small" href={p.value} target="_blank" rel="noopener noreferrer"
+          sx={{ borderColor: '#3f51b5', color: '#3f51b5', fontSize: '0.72rem', borderRadius: '6px' }}>
+          View
+        </Button>
+      ) : <Typography sx={{ color: '#9e9e9e' }}>N/A</Typography>,
+    },
+    {
+      field: "candidateAgreement", headerName: "Agreement", width: 130,
+      renderCell: (p) => p.value ? (
+        <Button variant="outlined" size="small" href={p.value} target="_blank" rel="noopener noreferrer"
+          sx={{ borderColor: '#3f51b5', color: '#3f51b5', fontSize: '0.72rem', borderRadius: '6px' }}>
+          View
+        </Button>
+      ) : <Typography sx={{ color: '#9e9e9e' }}>N/A</Typography>,
+    },
+    {
+      field: "resumeLink", headerName: "Resume", width: 120,
+      renderCell: (p) => p.value ? (
+        <Button variant="outlined" size="small" href={p.value} target="_blank" rel="noopener noreferrer"
+          sx={{ borderColor: '#3f51b5', color: '#3f51b5', fontSize: '0.72rem', borderRadius: '6px' }}>
+          View
+        </Button>
+      ) : <Typography sx={{ color: '#9e9e9e' }}>N/A</Typography>,
+    },
   ];
 
+  const filteredJobs = searchQuery.trim()
+    ? jobs.filter((job) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          (job.jobTitle || '').toLowerCase().includes(q) ||
+          (job.companyName || '').toLowerCase().includes(q) ||
+          (job.jobLocation || '').toLowerCase().includes(q) ||
+          (job.experience || '').toLowerCase().includes(q) ||
+          (job.salary || '').toLowerCase().includes(q) ||
+          (job.jobTiming || '').toLowerCase().includes(q) ||
+          (job.weekOff || '').toLowerCase().includes(q)
+        );
+      })
+    : jobs;
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <Box sx={{ display: 'flex', height: '100vh', backgroundColor: '#f0f2f8', overflow: 'hidden' }}>
       {/* Sidebar */}
       <div style={{
         position: 'fixed',
@@ -1376,236 +1367,452 @@ const JobListWithCandidates = () => {
       </div>
 
       {/* Main Content */}
-      <div style={{
-        flex: 1,
-        marginLeft: '250px',
-        width: 'calc(100% - 250px)',
-      }}>
-        {/* Navbar */}
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          right: 0,
-          left: '250px',
-          zIndex: 999,
-          backgroundColor: 'white',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}>
-          <Navbar />
-        </div>
+      <Box sx={{ flexGrow: 1, ml: '250px', display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+        <Navbar />
 
-        {/* Content */}
-        <Box sx={{
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          padding: '24px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginTop: '64px',
-          margin: '84px 24px 24px 24px'
-        }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h5" sx={{
-              color: '#3f51b5',
-              fontWeight: 'bold',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1
+        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3 }}>
+
+          {/* â”€â”€ Header Card â”€â”€ */}
+          <Box sx={{
+            background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
+            borderRadius: '16px',
+            p: 3,
+            mb: 3,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 8px 32px rgba(63,81,181,0.25)',
+          }}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Box sx={{
+                width: 52, height: 52, borderRadius: '14px',
+                bgcolor: 'rgba(255,255,255,0.18)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <WorkOutlineIcon sx={{ color: '#fff', fontSize: 28 }} />
+              </Box>
+              <Box>
+                <Typography variant="h5" fontWeight={800} color="#fff" letterSpacing="-0.3px">
+                  Job Listings
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)', mt: 0.3 }}>
+                  Manage job openings and their candidates
+                </Typography>
+              </Box>
+            </Box>
+            <Box sx={{
+              bgcolor: 'rgba(255,255,255,0.18)',
+              border: '2px solid rgba(255,255,255,0.4)',
+              borderRadius: '12px', px: 2.5, py: 1, textAlign: 'center',
             }}>
-              <WorkIcon /> Job Listings
-            </Typography>
-            <Chip
-              label={`Total Jobs: ${jobs.length}`}
-              color="primary"
-              sx={{
-                backgroundColor: '#3f51b5',
-                color: 'white',
-                fontWeight: 'medium'
-              }}
-            />
-          </Stack>
+              <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+                {jobs.length}
+              </Typography>
+              <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600, mt: 0.2 }}>
+                Total Jobs
+              </Typography>
+            </Box>
+          </Box>
 
-          <div style={{ height: 'calc(100vh - 220px)', width: '100%' }}>
-            <DataGrid
-              rows={jobs}
-              columns={jobColumns}
-              getRowId={(row) => row._id}
-              pageSize={10}
-              rowsPerPageOptions={[10, 25, 50]}
-              disableSelectionOnClick
+          {/* â”€â”€ Stats Row â”€â”€ */}
+          <Box display="flex" gap={2} mb={3} flexWrap="wrap">
+            {[
+              { label: 'Total Jobs', value: jobs.length, icon: <WorkOutlineIcon />, color: '#3f51b5', bg: '#e8eaf6' },
+              { label: 'Companies', value: new Set(jobs.map(j => j.companyName)).size, icon: <BusinessIcon />, color: '#0288d1', bg: '#e1f5fe' },
+              { label: 'Locations', value: new Set(jobs.map(j => j.jobLocation).filter(Boolean)).size, icon: <LocationOnIcon />, color: '#388e3c', bg: '#e8f5e9' },
+              { label: 'Total Openings', value: jobs.reduce((s, j) => s + (Number(j.numberOfRequirements) || 0), 0), icon: <PeopleIcon />, color: '#f57c00', bg: '#fff3e0' },
+            ].map(({ label, value, icon, color, bg }) => (
+              <Box key={label} sx={{
+                flex: '1 1 160px', minWidth: 150,
+                bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '14px',
+                p: 2, display: 'flex', alignItems: 'center', gap: 1.5,
+                boxShadow: '0 2px 12px rgba(63,81,181,0.07)',
+              }}>
+                <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>
+                  {React.cloneElement(icon, { fontSize: 'small' })}
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight={800} color="#1e293b" lineHeight={1}>{value}</Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={500}>{label}</Typography>
+                </Box>
+              </Box>
+            ))}
+          </Box>
+
+          {/* ── Search Bar ── */}
+          <Box mb={2.5}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by job title, company, location, experience, salary..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: '#3f51b5', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchQuery('')}>
+                      <CloseIcon sx={{ fontSize: 18, color: '#9e9e9e' }} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
+              }}
               sx={{
-                border: 'none',
-                '& .MuiDataGrid-cell': {
-                  borderColor: '#e0e0e0',
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: '#f5f5f5',
-                  borderColor: '#e0e0e0',
-                  '& .MuiDataGrid-columnHeaderTitle': {
-                    fontWeight: 'bold',
-                    color: '#3f51b5',
-                    textAlign: 'center',
-                    width: '100%',
-                  },
-                },
-                '& .MuiDataGrid-row:hover': {
-                  backgroundColor: 'rgba(63, 81, 181, 0.04)',
-                },
-                '& .MuiDataGrid-virtualScroller': {
-                  overflowY: 'auto',
-                  '&::-webkit-scrollbar': {
-                    width: '8px',
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    background: '#f1f1f1',
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    background: '#888',
-                    borderRadius: '4px',
-                  },
-                  '&::-webkit-scrollbar-thumb:hover': {
-                    background: '#555',
-                  },
-                },
-                '& .MuiDataGrid-footerContainer': {
-                  borderTop: '1px solid #e0e0e0',
-                  backgroundColor: '#f5f5f5',
-                  position: 'sticky',
-                  bottom: 0,
-                  zIndex: 1,
+                bgcolor: '#fff',
+                borderRadius: '12px',
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                  '& fieldset': { borderColor: '#c5cae9' },
+                  '&:hover fieldset': { borderColor: '#9fa8da' },
+                  '&.Mui-focused fieldset': { borderColor: '#3f51b5' },
                 },
               }}
             />
-          </div>
+          </Box>
+
+          {/* Job Cards Section header */}
+          <Box sx={{
+            px: 2.5, py: 1.5, mb: 2,
+            background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
+            borderRadius: '12px',
+            border: '1px solid #c5cae9',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <Box sx={{ width: 4, height: 18, bgcolor: '#3f51b5', borderRadius: 2 }} />
+              <Typography variant="subtitle2" fontWeight={700} color="#3f51b5" textTransform="uppercase" letterSpacing="0.06em">
+                All Job Openings
+              </Typography>
+            </Box>
+            <Chip
+              label={`${filteredJobs.length} records`}
+              size="small"
+              sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 700, fontSize: '0.75rem' }}
+            />
+          </Box>
+
+          {/* Job Cards Grid */}
+          <Grid container spacing={2.5}>
+            {filteredJobs.map((job) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={job._id}>
+                <Paper elevation={0} sx={{
+                  border: '1px solid #e8eaf6',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'all 0.22s ease',
+                  '&:hover': {
+                    boxShadow: '0 8px 32px rgba(63,81,181,0.14)',
+                    borderColor: '#9fa8da',
+                    transform: 'translateY(-2px)',
+                  },
+                }}>
+                  {/* Card top accent */}
+                  <Box sx={{ height: 4, background: 'linear-gradient(90deg, #3f51b5, #7986cb)' }} />
+
+                  <Box sx={{ p: 2.5, flexGrow: 1 }}>
+                    {/* Job title + company */}
+                    <Box display="flex" alignItems="flex-start" justifyContent="space-between" mb={1.5}>
+                      <Box sx={{ flexGrow: 1, pr: 1 }}>
+                        <Typography variant="subtitle1" fontWeight={700} color="#1e293b" lineHeight={1.3}
+                          sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {job.jobTitle}
+                        </Typography>
+                        <Box display="flex" alignItems="center" gap={0.5} mt={0.4}>
+                          <BusinessIcon sx={{ fontSize: 13, color: '#64748b' }} />
+                          <Typography variant="caption" color="text.secondary" fontWeight={500} noWrap>
+                            {job.companyName}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      <Chip
+                        label={job.numberOfRequirements || 0}
+                        size="small"
+                        sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 800, fontSize: '0.78rem', minWidth: 32 }}
+                      />
+                    </Box>
+
+                    <Divider sx={{ mb: 1.5, borderColor: '#f0f2ff' }} />
+
+                    {/* Info rows */}
+                    <Stack spacing={0.9}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <LocationOnIcon sx={{ fontSize: 14, color: '#388e3c', flexShrink: 0 }} />
+                        <Typography variant="caption" color="#334155" noWrap>{job.jobLocation || '—'}</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <AccessTimeIcon sx={{ fontSize: 14, color: '#f57c00', flexShrink: 0 }} />
+                        <Typography variant="caption" color="#334155" noWrap>{job.jobTiming || '—'}</Typography>
+                      </Box>
+                      {job.weekOff && (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <EventNoteIcon sx={{ fontSize: 14, color: '#e53935', flexShrink: 0 }} />
+                          <Typography variant="caption" color="#334155" noWrap>Week Off: {job.weekOff}</Typography>
+                        </Box>
+                      )}
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <CurrencyRupeeIcon sx={{ fontSize: 14, color: '#7b1fa2', flexShrink: 0 }} />
+                        <Typography variant="caption" color="#334155" noWrap>{job.salary || '—'}</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <WorkOutlineIcon sx={{ fontSize: 14, color: '#0288d1', flexShrink: 0 }} />
+                        <Typography variant="caption" color="#334155" noWrap>{job.experience || '—'}</Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+
+                  {/* Card footer */}
+                  <Box sx={{ px: 2.5, pb: 2.5 }}>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={() => handleOpenModal(job)}
+                      startIcon={<PeopleIcon sx={{ fontSize: '16px !important' }} />}
+                      sx={{
+                        background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
+                        '&:hover': { background: 'linear-gradient(135deg, #303f9f, #3f51b5)' },
+                        borderRadius: '10px',
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        py: 1,
+                        boxShadow: '0 4px 12px rgba(63,81,181,0.3)',
+                      }}
+                    >
+                      View Candidates ({job.candidateCount || 0})
+                    </Button>
+                  </Box>
+                </Paper>
+              </Grid>
+            ))}
+
+            {filteredJobs.length === 0 && (
+              <Grid item xs={12}>
+                <Box sx={{ textAlign: 'center', py: 8, color: '#94a3b8' }}>
+                  <SearchIcon sx={{ fontSize: 56, mb: 1, opacity: 0.4 }} />
+                  <Typography variant="body1" fontWeight={500}>
+                    {searchQuery ? `No jobs found for "${searchQuery}"` : 'No job openings found'}
+                  </Typography>
+                  {searchQuery && (
+                    <Button size="small" onClick={() => setSearchQuery('')}
+                      sx={{ mt: 1, color: '#3f51b5', textTransform: 'none' }}>
+                      Clear search
+                    </Button>
+                  )}
+                </Box>
+              </Grid>
+            )}
+          </Grid>
         </Box>
+      </Box>
 
         <Modal open={modalOpen} onClose={handleCloseModal}>
-          <Box sx={{ ...modalStyle, p: 3 }}>
+          <Box sx={modalStyle}>
             {selectedJob && (
               <>
-                <Typography variant="h6" mb={2} fontWeight="bold" color="primary">
-                  <WorkIcon sx={{ mr: 1 }} /> Job Details
-                </Typography>
+                {/* Modal Header */}
+                <Box sx={{
+                  background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
+                  borderRadius: '12px',
+                  p: 2.5,
+                  mb: 2.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  boxShadow: '0 4px 16px rgba(63,81,181,0.2)',
+                }}>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <Box sx={{
+                      width: 42, height: 42, borderRadius: '10px',
+                      bgcolor: 'rgba(255,255,255,0.18)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <WorkOutlineIcon sx={{ color: '#fff', fontSize: 22 }} />
+                    </Box>
+                    <Box>
+                      <Typography variant="h6" fontWeight={800} color="#fff" lineHeight={1.2}>
+                        {selectedJob.jobTitle}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                        {selectedJob.companyName} &bull; {selectedJob.jobLocation}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Chip
+                    label={`${candidates.length} Candidates`}
+                    size="small"
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, border: '1px solid rgba(255,255,255,0.4)' }}
+                  />
+                  <IconButton
+                    onClick={handleCloseModal}
+                    size="small"
+                    sx={{
+                      color: '#fff',
+                      bgcolor: 'rgba(255,255,255,0.15)',
+                      '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' },
+                      ml: 1,
+                    }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
 
                 {/* Job Info Grid */}
-                <Grid container spacing={1}>
+                <Grid container spacing={1.5} mb={2}>
                   {[
-                    { label: 'Job Title', value: selectedJob.jobTitle, icon: <WorkIcon /> },
-                    { label: 'Company', value: selectedJob.companyName, icon: <BusinessIcon /> },
-                    { label: 'Location', value: selectedJob.jobLocation, icon: <LocationOnIcon /> },
-                    { label: 'Requirements', value: selectedJob.numberOfRequirements, icon: <PeopleIcon /> },
-                    { label: 'Salary', value: selectedJob.salary, icon: <CurrencyRupeeIcon /> },
-                    { label: 'Contact', value: selectedJob.contactName },
-                    { label: 'Email', value: selectedJob.email },
-                    { label: 'Phone', value: selectedJob.phoneNumber },
-                    { label: 'Education', value: selectedJob.education },
-                    { label: 'Experience', value: selectedJob.experience },
+                    { label: 'Job Title', value: selectedJob.jobTitle, icon: <WorkIcon fontSize="small" />, color: '#3f51b5', bg: '#e8eaf6' },
+                    { label: 'Company', value: selectedJob.companyName, icon: <BusinessIcon fontSize="small" />, color: '#0288d1', bg: '#e1f5fe' },
+                    { label: 'Location', value: selectedJob.jobLocation, icon: <LocationOnIcon fontSize="small" />, color: '#388e3c', bg: '#e8f5e9' },
+                    { label: 'Requirements', value: selectedJob.numberOfRequirements, icon: <PeopleIcon fontSize="small" />, color: '#f57c00', bg: '#fff3e0' },
+                    { label: 'Salary', value: selectedJob.salary, icon: <CurrencyRupeeIcon fontSize="small" />, color: '#7b1fa2', bg: '#f3e5f5' },
+                    { label: 'Contact', value: selectedJob.contactName, icon: <BadgeIcon fontSize="small" />, color: '#0288d1', bg: '#e1f5fe' },
+                    { label: 'Email', value: selectedJob.email, icon: <DescriptionIcon fontSize="small" />, color: '#388e3c', bg: '#e8f5e9' },
+                    { label: 'Phone', value: selectedJob.phoneNumber, icon: <BadgeIcon fontSize="small" />, color: '#f57c00', bg: '#fff3e0' },
+                    { label: 'Education', value: selectedJob.education, icon: <WorkOutlineIcon fontSize="small" />, color: '#3f51b5', bg: '#e8eaf6' },
+                    { label: 'Experience', value: selectedJob.experience, icon: <AccessTimeIcon fontSize="small" />, color: '#7b1fa2', bg: '#f3e5f5' },
+                    { label: 'Week Off', value: selectedJob.weekOff, icon: <EventNoteIcon fontSize="small" />, color: '#e53935', bg: '#ffebee' },
                   ].map((item, idx) => (
                     <Grid item xs={6} sm={4} md={1.2} key={idx}>
-                      <Paper
-                        elevation={0}
-                        sx={{
-                          p: 1,
-                          height: '100%',
-                          border: '1px solid #e0e0e0',
-                          borderRadius: 1,
-                          '&:hover': {
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                            borderColor: '#3f51b5',
-                          }
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                          {item.icon}
-                          <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5, fontSize: '0.7rem' }}>
+                      <Paper elevation={0} sx={{
+                        p: 1.5, height: '100%',
+                        border: '1px solid #e8eaf6', borderRadius: '10px',
+                        transition: 'all 0.2s',
+                        '&:hover': { boxShadow: '0 4px 12px rgba(63,81,181,0.12)', borderColor: '#9fa8da' }
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                          <Box sx={{ color: item.color, display: 'flex' }}>{item.icon}</Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                             {item.label}
                           </Typography>
                         </Box>
-                        <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.8rem' }} noWrap>
-                          {item.value}
+                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', color: '#1e293b' }} noWrap>
+                          {item.value || 'â€”'}
                         </Typography>
                       </Paper>
                     </Grid>
                   ))}
+
+                  {/* Job Details button */}
+                  <Grid item xs={6} sm={4} md={1.2}>
+                    <Paper
+                      elevation={0}
+                      onClick={handleOpen}
+                      sx={{
+                        p: 1.5, height: '100%', cursor: 'pointer',
+                        border: '1px solid #c5cae9', borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.5,
+                        transition: 'all 0.2s',
+                        '&:hover': { boxShadow: '0 4px 12px rgba(63,81,181,0.18)', borderColor: '#9fa8da', background: 'linear-gradient(135deg, #c5cae9, #e8eaf6)' }
+                      }}
+                    >
+                      <DescriptionIcon sx={{ fontSize: 20, color: '#3f51b5' }} />
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', fontSize: '0.68rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Key Responsibility
+                      </Typography>
+                    </Paper>
+                  </Grid>
+
+                  {/* View JD PDF button — only if descriptionFile exists */}
+                  {selectedJob.descriptionFile && (
+                    <Grid item xs={6} sm={4} md={1.2}>
+                      <Paper
+                        elevation={0}
+                        onClick={() => window.open(selectedJob.descriptionFile, '_blank')}
+                        sx={{
+                          p: 1.5, height: '100%', cursor: 'pointer',
+                          border: '1px solid #fca5a5', borderRadius: '10px',
+                          background: 'linear-gradient(135deg, #fff1f2, #ffe4e6)',
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.5,
+                          transition: 'all 0.2s',
+                          '&:hover': { boxShadow: '0 4px 12px rgba(239,68,68,0.18)', borderColor: '#f87171', background: 'linear-gradient(135deg, #ffe4e6, #fecdd3)' }
+                        }}
+                      >
+                        <PictureAsPdfIcon sx={{ fontSize: 20, color: '#ef4444' }} />
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#ef4444', fontSize: '0.68rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          View JD
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                  )}
                 </Grid>
 
-                {/* Responsibilities and Description */}
-                <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      Key Responsibilities
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                      {selectedJob.keyResponsibility}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      Job Description
-                    </Typography>
-                    {selectedJob.description?.endsWith('.pdf') ? (
-                      <>
-                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>PDF file uploaded</Typography>
-                        <Button
-                          onClick={() => window.open(selectedJob.description, '_blank')}
-                          size="small"
-                          variant="outlined"
-                          sx={{ mt: 0.5, fontSize: '0.7rem' }}
-                        >
-                          View Full Job Description
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Typography variant="body2" sx={{ fontSize: '0.8rem' }} noWrap>
-                          {selectedJob.description?.slice(0, 100)}...
-                        </Typography>
-                        <Button onClick={handleOpen} size="small" variant="outlined" sx={{ mt: 0.5, fontSize: '0.7rem' }}>
-                          View Full Description
-                        </Button>
-                      </>
-                    )}
-                  </Box>
-                </Box>
-
-                {/* Dialog for Full Description */}
+                {/* Combined Dialog: Key Responsibilities + Job Description */}
                 <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
-                  <DialogTitle>Job Description</DialogTitle>
-                  <DialogContent dividers>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                      {selectedJob.description}
-                    </Typography>
+                  <DialogTitle sx={{
+                    background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
+                    color: '#fff', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    py: 1.5, px: 2.5,
+                  }}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <DescriptionIcon sx={{ fontSize: 20 }} />
+                      <Typography variant="h6" fontWeight={700} fontSize="1rem">
+                        Key Responsibility
+                      </Typography>
+                    </Box>
+                    <IconButton size="small" onClick={handleClose}
+                      sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' } }}>
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </DialogTitle>
+                  <DialogContent dividers sx={{ p: 0 }}>
+                    <Box sx={{ p: 2.5, borderBottom: '1px solid #e8eaf6' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 1 }}>
+                        Key Responsibilities
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                        {selectedJob.keyResponsibility || '—'}
+                      </Typography>
+                    </Box>
+                   
                   </DialogContent>
-                  <DialogActions>
-                    <Button onClick={handleClose} variant="contained">Close</Button>
+                  <DialogActions sx={{ p: 2, bgcolor: '#f5f6ff' }}>
+                    <Button onClick={handleClose} variant="contained"
+                      sx={{ bgcolor: '#3f51b5', '&:hover': { bgcolor: '#303f9f' }, borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
+                      Close
+                    </Button>
                   </DialogActions>
                 </Dialog>
 
-                {/* Candidates Grid */}
-                <Typography variant="h6" mt={4} mb={2} fontWeight="bold" color="primary">
-                  <PeopleIcon sx={{ mr: 1 }} /> Candidates
-                </Typography>
+                {/* Candidates Section Header */}
+                <Box sx={{
+                  px: 2, py: 1.5,
+                  background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
+                  borderRadius: '10px 10px 0 0',
+                  border: '1px solid #c5cae9',
+                  borderBottom: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Box sx={{ width: 4, height: 18, bgcolor: '#3f51b5', borderRadius: 2 }} />
+                    <Typography variant="subtitle2" fontWeight={700} color="#3f51b5" textTransform="uppercase" letterSpacing="0.06em">
+                      Candidates
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={`${candidates.length} records`}
+                    size="small"
+                    sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 700, fontSize: '0.75rem' }}
+                  />
+                </Box>
 
-                <div style={{ height: 'calc(100vh - 400px)', width: '100%' }}>
+                <Box sx={{ border: '1px solid #c5cae9', borderRadius: '0 0 10px 10px', height: 'calc(100vh - 320px)', overflow: 'hidden' }}>
                   <DataGrid
                     rows={candidates}
-                    columns={candidateColumns.map((col) => ({
-                      ...col,
-                      flex: col.field === "rescheduleReason" ? col.flex : undefined,
-                      minWidth: col.minWidth || 150,
-                      width: col.width || 150,
-                    }))}
+                    columns={candidateColumns}
                     getRowId={(row) => row.uniqueEntryId || row._id}
                     pageSize={10}
                     rowsPerPageOptions={[10, 25, 50, 100]}
                     disableSelectionOnClick
                     density="compact"
-                    getRowHeight={() => 'auto'}
-                    components={{
-                      Toolbar: GridToolbar,
-                    }}
+                    components={{ Toolbar: GridToolbar }}
                     componentsProps={{
                       toolbar: {
                         showQuickFilter: true,
@@ -1614,354 +1821,704 @@ const JobListWithCandidates = () => {
                     }}
                     sx={{
                       border: 'none',
+                      height: '100%',
+                      '& .MuiDataGrid-columnHeaders': {
+                        background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
+                        borderBottom: '2px solid #c5cae9',
+                      },
+                      '& .MuiDataGrid-columnHeaderTitle': {
+                        fontWeight: 700, color: '#3f51b5', fontSize: '0.75rem',
+                        textTransform: 'uppercase', letterSpacing: '0.04em',
+                      },
                       '& .MuiDataGrid-cell': {
-                        whiteSpace: 'normal',
-                        lineHeight: '1.5',
-                        fontSize: '0.95rem',
-                        padding: '12px 16px',
+                        fontSize: '0.82rem', color: '#334155',
+                        borderBottom: '1px solid #f0f2ff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        '&:focus, &:focus-within': { outline: 'none' },
                       },
                       '& .MuiDataGrid-row': {
-                        '&:hover': {
-                          backgroundColor: 'rgba(63, 81, 181, 0.04)',
-                        },
+                        maxHeight: 'none !important',
                       },
-                      '& .MuiDataGrid-columnHeaders': {
-                        backgroundColor: '#f5f5f5',
-                        fontWeight: 'bold',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1,
-                      },
-                      '& .MuiDataGrid-virtualScroller': {
-                        '&::-webkit-scrollbar': {
-                          width: '8px',
-                          height: '8px',
-                        },
-                        '&::-webkit-scrollbar-track': {
-                          background: '#f1f1f1',
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                          background: '#888',
-                          borderRadius: '4px',
-                        },
-                        '&::-webkit-scrollbar-thumb:hover': {
-                          background: '#555',
-                        },
-                      },
-                      '& .MuiDataGrid-footerContainer': {
-                        borderTop: '1px solid #e0e0e0',
-                        backgroundColor: '#f5f5f5',
-                        position: 'sticky',
-                        bottom: 0,
-                        zIndex: 1,
-                      },
+                      '& .MuiDataGrid-row:hover': { bgcolor: '#f5f6ff' },
                       '& .MuiDataGrid-toolbarContainer': {
-                        padding: '8px',
-                        backgroundColor: '#f5f5f5',
-                        borderBottom: '1px solid #e0e0e0',
-                      },
-                      '& .MuiDataGrid-toolbarContainer button': {
-                        color: '#3f51b5',
-                        '&:hover': {
-                          backgroundColor: 'rgba(63, 81, 181, 0.04)',
-                        },
+                        px: 2, py: 1,
+                        background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
+                        borderBottom: '1px solid #c5cae9',
+                        '& button': { color: '#3f51b5' },
                       },
                       '& .MuiDataGrid-footerContainer': {
-                        borderTop: '1px solid #e0e0e0',
-                        padding: '8px 16px',
-                        justifyContent: 'flex-end',
-                        '& .MuiTablePagination-root': {
-                          marginLeft: 'auto',
-                        },
-                        '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                          margin: 0,
-                        },
+                        borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff',
                       },
-                      '& .MuiDataGrid-columnSeparator': {
-                        display: 'none',
+                      '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': { height: 7, width: 7 },
+                      '& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb': {
+                        background: '#9fa8da', borderRadius: 4,
                       },
-                      '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': {
-                        outline: 'none',
-                      },
-                      '& .MuiDataGrid-main': {
-                        overflow: 'auto',
-                      },
-                      '& .MuiDataGrid-virtualScrollerContent': {
-                        minWidth: '1600px',
-                      },
+                      '& .MuiDataGrid-virtualScrollerContent': { minWidth: '1600px' },
                     }}
                   />
-                </div>
+                </Box>
               </>
             )}
           </Box>
         </Modal>
 
-        {/* Edit Modal */}
+        {/* Edit Modal — Step-by-step wizard */}
         <Modal
           open={editModalOpen}
           onClose={() => setEditModalOpen(false)}
           aria-labelledby="edit-candidate-modal"
         >
           <Box sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
+            position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
-            width: 400,
-            bgcolor: 'background.paper',
-            boxShadow: 24,
-            p: 4,
-            borderRadius: 2,
+            width: 900, bgcolor: 'background.paper',
+            boxShadow: '0 24px 64px rgba(63,81,181,0.18)',
+            borderRadius: 3, overflow: 'hidden',
+            border: '1px solid #e8eaf6',
           }}>
-            <Typography variant="h6" component="h2" mb={3}>
-              Edit Candidate Details
-            </Typography>
+            {/* Modal Header */}
+            <Box sx={{
+              background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
+              px: 3, py: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Box sx={{ width: 36, height: 36, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <EditIcon sx={{ color: '#fff', fontSize: 20 }} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={700} color="#fff" lineHeight={1.2}>
+                    Add Candidate Details
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                    {selectedCandidate?.candidateName} &bull; Step {activeStep + 1} of 7
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton size="small" onClick={() => setEditModalOpen(false)}
+                sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' } }}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
 
-            <Stack spacing={3}>
-              <TextField
-                label="Interview Date"
-                type="date"
-                value={editFormData.interviewDate}
-                onChange={(e) => handleEditFormChange('interviewDate', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
+            {/* Step Progress Bar */}
+            {(() => {
+              const steps = [
+                { label: 'Internal Interview', done: !!(editFormData.internalInterviewDate && editFormData.interviewByWhom) },
+                { label: 'Resume & Lineup',    done: !!(editFormData.resumeSubmitDate && editFormData.lineupStatus) },
+                { label: 'Interview Rounds',   done: !!(editFormData.interviewRounds?.some(r => r.roundDate)) },
+                { label: 'Outcome',            done: !!(editFormData.interviewStatus) },
+                { label: 'Offer',              done: !!(editFormData.offeredSalary && editFormData.offeredStatus) },
+                { label: 'Selection',          done: !!(editFormData.selectionStatus) },
+                { label: 'Joining',            done: !!(editFormData.joiningDateStatus) },
+              ];
+              return (
+                <Box sx={{ px: 3, pt: 2, pb: 1, bgcolor: '#f8f9ff', borderBottom: '1px solid #e8eaf6' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                    {steps.map((s, i) => {
+                      const isActive = activeStep === i;
+                      const isDone   = s.done;
+                      const isLocked = i > 0 && !steps[i - 1].done;
+                      return (
+                        <React.Fragment key={i}>
+                          <Box
+                            onClick={() => { if (!isLocked) setActiveStep(i); }}
+                            sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.4 : 1, minWidth: 80 }}
+                          >
+                            <Box sx={{
+                              width: 28, height: 28, borderRadius: '50%',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontWeight: 700, fontSize: '0.75rem',
+                              bgcolor: isDone ? '#4caf50' : isActive ? '#3f51b5' : '#e8eaf6',
+                              color: isDone || isActive ? '#fff' : '#9fa8da',
+                              border: isActive ? '2px solid #3f51b5' : isDone ? '2px solid #4caf50' : '2px solid #e8eaf6',
+                              transition: 'all 0.2s',
+                            }}>
+                              {isDone ? '✓' : i + 1}
+                            </Box>
+                            <Typography sx={{ fontSize: '0.6rem', fontWeight: isActive ? 700 : 500, mt: 0.4, color: isDone ? '#4caf50' : isActive ? '#3f51b5' : '#9fa8da', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              {s.label}
+                            </Typography>
+                          </Box>
+                          {i < steps.length - 1 && (
+                            <Box sx={{ flex: 1, height: 2, mb: 2.5, bgcolor: steps[i].done ? '#4caf50' : '#e8eaf6', transition: 'background 0.3s' }} />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </Box>
+                </Box>
+              );
+            })()}
 
+            {/* Step Content */}
+            <Box sx={{ p: 3, maxHeight: '58vh', overflowY: 'auto',
+              '&::-webkit-scrollbar': { width: 6 },
+              '&::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 3 },
+            }}>
+            <Stack spacing={2.5}>
 
+              {/* STEP 0 - Internal Interview */}
+              {activeStep === 0 && (<>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Internal Interview
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Internal Interview Date *" type="date" size="small" fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.internalInterviewDate}
+                    onChange={e => handleEditFormChange('internalInterviewDate', e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label="Interview By Whom *" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.interviewByWhom}
+                    onChange={e => handleEditFormChange('interviewByWhom', e.target.value)}>
+                    <MenuItem value=""><em>Select HR</em></MenuItem>
+                    {hrUsers.map(hr => (
+                      <MenuItem key={hr._id} value={hr._id}>{hr.firstName + ' ' + hr.lastName}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label="Candidate Review" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.candidateReview}
+                    onChange={e => handleEditFormChange('candidateReview', e.target.value)}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {[{ v: 'Green', c: '#4caf50' }, { v: 'Yellow', c: '#ff9800' }, { v: 'Red', c: '#f44336' }].map(({ v, c }) => (
+                      <MenuItem key={v} value={v}>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: c, flexShrink: 0 }} />
+                          {v}
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField label="Candidate Remarks" multiline rows={2} size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.candidateRemark}
+                    onChange={e => handleEditFormChange('candidateRemark', e.target.value)} />
+                </Grid>
+              </Grid>
+              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
+                * Fill Internal Interview Date and Interview By Whom to unlock next step
+              </Typography>
+              </>)}
 
+              {/* STEP 1 - Resume and Lineup */}
+              {activeStep === 1 && (<>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Resume &amp; Lineup
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Resume Submit Date *" type="date" size="small" fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.resumeSubmitDate}
+                    onChange={e => handleEditFormChange('resumeSubmitDate', e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label="Lineup Status *" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.lineupStatus}
+                    onChange={e => handleEditFormChange('lineupStatus', e.target.value)}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {['Pending','Shortlisted','Scheduled','Completed','Cancelled'].map(o => (
+                      <MenuItem key={o} value={o}>{o}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Remarks 1" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.remarks1}
+                    onChange={e => handleEditFormChange('remarks1', e.target.value)} />
+                </Grid>
+              </Grid>
+              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
+                * Fill Resume Submit Date and Lineup Status to unlock next step
+              </Typography>
+              </>)}
 
+              {/* STEP 2 - Interview Rounds */}
+              {activeStep === 2 && (<>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                  Interview Rounds
+                </Typography>
+                <Button size="small" variant="outlined"
+                  onClick={() => handleEditFormChange('interviewRounds', [
+                    ...editFormData.interviewRounds,
+                    { roundName: 'Round ' + (editFormData.interviewRounds.length + 1), roundDate: '', roundTime: '', interviewMode: 'Face To Face', interviewedByWhom: '' }
+                  ])}
+                  sx={{ borderRadius: '8px', fontSize: '0.72rem', borderColor: '#3f51b5', color: '#3f51b5', textTransform: 'none' }}>
+                  + Add Round
+                </Button>
+              </Box>
+              {editFormData.interviewRounds?.map((round, idx) => (
+                <Box key={idx} sx={{ p: 2, bgcolor: '#f8f9ff', borderRadius: '10px', border: '1px solid #e8eaf6' }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                    <TextField select label="Select Round" value={round.roundName} size="small"
+                      onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundName = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                      sx={{ width: 160, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}>
+                      {['Round 1','Round 2','Round 3','Round 4','HR Round','Final Round'].map(r => (
+                        <MenuItem key={r} value={r}>{r}</MenuItem>
+                      ))}
+                    </TextField>
+                    {editFormData.interviewRounds.length > 1 && (
+                      <Button size="small" color="error"
+                        onClick={() => handleEditFormChange('interviewRounds', editFormData.interviewRounds.filter((_, i) => i !== idx))}
+                        sx={{ fontSize: '0.72rem', textTransform: 'none' }}>Remove</Button>
+                    )}
+                  </Box>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6} sm={3}>
+                      <TextField label="Date *" type="date" value={round.roundDate} size="small" fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundDate = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField label="Time" type="time" value={round.roundTime} size="small" fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundTime = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField select label="Interview Mode" value={round.interviewMode} size="small" fullWidth
+                        onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].interviewMode = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}>
+                        {['Face To Face','Telephonic','Video Call','Other'].map(m => (
+                          <MenuItem key={m} value={m}>{m}</MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField label="Interviewed By Whom" value={round.interviewedByWhom} size="small" fullWidth
+                        onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].interviewedByWhom = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                    </Grid>
+                  </Grid>
+                </Box>
+              ))}
+              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
+                * Set at least one round date to unlock next step
+              </Typography>
+              </>)}
 
-            
+              {/* STEP 3 - Interview Outcome */}
+              {activeStep === 3 && (<>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Interview Outcome
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label="Interview Status *" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.interviewStatus}
+                    onChange={e => handleEditFormChange('interviewStatus', e.target.value)}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {['On Discussion','Selected','On Hold','Trail','Rejected'].map(o => (
+                      <MenuItem key={o} value={o}>{o}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                {editFormData.interviewStatus === 'Trail' && (
+                  <Grid item xs={12} sm={4}>
+                    <TextField label="No. of Trail Days" type="number" size="small" fullWidth
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                      value={editFormData.trailDays}
+                      onChange={e => handleEditFormChange('trailDays', e.target.value.replace(/D/g, ''))}
+                      inputProps={{ min: 1 }} />
+                  </Grid>
+                )}
+                <Grid item xs={12} sm={editFormData.interviewStatus === 'Trail' ? 4 : 8}>
+                  <TextField label="Remarks 2" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    disabled={!['On Hold','Rejected'].includes(editFormData.interviewStatus)}
+                    value={editFormData.remarks2}
+                    onChange={e => handleEditFormChange('remarks2', e.target.value)}
+                    placeholder={['On Hold','Rejected'].includes(editFormData.interviewStatus) ? '' : 'Active when On Hold or Rejected'} />
+                </Grid>
+              </Grid>
+              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
+                * Select Interview Status to unlock next step
+              </Typography>
+              </>)}
 
-              <TextField
-                label="Salary Offered"
-                placeholder="e.g. 20000, 10k per month, Negotiable"
-                value={editFormData.salaryOffered}
-                onChange={(e) => handleEditFormChange('salaryOffered', e.target.value)}
-                fullWidth
-              />
-
-              <TextField
-                select
-                label="Offer Status"
-                value={editFormData.offerStatus}
-                onChange={(e) => handleEditFormChange('offerStatus', e.target.value)}
-                fullWidth
-              >
-                {['Rejected','Accepted', 'Offered', 'Not Offered'].map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-
-              <TextField
-                select
-                label="Lineup Status"
-                value={editFormData.lineupStatus}
-                onChange={(e) => handleEditFormChange('lineupStatus', e.target.value)}
-                fullWidth
-              >
-                {['Pending', 'Scheduled', 'Completed', 'Cancelled'].map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Selection Status"
-                value={editFormData.selectionStatus}
-                onChange={(e) => handleEditFormChange('selectionStatus', e.target.value)}
-                fullWidth
-              >
-                {['Yes', 'No'].map((option) => (
-                  <MenuItem key={option} value={option}>
-                    {option}
-                  </MenuItem>
-                ))}
-              </TextField>
-
-              {editFormData.selectionStatus === 'Yes' && (
-                <TextField
-                  label="Selection Date"
-                  type="date"
-                  value={editFormData.selectionDate}
-                  onChange={(e) => handleEditFormChange('selectionDate', e.target.value)}
-                  InputLabelProps={{ shrink: true }}
-                  fullWidth
-                />
-              )}
-
-              <TextField
-                label="Joining Date"
-                type="date"
-                value={editFormData.joiningDate}
-                onChange={(e) => handleEditFormChange('joiningDate', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>
+              {/* STEP 4 - Offer Details */}
+              {activeStep === 4 && (<>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Offer Details
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Offered Salary *" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.offeredSalary}
+                    onChange={e => handleEditFormChange('offeredSalary', e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label="Offered Status *" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.offeredStatus}
+                    onChange={e => handleEditFormChange('offeredStatus', e.target.value)}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {['Accepted','Rejected'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Remarks 3" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    disabled={editFormData.offeredStatus !== 'Rejected'}
+                    value={editFormData.remarks3}
+                    onChange={e => handleEditFormChange('remarks3', e.target.value)}
+                    placeholder={editFormData.offeredStatus !== 'Rejected' ? 'Active when Offer Rejected' : ''} />
+                </Grid>
+              </Grid>
+              <Box sx={{ p: 2, bgcolor: '#f8f9ff', borderRadius: '10px', border: '1px solid #e8eaf6' }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 1 }}>
                   Offer Letter
                 </Typography>
                 {editFormData.offerLetter && !offerLetterFile && (
-                  <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <a 
-                      href={editFormData.offerLetter} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={{ color: '#1976d2', textDecoration: 'none' }}
-                    >
+                  <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#fff', borderRadius: '8px', border: '1px solid #e8eaf6' }}>
+                    <DescriptionIcon fontSize="small" sx={{ color: '#3f51b5' }} />
+                    <a href={editFormData.offerLetter} target="_blank" rel="noopener noreferrer"
+                      style={{ color: '#3f51b5', textDecoration: 'none', fontSize: '0.82rem', flexGrow: 1 }}>
                       View Current Offer Letter
                     </a>
-                    <Button 
-                      size="small" 
-                      color="error"
-                      onClick={() => handleEditFormChange('offerLetter', null)}
-                    >
-                      Remove
-                    </Button>
+                    <Button size="small" color="error" onClick={() => handleEditFormChange('offerLetter', null)}
+                      sx={{ minWidth: 'auto', fontSize: '0.72rem' }}>Remove</Button>
                   </Box>
                 )}
-                <input
-                  accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  style={{ display: 'none' }}
-                  id="offer-letter-upload"
-                  type="file"
-                  onChange={(e) => {
-                    if (e.target.files.length > 0) {
-                      setOfferLetterFile(e.target.files[0]);
-                      handleEditFormChange('offerLetter', e.target.files[0].name);
-                    }
-                  }}
-                />
+                <input accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  style={{ display: 'none' }} id="offer-letter-upload" type="file"
+                  onChange={e => { if (e.target.files.length > 0) { setOfferLetterFile(e.target.files[0]); handleEditFormChange('offerLetter', e.target.files[0].name); } }} />
                 <label htmlFor="offer-letter-upload">
-                  <Button
-                    variant="outlined"
-                    component="span"
-                    fullWidth
-                    startIcon={<CloudUploadIcon />}
-                  >
+                  <Button variant="outlined" component="span" fullWidth startIcon={<CloudUploadIcon />}
+                    sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', fontSize: '0.82rem' }}>
                     {offerLetterFile ? offerLetterFile.name : 'Upload Offer Letter'}
                   </Button>
                 </label>
-                <Typography variant="caption" display="block" sx={{ mt: 1, color: 'text.secondary' }}>
-                  Supported formats: PDF, DOC, DOCX
-                </Typography>
+                <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}>Supported: PDF, DOC, DOCX</Typography>
               </Box>
+              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
+                * Fill Offered Salary and Offered Status to unlock next step
+              </Typography>
+              </>)}
 
-              <TextField
-                label="Candidate Remarks"
-                multiline
-                rows={4}
-                value={editFormData.candidateRemarks}
-                onChange={(e) => handleEditFormChange('candidateRemarks', e.target.value)}
-                fullWidth
-              />
+              {/* STEP 5 - Selection */}
+              {activeStep === 5 && (<>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Selection
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label="Selection Status *" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.selectionStatus}
+                    onChange={e => handleEditFormChange('selectionStatus', e.target.value)}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {['Accepted','Rejected'].map(o => (
+                      <MenuItem key={o} value={o}>{o}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Selection Date" type="date" size="small" fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.selectionDate}
+                    onChange={e => handleEditFormChange('selectionDate', e.target.value)} />
+                </Grid>
+              </Grid>
+              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
+                * Select Selection Status to unlock next step
+              </Typography>
+              </>)}
+
+              {/* STEP 6 - Joining */}
+              {activeStep === 6 && (<>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                Joining
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label="Joining Date Status *" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.joiningDateStatus}
+                    onChange={e => handleEditFormChange('joiningDateStatus', e.target.value)}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {['Confirmed','Pending','Not Decided','Postponed'].map(o => (
+                      <MenuItem key={o} value={o}>{o}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label="Joining Date" type="date" size="small" fullWidth
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.joiningDate}
+                    onChange={e => handleEditFormChange('joiningDate', e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label="Has Joined" size="small" fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                    value={editFormData.hasJoined}
+                    onChange={e => handleEditFormChange('hasJoined', e.target.value)}>
+                    <MenuItem value=""><em>Select</em></MenuItem>
+                    {['Confirmation Awaited','Yes','No','Backout'].map(o => (
+                      <MenuItem key={o} value={o}>{o}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+              </Grid>
+
+              {/* ── Offer Letter (required when Joining Date is set) ── */}
+              {(() => {
+                const offerLetterRequired = !!editFormData.joiningDate;
+                const offerLetterPresent  = !!(editFormData.offerLetter || offerLetterFile);
+                const showError = offerLetterRequired && !offerLetterPresent;
+                return (
+                  <Box sx={{
+                    p: 2, borderRadius: '10px',
+                    border: showError ? '1.5px solid #ef4444' : '1px solid #e8eaf6',
+                    bgcolor: showError ? '#fff5f5' : '#f8f9ff',
+                    transition: 'all 0.2s',
+                  }}>
+                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                      <DescriptionIcon fontSize="small" sx={{ color: showError ? '#ef4444' : '#3f51b5' }} />
+                      <Typography variant="caption" sx={{
+                        fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                        color: showError ? '#ef4444' : '#3f51b5',
+                      }}>
+                        Offer Letter {offerLetterRequired ? '*' : '(Optional)'}
+                      </Typography>
+                      {offerLetterRequired && !offerLetterPresent && (
+                        <Chip label="Required" size="small"
+                          sx={{ bgcolor: '#fee2e2', color: '#b91c1c', fontWeight: 700, fontSize: '0.65rem', height: 18, ml: 'auto' }} />
+                      )}
+                      {offerLetterPresent && (
+                        <Chip label="✓ Uploaded" size="small"
+                          sx={{ bgcolor: '#d1fae5', color: '#065f46', fontWeight: 700, fontSize: '0.65rem', height: 18, ml: 'auto' }} />
+                      )}
+                    </Box>
+
+                    {/* Existing offer letter */}
+                    {editFormData.offerLetter && !offerLetterFile && (
+                      <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#fff', borderRadius: '8px', border: '1px solid #e8eaf6' }}>
+                        <DescriptionIcon fontSize="small" sx={{ color: '#3f51b5' }} />
+                        <a href={editFormData.offerLetter} target="_blank" rel="noopener noreferrer"
+                          style={{ color: '#3f51b5', textDecoration: 'none', fontSize: '0.82rem', flexGrow: 1 }}>
+                          View Current Offer Letter
+                        </a>
+                        <Button size="small" color="error"
+                          onClick={() => handleEditFormChange('offerLetter', null)}
+                          sx={{ minWidth: 'auto', fontSize: '0.72rem' }}>
+                          Remove
+                        </Button>
+                      </Box>
+                    )}
+
+                    {/* New file selected preview */}
+                    {offerLetterFile && (
+                      <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                        <DescriptionIcon fontSize="small" sx={{ color: '#16a34a' }} />
+                        <Typography variant="body2" sx={{ color: '#15803d', flexGrow: 1, fontSize: '0.82rem' }}>
+                          {offerLetterFile.name}
+                        </Typography>
+                        <Button size="small" color="error"
+                          onClick={() => { setOfferLetterFile(null); handleEditFormChange('offerLetter', selectedCandidate?.offerLetter || null); }}
+                          sx={{ minWidth: 'auto', fontSize: '0.72rem' }}>
+                          Remove
+                        </Button>
+                      </Box>
+                    )}
+
+                    {/* Upload button */}
+                    <input
+                      accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      style={{ display: 'none' }}
+                      id="offer-letter-upload-step6"
+                      type="file"
+                      onChange={e => {
+                        if (e.target.files.length > 0) {
+                          setOfferLetterFile(e.target.files[0]);
+                          handleEditFormChange('offerLetter', e.target.files[0].name);
+                        }
+                      }}
+                    />
+                    <label htmlFor="offer-letter-upload-step6">
+                      <Button variant="outlined" component="span" fullWidth startIcon={<CloudUploadIcon />}
+                        sx={{
+                          borderRadius: '8px', fontSize: '0.82rem',
+                          borderColor: showError ? '#ef4444' : '#9fa8da',
+                          color: showError ? '#ef4444' : '#3f51b5',
+                          '&:hover': { borderColor: showError ? '#dc2626' : '#3f51b5', bgcolor: showError ? '#fff5f5' : undefined },
+                        }}>
+                        {offerLetterFile ? 'Change Offer Letter' : editFormData.offerLetter ? 'Replace Offer Letter' : 'Upload Offer Letter'}
+                      </Button>
+                    </label>
+                    <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: showError ? '#ef4444' : 'text.secondary' }}>
+                      {showError
+                        ? '⚠️ Offer letter is required when a joining date is set'
+                        : 'Supported: PDF, DOC, DOCX'}
+                    </Typography>
+                  </Box>
+                );
+              })()}
+              </>)}
+
             </Stack>
-
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-              <Button
-                variant="outlined"
-                onClick={() => setEditModalOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleEditSubmit}
-                sx={{
-                  backgroundColor: '#4caf50',
-                  '&:hover': {
-                    backgroundColor: '#388e3c',
-                  },
-                }}
-              >
-                Save Changes
-              </Button>
             </Box>
+
+            {/* Wizard Footer */}
+            {(() => {
+              const offerLetterPresent = !!(editFormData.offerLetter || offerLetterFile);
+              const joiningDateSet     = !!editFormData.joiningDate;
+              const offerLetterOk      = !joiningDateSet || offerLetterPresent; // required only when joining date is set
+
+              const stepDone = [
+                !!(editFormData.internalInterviewDate && editFormData.interviewByWhom),
+                !!(editFormData.resumeSubmitDate && editFormData.lineupStatus),
+                !!(editFormData.interviewRounds?.some(r => r.roundDate)),
+                !!(editFormData.interviewStatus),
+                !!(editFormData.offeredSalary && editFormData.offeredStatus),
+                !!(editFormData.selectionStatus),
+                !!(editFormData.joiningDateStatus && offerLetterOk), // step 6: also needs offer letter when joining date set
+              ];
+              const canNext   = stepDone[activeStep];
+              const isLast    = activeStep === 6;
+              const canSave   = !isLast || offerLetterOk; // on last step, block Save if offer letter missing
+              const saveTooltip = isLast && !offerLetterOk
+                ? 'Upload an offer letter before saving (joining date is set)'
+                : '';
+              return (
+                <Box sx={{ px: 3, py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff' }}>
+                  <Button variant="outlined" disabled={activeStep === 0}
+                    onClick={() => setActiveStep(s => s - 1)}
+                    sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', fontWeight: 600, minWidth: 90 }}>
+                    Back
+                  </Button>
+                  <Box display="flex" gap={1.5}>
+                    <Button variant="outlined" onClick={() => setEditModalOpen(false)}
+                      sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#6b7280' }}>
+                      Cancel
+                    </Button>
+                    <Tooltip title={saveTooltip} arrow>
+                      <span>
+                        <Button variant="contained" onClick={handleEditSubmit} disabled={!canSave}
+                          sx={{ borderRadius: '8px', bgcolor: '#4caf50', '&:hover': { bgcolor: '#388e3c' }, fontWeight: 700, minWidth: 110 }}>
+                          Save Changes
+                        </Button>
+                      </span>
+                    </Tooltip>
+                    {!isLast && (
+                      <Tooltip title={canNext ? '' : 'Complete required fields to proceed'} arrow>
+                        <span>
+                          <Button variant="contained" disabled={!canNext}
+                            onClick={() => setActiveStep(s => s + 1)}
+                            sx={{ borderRadius: '8px', background: canNext ? 'linear-gradient(135deg, #3f51b5, #5c6bc0)' : undefined, fontWeight: 700, minWidth: 90 }}>
+                            Next
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })()}
           </Box>
         </Modal>
 
-        {/* Reschedule Modal */}
+{/* Reschedule Modal */}
         <Modal
           open={rescheduleModalOpen}
           onClose={() => setRescheduleModalOpen(false)}
           aria-labelledby="reschedule-modal"
         >
           <Box sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
+            position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
-            width: 400,
-            bgcolor: 'background.paper',
-            boxShadow: 24,
-            p: 4,
-            borderRadius: 2,
+            width: 460, bgcolor: 'background.paper',
+            boxShadow: '0 24px 64px rgba(63,81,181,0.18)',
+            borderRadius: 3, overflow: 'hidden',
+            border: '1px solid #e8eaf6',
           }}>
-            <Typography variant="h6" component="h2" mb={3}>
-              Reschedule Interview
-            </Typography>
-
-            <Stack spacing={3}>
-              <TextField
-                label="New Interview Date"
-                type="datetime-local"
-                value={rescheduleFormData.newDate}
-                onChange={(e) => setRescheduleFormData(prev => ({
-                  ...prev,
-                  newDate: e.target.value
-                }))}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-
-              <TextField
-                label="Reason for Reschedule"
-                multiline
-                rows={3}
-                value={rescheduleFormData.reason}
-                onChange={(e) => setRescheduleFormData(prev => ({
-                  ...prev,
-                  reason: e.target.value
-                }))}
-                fullWidth
-              />
-
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => setRescheduleModalOpen(false)}
-                  sx={{
-                    borderColor: '#3f51b5',
-                    color: '#3f51b5',
-                    '&:hover': {
-                      borderColor: '#303f9f',
-                      backgroundColor: 'rgba(63, 81, 181, 0.04)',
-                    },
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={handleRescheduleSubmit}
-                  sx={{
-                    backgroundColor: '#3f51b5',
-                    '&:hover': {
-                      backgroundColor: '#303f9f',
-                    },
-                  }}
-                >
-                  Reschedule
-                </Button>
+            {/* Modal Header */}
+            <Box sx={{
+              background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
+              px: 3, py: 2,
+              display: 'flex', alignItems: 'center', gap: 1.5,
+            }}>
+              <Box sx={{ width: 36, height: 36, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <EventNoteIcon sx={{ color: '#fff', fontSize: 20 }} />
               </Box>
-            </Stack>
+              <Box>
+                <Typography variant="subtitle1" fontWeight={700} color="#fff" lineHeight={1.2}>
+                  Reschedule Interview
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+                  Set a new date and reason
+                </Typography>
+              </Box>
+            </Box>
+
+            <Box sx={{ p: 3 }}>
+              <Stack spacing={2.5}>
+                <TextField
+                  label="New Interview Date"
+                  type="datetime-local"
+                  value={rescheduleFormData.newDate}
+                  onChange={(e) => setRescheduleFormData(prev => ({
+                    ...prev,
+                    newDate: e.target.value
+                  }))}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                  size="small"
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                />
+
+                <TextField
+                  label="Reason for Reschedule"
+                  multiline
+                  rows={3}
+                  value={rescheduleFormData.reason}
+                  onChange={(e) => setRescheduleFormData(prev => ({
+                    ...prev,
+                    reason: e.target.value
+                  }))}
+                  fullWidth
+                  size="small"
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                />
+              </Stack>
+            </Box>
+
+            <Box sx={{ px: 3, py: 2, display: 'flex', justifyContent: 'flex-end', gap: 1.5, borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff' }}>
+              <Button
+                variant="outlined"
+                onClick={() => setRescheduleModalOpen(false)}
+                sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5' }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleRescheduleSubmit}
+                sx={{ borderRadius: '8px', bgcolor: '#3f51b5', '&:hover': { bgcolor: '#303f9f' }, fontWeight: 700 }}
+              >
+                Reschedule
+              </Button>
+            </Box>
           </Box>
         </Modal>
 
@@ -1973,15 +2530,22 @@ const JobListWithCandidates = () => {
           maxWidth="md"
         >
           <DialogTitle sx={{
-            backgroundColor: '#3f51b5',
+            background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
             color: 'white',
             display: 'flex',
             alignItems: 'center',
-            gap: 1
+            gap: 1.5,
+            py: 2,
           }}>
-            <EditIcon /> 
+            <Box sx={{ width: 36, height: 36, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <EditIcon sx={{ fontSize: 20 }} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>Edit Candidate Details</Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>Update candidate profile information</Typography>
+            </Box>
           </DialogTitle>
-          <DialogContent sx={{ mt: 2 }}>
+          <DialogContent sx={{ mt: 2, px: 3 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -2147,7 +2711,7 @@ const JobListWithCandidates = () => {
                   {resumeFile && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="success.main">
-                        ✓ {resumeFile.name} selected
+                        âœ“ {resumeFile.name} selected
                       </Typography>
                       <Typography variant="caption" color="textSecondary">
                         {(resumeFile.size / 1024 / 1024).toFixed(2)} MB
@@ -2214,7 +2778,7 @@ const JobListWithCandidates = () => {
                   {agreementFile && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="success.main">
-                        ✓ {agreementFile.name} selected
+                        âœ“ {agreementFile.name} selected
                       </Typography>
                       <Typography variant="caption" color="textSecondary">
                         {(agreementFile.size / 1024 / 1024).toFixed(2)} MB
@@ -2229,10 +2793,11 @@ const JobListWithCandidates = () => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions>
+          <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff' }}>
             <Button
               onClick={() => setEditCandidateModalOpen(false)}
               variant="outlined"
+              sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5' }}
             >
               Cancel
             </Button>
@@ -2240,10 +2805,12 @@ const JobListWithCandidates = () => {
               onClick={handleEditCandidateSubmit}
               variant="contained"
               sx={{
+                borderRadius: '8px',
                 backgroundColor: '#4caf50',
                 '&:hover': {
                   backgroundColor: '#388e3c',
                 },
+                fontWeight: 700,
               }}
             >
               Save Changes
@@ -2259,13 +2826,20 @@ const JobListWithCandidates = () => {
           fullWidth
         >
           <DialogTitle sx={{
-            backgroundColor: '#3f51b5',
+            background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
             color: 'white',
             display: 'flex',
             alignItems: 'center',
-            gap: 1
+            gap: 1.5,
+            py: 2,
           }}>
-            <AccessTimeIcon /> Reschedule History
+            <Box sx={{ width: 36, height: 36, borderRadius: '8px', bgcolor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AccessTimeIcon sx={{ fontSize: 20 }} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>Reschedule History</Typography>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>All rescheduled interview dates</Typography>
+            </Box>
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
             {selectedRescheduleHistory && (
@@ -2276,10 +2850,12 @@ const JobListWithCandidates = () => {
                     elevation={0}
                     sx={{
                       p: 2,
-                      border: '1px solid #e0e0e0',
-                      borderRadius: 1,
+                      border: '1px solid #e8eaf6',
+                      borderRadius: '10px',
+                      transition: 'all 0.2s',
                       '&:hover': {
-                        backgroundColor: 'rgba(63, 81, 181, 0.04)',
+                        backgroundColor: '#f5f6ff',
+                        borderColor: '#9fa8da',
                       }
                     }}
                   >
@@ -2311,22 +2887,266 @@ const JobListWithCandidates = () => {
               </Stack>
             )}
           </DialogContent>
-          <DialogActions>
+          <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff' }}>
             <Button
               onClick={handleCloseRescheduleHistory}
               variant="contained"
               sx={{
+                borderRadius: '8px',
                 backgroundColor: '#3f51b5',
                 '&:hover': {
                   backgroundColor: '#303f9f',
-                }
+                },
+                fontWeight: 700,
               }}
             >
               Close
             </Button>
           </DialogActions>
         </Dialog>
-      </div>
+
+      {/* ── WhatsApp Interview Call Letter Dialog ── */}
+      <Dialog
+        open={waOpen}
+        onClose={() => setWaOpen(false)}
+        fullWidth
+        maxWidth="md"
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        {/* Header */}
+        <Box sx={{
+          background: 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)',
+          px: 3, py: 2,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ width: 38, height: 38, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <WhatsAppIcon sx={{ color: '#fff', fontSize: 22 }} />
+            </Box>
+            <Box>
+              <Typography fontWeight={700} color="#fff" fontSize={15} lineHeight={1.3}>
+                Interview Call Letter — {waRow?.candidateName || '—'}
+              </Typography>
+              <Typography fontSize={11.5} color="rgba(255,255,255,0.8)">
+                Review and edit the message before sending on WhatsApp.
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton size="small" onClick={() => setWaOpen(false)}
+            sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' } }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        {/* Two-column body */}
+        <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', minHeight: 0 }}>
+
+          {/* LEFT — candidate + job summary */}
+          <Box sx={{
+            width: '38%', flexShrink: 0,
+            borderRight: '1px solid #e8eaf6',
+            overflowY: 'auto', p: 2.5,
+            display: 'flex', flexDirection: 'column', gap: 2,
+            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar-thumb': { background: '#cbd5e1', borderRadius: 3 },
+          }}>
+
+            {/* Candidate info */}
+            <Box sx={{ bgcolor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', p: 1.5 }}>
+              <Typography fontSize={11} fontWeight={700} color="#166534" textTransform="uppercase" letterSpacing="0.06em" mb={1}>
+                Candidate
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+                <Typography fontSize={12.5} color="#1e293b"><strong>Name:</strong> {waRow?.candidateName || '—'}</Typography>
+                <Typography fontSize={12.5} color="#1e293b"><strong>Phone:</strong> {waRow?.candidatePhone || '—'}</Typography>
+                <Typography fontSize={12.5} color="#1e293b"><strong>Position:</strong> {waRow?.positionName || '—'}</Typography>
+                {waRow?.experience && <Typography fontSize={12.5} color="#1e293b"><strong>Experience:</strong> {waRow.experience}</Typography>}
+                {waRow?.currentCTC && <Typography fontSize={12.5} color="#1e293b"><strong>Current CTC:</strong> {waRow.currentCTC}</Typography>}
+              </Box>
+            </Box>
+
+            {/* Interview details */}
+            <Box sx={{ bgcolor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', p: 1.5 }}>
+              <Typography fontSize={11} fontWeight={700} color="#1e40af" textTransform="uppercase" letterSpacing="0.06em" mb={1}>
+                Interview Details
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+                {(() => {
+                  const rounds = waRow?.interviewRounds;
+                  const latest = rounds && rounds.length > 0 ? rounds[rounds.length - 1] : null;
+                  const date = latest?.roundDate
+                    ? new Date(latest.roundDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+                    : waRow?.internalInterviewDate
+                    ? new Date(waRow.internalInterviewDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+                    : '—';
+                  return (<>
+                    <Typography fontSize={12.5} color="#1e293b"><strong>Date:</strong> {date}</Typography>
+                    <Typography fontSize={12.5} color="#1e293b"><strong>Time:</strong> {latest?.roundTime || '—'}</Typography>
+                    <Typography fontSize={12.5} color="#1e293b"><strong>Mode:</strong> {latest?.interviewMode || '—'}</Typography>
+                    <Typography fontSize={12.5} color="#1e293b"><strong>Interviewer:</strong> {latest?.interviewedByWhom || '—'}</Typography>
+                  </>);
+                })()}
+              </Box>
+            </Box>
+
+            {/* Job / Company info */}
+            <Box sx={{ bgcolor: '#fafafa', border: '1px solid #e2e8f0', borderRadius: '10px', p: 1.5 }}>
+              <Typography fontSize={11} fontWeight={700} color="#475569" textTransform="uppercase" letterSpacing="0.06em" mb={1}>
+                Company
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+                <Typography fontSize={12.5} color="#1e293b"><strong>Name:</strong> {selectedJob?.companyName || '—'}</Typography>
+                {selectedJob?.jobLocation && <Typography fontSize={12.5} color="#1e293b"><strong>Location:</strong> {selectedJob.jobLocation}</Typography>}
+                {selectedJob?.companyAddress && <Typography fontSize={12.5} color="#1e293b"><strong>Address:</strong> {selectedJob.companyAddress}</Typography>}
+                {selectedJob?.websiteURL && <Typography fontSize={12.5} color="#1e293b"><strong>Website:</strong> {selectedJob.websiteURL}</Typography>}
+                {selectedJob?.phoneNumber && <Typography fontSize={12.5} color="#1e293b"><strong>Contact:</strong> {selectedJob.phoneNumber}</Typography>}
+              </Box>
+            </Box>
+
+            {/* Sender info */}
+            <Box sx={{ bgcolor: '#fdf4ff', border: '1px solid #e9d5ff', borderRadius: '10px', p: 1.5 }}>
+              <Typography fontSize={11} fontWeight={700} color="#7c3aed" textTransform="uppercase" letterSpacing="0.06em" mb={1}>
+                Sender (HR)
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography fontSize={12.5} color="#1e293b"><strong>Name:</strong> {senderName || '—'}</Typography>
+                {senderPhone && <Typography fontSize={12.5} color="#1e293b"><strong>Mobile:</strong> {senderPhone}</Typography>}
+              </Box>
+            </Box>
+          </Box>
+
+          {/* RIGHT — editable message */}
+          <Box sx={{
+            flex: 1, overflowY: 'auto', p: 2.5,
+            display: 'flex', flexDirection: 'column', gap: 1.5,
+            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar-thumb': { background: '#cbd5e1', borderRadius: 3 },
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography fontSize={11.5} fontWeight={700} color="#475569" textTransform="uppercase" letterSpacing="0.06em">
+                Message Preview
+              </Typography>
+              <Typography fontSize={11} color="#94a3b8" fontStyle="italic">editable</Typography>
+            </Box>
+            <TextField
+              fullWidth multiline minRows={22}
+              value={waMessage}
+              onChange={(e) => setWaMessage(e.target.value)}
+              sx={{
+                flexGrow: 1,
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '10px',
+                  fontSize: 11,
+                  fontFamily: '"Lora","poppins"',
+                  bgcolor: '#f8fafc',
+                  alignItems: 'flex-start',
+                  lineHeight: 1.7,
+                },
+              }}
+            />
+            <Typography fontSize={11} color="#94a3b8">
+              💡 Edit the message above before sending. Fields in [brackets] are placeholders.
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Fixed Footer */}
+        <Box sx={{
+          px: 3, py: 2,
+          display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5,
+          borderTop: '1px solid #e8eaf6', bgcolor: '#fff', flexShrink: 0,
+        }}>
+          <Button onClick={() => setWaOpen(false)} variant="outlined" size="medium"
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: '#d1d5db', color: '#6b7280', px: 3 }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={sendWaMessage}
+            variant="contained"
+            size="medium"
+            disabled={!waRow?.candidatePhone}
+            startIcon={<WhatsAppIcon />}
+            sx={{
+              bgcolor: '#25d366', color: '#fff', fontWeight: 700,
+              borderRadius: '8px', textTransform: 'none', px: 3,
+              '&:hover': { bgcolor: '#1ebe5d' },
+            }}
+          >
+            Send on WhatsApp
+          </Button>
+        </Box>
+      </Dialog>
+
+      {/* ── Remove Candidate Confirmation Dialog ── */}
+      <Dialog
+        open={removeConfirmOpen}
+        onClose={() => setRemoveConfirmOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
+      >
+        {/* Red warning header */}
+        <Box sx={{
+          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+          px: 3, py: 2.5,
+          display: 'flex', alignItems: 'center', gap: 1.5,
+        }}>
+          <Box sx={{
+            width: 40, height: 40, borderRadius: '50%',
+            bgcolor: 'rgba(255,255,255,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20,
+          }}>
+            🗑️
+          </Box>
+          <Box>
+            <Typography fontWeight={700} color="#fff" fontSize={16}>Remove Candidate</Typography>
+            <Typography fontSize={12} color="rgba(255,255,255,0.8)">This will unassign from this position</Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ px: 3, py: 2.5 }}>
+          <Typography fontSize={14} color="#374151" lineHeight={1.7}>
+            Are you sure you want to remove{' '}
+            <strong>{candidateToRemove?.candidateName || 'this candidate'}</strong>{' '}
+            from this position?
+          </Typography>
+          <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
+            <Typography fontSize={12} color="#b91c1c">
+              ⚠️ Only candidates you assigned can be removed. This action cannot be undone.
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box sx={{ px: 3, pb: 2.5, display: 'flex', gap: 1.5 }}>
+          <Button
+            fullWidth variant="outlined"
+            onClick={() => { setRemoveConfirmOpen(false); setCandidateToRemove(null); }}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: '#d1d5db', color: '#6b7280' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            fullWidth variant="contained"
+            onClick={handleConfirmRemove}
+            sx={{
+              borderRadius: '8px', textTransform: 'none', fontWeight: 700,
+              bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' },
+            }}
+          >
+            Yes, Remove
+          </Button>
+        </Box>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}
@@ -2342,9 +3162,12 @@ const JobListWithCandidates = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </div>
+
+
+    </Box>
   );
 };
 
 export default JobListWithCandidates;
+
 

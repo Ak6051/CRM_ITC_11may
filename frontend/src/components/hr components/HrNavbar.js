@@ -133,11 +133,23 @@ const HrNavbar = () => {
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('role');
-    sessionStorage.removeItem('userId');  
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      const token = sessionStorage.getItem('token');
+      if (token) {
+        await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch (err) {
+      // Ignore errors — logout should always proceed
+      console.error('Logout audit log failed:', err);
+    } finally {
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('role');
+      sessionStorage.removeItem('userId');
+      navigate('/login');
+    }
   };
 
   const handlePopoverOpen = (event) => {

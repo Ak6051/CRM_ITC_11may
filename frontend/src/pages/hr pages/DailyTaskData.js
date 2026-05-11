@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
 import { 
@@ -13,10 +12,14 @@ import {
   DialogActions, 
   TextField,
   Snackbar,
-  Alert
+  Alert,
+  Chip,
+  Grid,
+  Autocomplete
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/api.config';
@@ -29,6 +32,19 @@ const DailyTaskData = () => {
   const [open, setOpen] = useState(false);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Assigned jobs (company + position) for this HR
+  const [assignedJobs, setAssignedJobs] = useState([]);
+  const [positionOptions, setPositionOptions] = useState([]);
+
+  // Edit request state
+  const [editRequestOpen, setEditRequestOpen] = useState(false);
+  const [editRequestTask, setEditRequestTask] = useState(null);
+  const [editRequestData, setEditRequestData] = useState({});
+  const [editRequestErrors, setEditRequestErrors] = useState({});
+  const [editRequestSubmitting, setEditRequestSubmitting] = useState(false);
+  const [myEditRequests, setMyEditRequests] = useState([]);
+
   const [formData, setFormData] = useState({
     companyName: '',
     position: '',
@@ -46,20 +62,9 @@ const DailyTaskData = () => {
   const [formErrors, setFormErrors] = useState({});
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchTasks();
-  
-    const now = new Date();
-    const msUntilMidnight =
-      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1) - now;
-  
-    const timer = setTimeout(() => {
-      fetchTasks(); // Refresh at midnight
-    }, msUntilMidnight);
-  
-    return () => clearTimeout(timer);
-  }, []);
-  
+  // Filter state
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [positionFilter, setPositionFilter] = useState('');
 
   const token = sessionStorage.getItem('token');
   const config = {
@@ -69,138 +74,43 @@ const DailyTaskData = () => {
     }
   };
 
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
-
-  const validateField = (name, value) => {
-    let error = '';
-    
-    if (['companyName', 'position'].includes(name) && !value.trim()) {
-      error = 'This field is required';
-    } else if (['totalCall', 'profilesShared', 'interviewsScheduled'].includes(name)) {
-      if (!value && value !== 0) {
-        error = 'This field is required';
-      } else if (isNaN(value) || value < 0) {
-        error = 'Please enter a valid number';
-      }
-    } else if (name === 'revenueGenerated') {
-      if (value && (isNaN(value) || value < 0)) {
-        error = 'Please enter a valid amount';
-      }
-    }
-    
-    return error;
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    const newValue = ['totalCall', 'profilesShared', 'interviewsScheduled', 'revenueGenerated'].includes(name) 
-      ? (value === '' ? '' : Number(value))
-      : value;
-      
-    setFormData(prev => ({
-      ...prev,
-      [name]: newValue
-    }));
-    
-    // Clear error when user starts typing
-    if (formErrors[name]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  const validateForm = () => {
-    const errors = {};
-    let isValid = true;
-    
-    // Validate required fields
-    const requiredFields = ['companyName', 'position', 'totalCall', 'profilesShared', 'interviewsScheduled'];
-    requiredFields.forEach(field => {
-      const value = formData[field];
-      const error = validateField(field, value);
-      if (error) {
-        errors[field] = error;
-        isValid = false;
-      }
-    });
-    
-    // Validate revenue if provided
-    if (formData.revenueGenerated !== '') {
-      const error = validateField('revenueGenerated', formData.revenueGenerated);
-      if (error) {
-        errors.revenueGenerated = error;
-        isValid = false;
-      }
-    }
-    
-    setFormErrors(errors);
-    return isValid;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    try {
-      const response = await axios.post(
-        `${API_BASE_URL}/dailyTask/hr/create`,
-        formData,
-        config
-      );
-      
-      setSnackbar({
-        open: true,
-        message: 'Task created successfully!',
-        severity: 'success'
-      });
-      
-      setOpen(false);
+  useEffect(() => {
+    fetchTasks();
+    fetchMyEditRequests();
+    fetchAssignedJobs();
+  
+    const now = new Date();
+    const msUntilMidnight =
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1) - now;
+  
+    const timer = setTimeout(() => {
       fetchTasks();
-      // Reset form and errors
-      setFormData({
-        companyName: '',
-        position: '',
-        totalCall: '',
-        profilesShared: '',
-        interviewsScheduled: '',
-        revenueGenerated: '',
-        TCEOD: '0',
-        PSEOD: '0',
-        ISEOD: '0',
-        RGEOD: '0',
-        remark: ''
-      });
-      setFormErrors({});
-    } catch (error) {
-      console.error('Error creating task:', error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Failed to create task',
-        severity: 'error'
-      });
-    }
-  };
+    }, msUntilMidnight);
+  
+    return () => clearTimeout(timer);
+  }, []);
 
-  const handleCloseSnackbar = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
+  useEffect(() => {
+    fetchTasks(showAllTasks);
+  }, [showAllTasks]);
+
+  const handleOpen = () => setOpen(true);
+  const handleClose = () => { setOpen(false); setPositionOptions([]); };
+
+  // ─── Fetch helpers ────────────────────────────────────────────────────────
 
   const fetchTasks = async (showAll = false) => {
     try {
       setLoading(true);
-      let url = showAll ? `${API_BASE_URL}/dailyTask/hr/all` : `${API_BASE_URL}/dailyTask/hr`;
+      const url = showAll
+        ? `${API_BASE_URL}/dailyTask/hr/all`
+        : `${API_BASE_URL}/dailyTask/hr`;
       const res = await axios.get(url, config);
       
       if (showAll) {
         setTasks(res.data);
       } else {
-        const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+        const today = new Date().toISOString().split('T')[0];
         const todayTasks = res.data.filter(task => {
           const taskDate = new Date(task.createdAt).toISOString().split('T')[0];
           return taskDate === today;
@@ -209,23 +119,282 @@ const DailyTaskData = () => {
       }
     } catch (err) {
       console.error('Error fetching tasks:', err);
-      setSnackbar({
-        open: true,
-        message: 'Failed to fetch tasks',
-        severity: 'error'
-      });
+      setSnackbar({ open: true, message: 'Failed to fetch tasks', severity: 'error' });
     } finally {
       setLoading(false);
     }
   };
-  
-  
 
-  useEffect(() => {
-    fetchTasks(showAllTasks);
-  }, [showAllTasks]);
+  const fetchMyEditRequests = async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/dailyTask/hr/edit-requests/my`, config);
+      setMyEditRequests(res.data);
+    } catch (err) {
+      console.error('Error fetching edit requests:', err);
+    }
+  };
+
+  // Fetch jobs assigned to this HR (for company + position dropdowns)
+  const fetchAssignedJobs = async () => {
+    try {
+      const hrId = sessionStorage.getItem('userId');
+      if (!hrId) return;
+      const res = await axios.get(`${API_BASE_URL}/fetch/hr/${hrId}/positions`, config);
+      setAssignedJobs(res.data || []);
+    } catch (err) {
+      console.error('Error fetching assigned jobs:', err);
+    }
+  };
+
+  // Unique company names from assigned jobs
+  const companyOptions = [...new Map(
+    assignedJobs.map(j => [j.companyName?.trim().toLowerCase(), j.companyName?.trim()])
+  ).values()].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+  // ─── Create task ──────────────────────────────────────────────────────────
+
+  const validateField = (name, value) => {
+    let error = '';
+    if (['companyName', 'position'].includes(name) && !value.toString().trim()) {
+      error = 'This field is required';
+    } else if (['totalCall', 'profilesShared', 'interviewsScheduled'].includes(name)) {
+      if (!value && value !== 0) error = 'This field is required';
+      else if (isNaN(value) || value < 0) error = 'Please enter a valid number';
+    } else if (name === 'revenueGenerated') {
+      if (value && (isNaN(value) || value < 0)) error = 'Please enter a valid amount';
+    }
+    return error;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const newValue = ['totalCall', 'profilesShared', 'interviewsScheduled', 'revenueGenerated'].includes(name)
+      ? (value === '' ? '' : Number(value))
+      : value;
+    setFormData(prev => ({ ...prev, [name]: newValue }));
+    if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  // When company is selected from dropdown, filter positions for that company
+  const handleCompanySelect = (companyName) => {
+    const positions = assignedJobs
+      .filter(j => j.companyName?.trim().toLowerCase() === companyName?.trim().toLowerCase())
+      .map(j => j.jobTitle?.trim())
+      .filter(Boolean);
+    // Deduplicate
+    const unique = [...new Set(positions)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    setPositionOptions(unique);
+    setFormData(prev => ({ ...prev, companyName: companyName || '', position: '', revenueGenerated: '' }));
+    if (formErrors.companyName) setFormErrors(prev => ({ ...prev, companyName: '' }));
+  };
+
+  // When position is selected, auto-fill revenueGenerated from job salary + auto-fetch TCEOD
+  const handlePositionSelect = async (positionName) => {
+    setFormData(prev => ({ ...prev, position: positionName || '' }));
+    if (formErrors.position) setFormErrors(prev => ({ ...prev, position: '' }));
+
+    if (!positionName) return;
+
+    // Find the matching job for current company + position
+    const job = assignedJobs.find(
+      j =>
+        j.companyName?.trim().toLowerCase() === formData.companyName?.trim().toLowerCase() &&
+        j.jobTitle?.trim().toLowerCase() === positionName.trim().toLowerCase()
+    );
+
+    if (job?.salary) {
+      const raw = String(job.salary).replace(/,/g, '').trim();
+      const lpaMatch = raw.match(/([\d.]+)\s*lpa/i);
+      if (lpaMatch) {
+        const annual = parseFloat(lpaMatch[1]) * 100000;
+        const monthly = Math.round(annual / 12);
+        setFormData(prev => ({ ...prev, position: positionName, revenueGenerated: monthly }));
+      } else {
+        const num = parseFloat(raw);
+        if (!isNaN(num)) {
+          setFormData(prev => ({ ...prev, position: positionName, revenueGenerated: num }));
+        }
+      }
+    }
+
+    // Auto-fetch TCEOD — count candidates created by this HR for this position today
+    const hrId = sessionStorage.getItem('userId');
+    if (hrId && positionName) {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const res = await axios.get(`${API_BASE_URL}/dailyTask/hr-candidate-count`, {
+          headers: config.headers,
+          params: { hrId, position: positionName, date: today },
+        });
+        setFormData(prev => ({ ...prev, TCEOD: String(res.data.count ?? prev.TCEOD) }));
+      } catch (err) {
+        console.error('Could not fetch TCEOD candidate count:', err);
+      }
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    let isValid = true;
+    ['companyName', 'position', 'totalCall', 'profilesShared', 'interviewsScheduled'].forEach(field => {
+      const error = validateField(field, formData[field]);
+      if (error) { errors[field] = error; isValid = false; }
+    });
+    if (formData.revenueGenerated !== '') {
+      const error = validateField('revenueGenerated', formData.revenueGenerated);
+      if (error) { errors.revenueGenerated = error; isValid = false; }
+    }
+    setFormErrors(errors);
+    return isValid;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+    try {
+      await axios.post(`${API_BASE_URL}/dailyTask/hr/create`, formData, config);
+      setSnackbar({ open: true, message: 'Task created successfully!', severity: 'success' });
+      setOpen(false);
+      fetchTasks(showAllTasks);
+      setFormData({
+        companyName: '', position: '', totalCall: '', profilesShared: '',
+        interviewsScheduled: '', revenueGenerated: '',
+        TCEOD: '0', PSEOD: '0', ISEOD: '0', RGEOD: '0', remark: ''
+      });
+      setFormErrors({});
+      setPositionOptions([]);
+      // Fire custom event — sidebar listens and unlocks immediately without page reload
+      window.dispatchEvent(new Event('hr-task-created'));
+    } catch (error) {
+      console.error('Error creating task:', error);
+      setSnackbar({ open: true, message: error.response?.data?.message || 'Failed to create task', severity: 'error' });
+    }
+  };
+
+  // ─── Edit Request ─────────────────────────────────────────────────────────
+
+  const handleEditRequestOpen = async (task) => {
+    // Check if there's already a pending request for this task
+    const pending = myEditRequests.find(
+      r => r.taskId?._id === task._id && r.status === 'pending'
+    );
+    if (pending) {
+      setSnackbar({ open: true, message: 'An edit request for this task is already pending admin approval.', severity: 'warning' });
+      return;
+    }
+
+    // Find the matching job from assignedJobs by company + position
+    const matchedJob = assignedJobs.find(
+      j =>
+        j.companyName?.trim().toLowerCase() === task.companyName?.trim().toLowerCase() &&
+        j.jobTitle?.trim().toLowerCase() === task.position?.trim().toLowerCase()
+    );
+
+    // Fetch today's candidate count for this HR + position (auto-fill TCEOD)
+    let todayCandidateCount = task.TCEOD || '0';
+    const hrId = sessionStorage.getItem('userId');
+    if (hrId && task.position) {
+      try {
+        const taskDate = task.createdAt
+          ? new Date(task.createdAt).toISOString().split('T')[0]
+          : new Date().toISOString().split('T')[0];
+        const res = await axios.get(`${API_BASE_URL}/dailyTask/hr-candidate-count`, {
+          headers: config.headers,
+          params: { hrId, position: task.position, date: taskDate },
+        });
+        todayCandidateCount = String(res.data.count ?? todayCandidateCount);
+      } catch (err) {
+        console.error('Error fetching today candidate count:', err);
+      }
+    }
+
+    setEditRequestTask(task);
+    setEditRequestData({
+      companyName: task.companyName || '',
+      position: task.position || '',
+      totalCall: task.totalCall || 0,
+      profilesShared: task.profilesShared || 0,
+      interviewsScheduled: task.interviewsScheduled || 0,
+      revenueGenerated: task.revenueGenerated || 0,
+      TCEOD: todayCandidateCount,
+      PSEOD: task.PSEOD || '0',
+      ISEOD: task.ISEOD || '0',
+      RGEOD: task.RGEOD || '0',
+      remark: task.remark || ''
+    });
+    setEditRequestErrors({});
+    setEditRequestOpen(true);
+  };
+
+  const handleEditRequestChange = (e) => {
+    const { name, value } = e.target;
+    setEditRequestData(prev => ({ ...prev, [name]: value }));
+    if (editRequestErrors[name]) setEditRequestErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const handleEditRequestSubmit = async () => {
+    // Basic validation
+    const errors = {};
+    if (!editRequestData.companyName?.trim()) errors.companyName = 'Required';
+    if (!editRequestData.position?.trim()) errors.position = 'Required';
+    if (Object.keys(errors).length > 0) {
+      setEditRequestErrors(errors);
+      return;
+    }
+
+    setEditRequestSubmitting(true);
+    try {
+      await axios.post(
+        `${API_BASE_URL}/dailyTask/hr/edit-request/${editRequestTask._id}`,
+        editRequestData,
+        config
+      );
+      setSnackbar({ open: true, message: 'Edit request submitted! Awaiting admin approval.', severity: 'success' });
+      setEditRequestOpen(false);
+      fetchMyEditRequests();
+    } catch (err) {
+      console.error('Error submitting edit request:', err);
+      setSnackbar({ open: true, message: err.response?.data?.message || 'Failed to submit edit request', severity: 'error' });
+    } finally {
+      setEditRequestSubmitting(false);
+    }
+  };
+
+  // Helper: get edit request status badge for a task
+  const getEditRequestStatus = (taskId) => {
+    const req = myEditRequests.find(r => r.taskId?._id === taskId);
+    if (!req) return null;
+    return req.status;
+  };
+
+  const statusColor = { pending: 'warning', approved: 'success', rejected: 'error' };
+
+  // ─── Columns ──────────────────────────────────────────────────────────────
 
   const columns = [
+    {
+      field: 'editAction',
+      headerName: 'Edit',
+      width: 120,
+      sortable: false,
+      renderCell: (params) => {
+        const status = getEditRequestStatus(params.row._id);
+        if (status === 'pending') {
+          return <Chip label="Pending" color="warning" size="small" />;
+        }
+        return (
+          <Tooltip title="Request Edit (requires admin approval)">
+            <IconButton
+              color="primary"
+              size="small"
+              onClick={() => handleEditRequestOpen(params.row)}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        );
+      }
+    },
     { 
       field: 'createdBy', 
       headerName: 'Created By', 
@@ -233,8 +402,7 @@ const DailyTaskData = () => {
       renderCell: (params) => {
         const creator = params.row.createdBy;
         if (!creator) return 'N/A';
-        const name = `${creator.firstName} ${creator.lastName}`;
-        return `${name} (${creator.role})`;
+        return `${creator.firstName} ${creator.lastName} (${creator.role})`;
       }
     },
     { field: 'hrName', headerName: 'HR Name', width: 150 },
@@ -252,22 +420,26 @@ const DailyTaskData = () => {
       renderCell: (params) => {
         const date = new Date(params.value);
         return date.toLocaleString('en-IN', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: true
         });
       }
     },
   ];
 
-  const rows = tasks.map((task, index) => ({
+  const filteredTasks = tasks.filter(task => {
+    if (companyFilter && (task.companyName || '').trim().toLowerCase() !== companyFilter.trim().toLowerCase()) return false;
+    if (positionFilter && (task.position || '').trim().toLowerCase() !== positionFilter.trim().toLowerCase()) return false;
+    return true;
+  });
+
+  const rows = filteredTasks.map((task, index) => ({
     id: task._id || index,
     ...task,
     revenueGenerated: task.revenueGenerated ? `₹${task.revenueGenerated}` : 'N/A'
   }));
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div style={{ display: 'flex', height: '100vh', marginLeft: '-10px', backgroundColor: '#f5f5f5' }}>
@@ -277,32 +449,20 @@ const DailyTaskData = () => {
       </div>
 
       {/* Main content */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          marginLeft: '250px',
-          height: '100vh',
-          overflow: 'hidden',
-        }}
-      >
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', marginLeft: '250px', height: '100vh', overflow: 'hidden' }}>
         <Navbar />
         <Box m={2}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
             <Box>
               <Typography variant="h5" gutterBottom>
-                {showAllTasks ? 'All Tasks' : "Today's Task Report"} - {new Date().toLocaleDateString('en-IN', {
+                {showAllTasks ? 'All Tasks' : "Today's Task Report"} -{' '}
+                {new Date().toLocaleDateString('en-IN', {
                   weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
                 })}
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<AddIcon />}
-                  onClick={handleOpen}
-                >
+              {/* Row 1: action buttons */}
+              <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={handleOpen}>
                   Create New Task
                 </Button>
                 <Button
@@ -322,42 +482,72 @@ const DailyTaskData = () => {
                   All Tasks
                 </Button>
               </Box>
+              {/* Row 2: filters */}
+              <Box sx={{ display: 'flex', gap: 1.5, mt: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Autocomplete
+                  options={Array.from(
+                    new Map(
+                      tasks.map(t => t.companyName).filter(Boolean)
+                        .map(name => [name.trim().toLowerCase(), name.trim()])
+                    ).values()
+                  ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))}
+                  value={companyFilter || null}
+                  onChange={(_, v) => setCompanyFilter(v || '')}
+                  size="small"
+                  sx={{ minWidth: 200 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Company Name" placeholder="Search company..." />
+                  )}
+                  clearOnEscape
+                  isOptionEqualToValue={(o, v) => o.toLowerCase() === v.toLowerCase()}
+                />
+                <Autocomplete
+                  options={Array.from(
+                    new Map(
+                      tasks.map(t => t.position).filter(Boolean)
+                        .map(pos => [pos.trim().toLowerCase(), pos.trim()])
+                    ).values()
+                  ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))}
+                  value={positionFilter || null}
+                  onChange={(_, v) => setPositionFilter(v || '')}
+                  size="small"
+                  sx={{ minWidth: 200 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Position" placeholder="Search position..." />
+                  )}
+                  clearOnEscape
+                  isOptionEqualToValue={(o, v) => o.toLowerCase() === v.toLowerCase()}
+                />
+                {(companyFilter || positionFilter) && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => { setCompanyFilter(''); setPositionFilter(''); }}
+                  >
+                    Clear Filters
+                  </Button>
+                )}
+              </Box>
             </Box>
 
-            {/* 🔁 Refresh Icon Button */}
-            <Box display="flex" alignItems="center" sx={{ cursor: 'pointer' }} onClick={fetchTasks}>
-  <Typography
-    variant="body2"
-    sx={{
-      color: '#1976d2',
-      fontWeight: 500,
-      marginRight: '8px',
-      transition: 'color 0.3s',
-      '&:hover': {
-        color: '#004ba0',
-        textDecoration: 'underline',
-      },
-    }}
-  >
-    Click here to refresh tasks
-  </Typography>
-
-  <Tooltip title="Refresh">
-    <IconButton color="primary">
-      <RefreshIcon />
-    </IconButton>
-  </Tooltip>
-</Box>
-
+            <Box display="flex" alignItems="center" sx={{ cursor: 'pointer' }} onClick={() => { fetchTasks(showAllTasks); fetchMyEditRequests(); }}>
+              <Typography
+                variant="body2"
+                sx={{ color: '#1976d2', fontWeight: 500, marginRight: '8px', '&:hover': { color: '#004ba0', textDecoration: 'underline' } }}
+              >
+                Click here to refresh tasks
+              </Typography>
+              <Tooltip title="Refresh">
+                <IconButton color="primary">
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Box>
 
           <Box mt={2} style={{
-            height: 'calc(100vh - 200px)',
-            width: '100%',
-            overflow: 'auto',
-            backgroundColor: '#fff',
-            borderRadius: '4px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            height: 'calc(100vh - 240px)', width: '100%', overflow: 'auto',
+            backgroundColor: '#fff', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}>
             <DataGrid
               rows={rows}
@@ -365,10 +555,7 @@ const DailyTaskData = () => {
               loading={loading}
               pageSize={10}
               rowsPerPageOptions={[10, 25, 50]}
-              style={{
-                minWidth: '1000px',
-                height: '100%'
-              }}
+              style={{ minWidth: '1100px', height: '100%' }}
               components={{
                 NoRowsOverlay: () => (
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -382,156 +569,587 @@ const DailyTaskData = () => {
         </Box>
       </Box>
 
-      {/* Create Task Dialog */}
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Create New Task</DialogTitle>
+      {/* ── Create Task Dialog ── */}
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxHeight: '90vh',
+            background: 'linear-gradient(135deg, #f8faff 0%, #ffffff 100%)'
+          }
+        }}
+      >
+        {/* ── Header ── */}
+        <DialogTitle
+          sx={{
+            px: 3,
+            py: 2,
+            background: 'linear-gradient(90deg, #2e7d32 0%, #388e3c 100%)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5
+          }}
+        >
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.1rem',
+              flexShrink: 0
+            }}
+          >
+            ➕
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+              Create New Task
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.85 }}>
+              Fill in the details to create a new daily task
+            </Typography>
+          </Box>
+        </DialogTitle>
+
         <form onSubmit={handleSubmit}>
-          <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              name="companyName"
-              label="Company Name *"
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={formData.companyName}
-              onChange={handleChange}
-              error={!!formErrors.companyName}
-              helperText={formErrors.companyName || ' '}
-              required
-              sx={{ mb: 2 }}
-              onBlur={(e) => {
-                const error = validateField('companyName', e.target.value);
-                setFormErrors(prev => ({ ...prev, companyName: error }));
-              }}
-            />
-            <TextField
-              margin="dense"
-              name="position"
-              label="Position *"
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={formData.position}
-              onChange={handleChange}
-              error={!!formErrors.position}
-              helperText={formErrors.position || ' '}
-              required
-              sx={{ mb: 2 }}
-              onBlur={(e) => {
-                const error = validateField('position', e.target.value);
-                setFormErrors(prev => ({ ...prev, position: error }));
-              }}
-            />
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                margin="dense"
-                name="totalCall"
-                label=" Target Total Calls *"
-                type="number"
-                fullWidth
-                variant="outlined"
-                value={formData.totalCall}
-                onChange={handleChange}
-                error={!!formErrors.totalCall}
-                helperText={formErrors.totalCall || ' '}
-                required
-                inputProps={{ min: 0 }}
-                onBlur={(e) => {
-                  const error = validateField('totalCall', e.target.value);
-                  setFormErrors(prev => ({ ...prev, totalCall: error }));
-                }}
-              />
-              <TextField
-                margin="dense"
-                name="profilesShared"
-                label="Target Profiles Share *"
-                type="number"
-                fullWidth
-                variant="outlined"
-                value={formData.profilesShared}
-                onChange={handleChange}
-                error={!!formErrors.profilesShared}
-                helperText={formErrors.profilesShared || ' '}
-                required
-                inputProps={{ min: 0 }}
-                onBlur={(e) => {
-                  const error = validateField('profilesShared', e.target.value);
-                  setFormErrors(prev => ({ ...prev, profilesShared: error }));
-                }}
-              />
+          <DialogContent sx={{ p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ p: 3, overflowY: 'auto', flex: 1 }}>
+
+              {/* ── Row 1: Company + Position ── */}
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} md={6}>
+                  <Autocomplete
+                    freeSolo
+                    options={companyOptions}
+                    value={formData.companyName}
+                    onChange={(_, v) => handleCompanySelect(v || '')}
+                    onInputChange={(_, v, reason) => {
+                      if (reason === 'input') handleCompanySelect(v);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        autoFocus
+                        label="Company Name *"
+                        size="small"
+                        error={!!formErrors.companyName}
+                        helperText={formErrors.companyName || ''}
+                        required
+                      />
+                    )}
+                    clearOnEscape
+                    isOptionEqualToValue={(o, v) => o.toLowerCase() === v?.toLowerCase()}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Autocomplete
+                    freeSolo
+                    options={positionOptions}
+                    value={formData.position}
+                    disabled={!formData.companyName}
+                    onChange={(_, v) => handlePositionSelect(v || '')}
+                    onInputChange={(_, v, reason) => {
+                      if (reason === 'input') {
+                        setFormData(prev => ({ ...prev, position: v }));
+                        if (formErrors.position) setFormErrors(prev => ({ ...prev, position: '' }));
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Position *"
+                        size="small"
+                        error={!!formErrors.position}
+                        helperText={
+                          formErrors.position ||
+                          (!formData.companyName ? 'Select a company first' : '')
+                        }
+                        required
+                      />
+                    )}
+                    clearOnEscape
+                    isOptionEqualToValue={(o, v) => o.toLowerCase() === v?.toLowerCase()}
+                  />
+                </Grid>
+              </Grid>
+
+              {/* ── Main Body: Metrics (left) + Remarks (right) ── */}
+              <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
+
+                {/* ── Left: Metrics Panel ── */}
+                <Grid item xs={12} md={7}>
+                  <Box
+                    sx={{
+                      border: '1px solid #e3eaf5',
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      height: '100%'
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 1,
+                        backgroundColor: '#f0f4ff',
+                        borderBottom: '1px solid #e3eaf5',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#1565c0', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                        📊 Performance Metrics (Targets)
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ p: 2 }}>
+                      {[
+                        { name: 'totalCall', label: 'Total Calls', icon: '📞', step: '1', required: true },
+                        { name: 'profilesShared', label: 'Profiles Shared', icon: '👤', step: '1', required: true },
+                        { name: 'interviewsScheduled', label: 'Interviews Scheduled', icon: '📅', step: '1', required: true },
+                        { name: 'revenueGenerated', label: 'Revenue Generated (₹)', icon: '💰', step: '0.01', required: false }
+                      ].map(({ name, label, icon, step, required }, idx, arr) => (
+                        <Box
+                          key={name}
+                          sx={{
+                            mb: idx < arr.length - 1 ? 1.5 : 0,
+                            pb: idx < arr.length - 1 ? 1.5 : 0,
+                            borderBottom: idx < arr.length - 1 ? '1px dashed #e8edf5' : 'none'
+                          }}
+                        >
+                          <Typography variant="caption" sx={{ color: '#666', fontWeight: 600, display: 'block', mb: 0.5 }}>
+                            {icon} {label}{required ? ' *' : ''}
+                          </Typography>
+                          <TextField
+                            name={name}
+                            label={`Target ${label}`}
+                            fullWidth
+                            size="small"
+                            value={formData[name]}
+                            onChange={handleChange}
+                            error={!!formErrors[name]}
+                            helperText={
+                              formErrors[name] ||
+                              (name === 'revenueGenerated' && formData.revenueGenerated && formData.position
+                                ? `Auto-filled from "${formData.position}" salary`
+                                : '')
+                            }
+                            type="number"
+                            inputProps={{ min: 0, step }}
+                            InputLabelProps={{ shrink: true }}
+                            required={required}
+                            onBlur={(e) => setFormErrors(prev => ({ ...prev, [name]: validateField(name, e.target.value) }))}
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                backgroundColor: name === 'revenueGenerated' && formData.revenueGenerated && formData.position
+                                  ? '#f0fdf4'
+                                  : '#fafcff'
+                              }
+                            }}
+                          />
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                </Grid>
+
+                {/* ── Right: Remarks Panel ── */}
+                <Grid item xs={12} md={5}>
+                  <Box
+                    sx={{
+                      border: '1px solid #e3eaf5',
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 1,
+                        backgroundColor: '#f0f4ff',
+                        borderBottom: '1px solid #e3eaf5'
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#1565c0', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                        📝 Remarks
+                      </Typography>
+                    </Box>
+                    <Box sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      <TextField
+                        name="remark"
+                        label="Additional Notes"
+                        fullWidth
+                        size="small"
+                        value={formData.remark}
+                        onChange={handleChange}
+                        multiline
+                        placeholder="Enter any additional notes or comments..."
+                        sx={{
+                          flex: 1,
+                          '& .MuiInputBase-root': {
+                            height: '100%',
+                            alignItems: 'flex-start'
+                          },
+                          '& textarea': {
+                            minHeight: '220px !important',
+                            resize: 'none'
+                          }
+                        }}
+                      />
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
             </Box>
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                margin="dense"
-                name="interviewsScheduled"
-                label="Target Interviews Schedule *"
-                type="number"
-                fullWidth
+
+            {/* ── Footer Actions ── */}
+            <Box
+              sx={{
+                px: 3,
+                py: 2,
+                borderTop: '1px solid #e3eaf5',
+                backgroundColor: '#f8faff',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 1.5,
+                flexShrink: 0
+              }}
+            >
+              <Button
                 variant="outlined"
-                value={formData.interviewsScheduled}
-                onChange={handleChange}
-                error={!!formErrors.interviewsScheduled}
-                helperText={formErrors.interviewsScheduled || ' '}
-                required
-                inputProps={{ min: 0 }}
-                onBlur={(e) => {
-                  const error = validateField('interviewsScheduled', e.target.value);
-                  setFormErrors(prev => ({ ...prev, interviewsScheduled: error }));
+                onClick={handleClose}
+                sx={{ minWidth: 100 }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                sx={{
+                  minWidth: 140,
+                  fontWeight: 600,
+                  background: 'linear-gradient(90deg, #2e7d32 0%, #388e3c 100%)',
+                  '&:hover': {
+                    background: 'linear-gradient(90deg, #1b5e20 0%, #2e7d32 100%)'
+                  }
                 }}
-              />
-              <TextField
-                margin="dense"
-                name="revenueGenerated"
-                label="Target Revenue Generate (₹)"
-                type="number"
-                fullWidth
-                variant="outlined"
-                value={formData.revenueGenerated}
-                onChange={handleChange}
-                error={!!formErrors.revenueGenerated}
-                helperText={formErrors.revenueGenerated || ' '}
-                inputProps={{ min: 0, step: '0.01' }}
-                onBlur={(e) => {
-                  const error = validateField('revenueGenerated', e.target.value);
-                  setFormErrors(prev => ({ ...prev, revenueGenerated: error }));
-                }}
-              />
+              >
+                ➕ Create Task
+              </Button>
             </Box>
-            <TextField
-              margin="dense"
-              name="remark"
-              label="Remarks"
-              type="text"
-              fullWidth
-              variant="outlined"
-              multiline
-              rows={3}
-              value={formData.remark}
-              onChange={handleChange}
-              sx={{ mb: 2 }}
-            />
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={handleClose} color="primary">
-              Cancel
-            </Button>
-            <Button type="submit" color="primary" variant="contained">
-              Submit
-            </Button>
-          </DialogActions>
         </form>
       </Dialog>
 
-      {/* Snackbar for notifications */}
+      {/* ── Edit Request Dialog ── */}
+      <Dialog
+        open={editRequestOpen}
+        onClose={() => setEditRequestOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxHeight: '90vh',
+            background: 'linear-gradient(135deg, #f8faff 0%, #ffffff 100%)'
+          }
+        }}
+      >
+        {/* ── Header ── */}
+        <DialogTitle
+          sx={{
+            px: 3,
+            py: 2,
+            background: 'linear-gradient(90deg, #e65100 0%, #f57c00 100%)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5
+          }}
+        >
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.1rem',
+              flexShrink: 0
+            }}
+          >
+            ✏️
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+              Request Task Edit
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.85 }}>
+              {editRequestTask
+                ? `${editRequestTask.companyName} — ${editRequestTask.position}`
+                : 'Your changes will be sent to admin for approval before being applied.'}
+            </Typography>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ p: 3, overflowY: 'auto', flex: 1 }}>
+
+            {/* ── Row 1: Company + Position ── */}
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  name="companyName"
+                  label="Company Name *"
+                  fullWidth
+                  size="small"
+                  value={editRequestData.companyName || ''}
+                  onChange={handleEditRequestChange}
+                  error={!!editRequestErrors.companyName}
+                  helperText={editRequestErrors.companyName || ''}
+                  required
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  name="position"
+                  label="Position *"
+                  fullWidth
+                  size="small"
+                  value={editRequestData.position || ''}
+                  onChange={handleEditRequestChange}
+                  error={!!editRequestErrors.position}
+                  helperText={editRequestErrors.position || ''}
+                  required
+                />
+              </Grid>
+            </Grid>
+
+            {/* ── Main Body: Metrics (left) + Remarks (right) ── */}
+            <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
+
+              {/* ── Left: Metrics Panel ── */}
+              <Grid item xs={12} md={7}>
+                <Box
+                  sx={{
+                    border: '1px solid #e3eaf5',
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    height: '100%'
+                  }}
+                >
+                  {/* Panel header */}
+                  <Box
+                    sx={{
+                      px: 2,
+                      py: 1,
+                      backgroundColor: '#f0f4ff',
+                      borderBottom: '1px solid #e3eaf5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#1565c0', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                      📊 Performance Metrics
+                    </Typography>
+                  </Box>
+
+                  <Box sx={{ p: 2 }}>
+                    {/* Column headers */}
+                    <Grid container spacing={1.5} sx={{ mb: 1 }}>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          🎯 Target
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#2e7d32', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                          ✅ EOD Achieved
+                        </Typography>
+                      </Grid>
+                    </Grid>
+
+                    {/* Metric rows */}
+                    {[
+                      { name: 'totalCall', label: 'Total Calls', eod: 'TCEOD', icon: '📞', step: '1' },
+                      { name: 'profilesShared', label: 'Profiles Shared', eod: 'PSEOD', icon: '👤', step: '1' },
+                      { name: 'interviewsScheduled', label: 'Interviews Scheduled', eod: 'ISEOD', icon: '📅', step: '1' },
+                      { name: 'revenueGenerated', label: 'Revenue Generated (₹)', eod: 'RGEOD', icon: '💰', step: '0.01' }
+                    ].map(({ name, label, eod, icon, step }, idx, arr) => (
+                      <Box
+                        key={name}
+                        sx={{
+                          mb: idx < arr.length - 1 ? 1.5 : 0,
+                          pb: idx < arr.length - 1 ? 1.5 : 0,
+                          borderBottom: idx < arr.length - 1 ? '1px dashed #e8edf5' : 'none'
+                        }}
+                      >
+                        <Typography variant="caption" sx={{ color: '#666', fontWeight: 600, display: 'block', mb: 0.5 }}>
+                          {icon} {label}
+                        </Typography>
+                        <Grid container spacing={1.5}>
+                          <Grid item xs={6}>
+                            <TextField
+                              name={name}
+                              label="Target"
+                              fullWidth
+                              size="small"
+                              value={editRequestData[name] ?? ''}
+                              onChange={handleEditRequestChange}
+                              type="number"
+                              inputProps={{ min: 0, step }}
+                              InputLabelProps={{ shrink: true }}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  backgroundColor: '#fafcff'
+                                }
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <TextField
+                              name={eod}
+                              label="EOD Achieved"
+                              fullWidth
+                              size="small"
+                              value={editRequestData[eod] ?? ''}
+                              onChange={handleEditRequestChange}
+                              type="number"
+                              inputProps={{ min: 0, step }}
+                              InputLabelProps={{ shrink: true }}
+                              helperText={
+                                eod === 'TCEOD'
+                                  ? '🔄 Auto-fetched from today\'s candidates'
+                                  : ''
+                              }
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  backgroundColor: eod === 'TCEOD' ? '#e8f5e9' : '#f1faf2'
+                                },
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: eod === 'TCEOD' ? '#66bb6a' : '#a5d6a7'
+                                }
+                              }}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              </Grid>
+
+              {/* ── Right: Remarks Panel ── */}
+              <Grid item xs={12} md={5}>
+                <Box
+                  sx={{
+                    border: '1px solid #e3eaf5',
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column'
+                  }}
+                >
+                  <Box
+                    sx={{
+                      px: 2,
+                      py: 1,
+                      backgroundColor: '#f0f4ff',
+                      borderBottom: '1px solid #e3eaf5'
+                    }}
+                  >
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#1565c0', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                      📝 Remarks
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <TextField
+                      name="remark"
+                      label="Additional Notes"
+                      fullWidth
+                      size="small"
+                      value={editRequestData.remark || ''}
+                      onChange={handleEditRequestChange}
+                      multiline
+                      placeholder="Enter any additional notes, observations, or comments about this edit request..."
+                      sx={{
+                        flex: 1,
+                        '& .MuiInputBase-root': {
+                          height: '100%',
+                          alignItems: 'flex-start'
+                        },
+                        '& textarea': {
+                          minHeight: '220px !important',
+                          resize: 'none'
+                        }
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* ── Footer Actions ── */}
+          <Box
+            sx={{
+              px: 3,
+              py: 2,
+              borderTop: '1px solid #e3eaf5',
+              backgroundColor: '#f8faff',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 1.5,
+              flexShrink: 0
+            }}
+          >
+            <Button
+              variant="outlined"
+              onClick={() => setEditRequestOpen(false)}
+              sx={{ minWidth: 100 }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleEditRequestSubmit}
+              disabled={editRequestSubmitting}
+              sx={{
+                minWidth: 180,
+                fontWeight: 600,
+                background: 'linear-gradient(90deg, #e65100 0%, #f57c00 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(90deg, #bf360c 0%, #e65100 100%)'
+                }
+              }}
+            >
+              {editRequestSubmitting ? 'Submitting...' : '📨 Submit for Approval'}
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Snackbar */}
       <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
+        open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>

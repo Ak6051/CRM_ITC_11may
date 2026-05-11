@@ -479,14 +479,15 @@ import {
   AssessmentOutlined,
   AssignmentIndOutlined,
   WorkOutline,
-  AssignmentTurnedInOutlined,
   GroupsOutlined,
-  EventNoteOutlined,
-  AddBoxOutlined,
   ExpandLess,
   ExpandMore,
   Menu,
   ChevronLeft,
+  SecurityOutlined,
+  ListAltOutlined,
+  AccountBalanceOutlined,
+  TrendingUpOutlined,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -557,17 +558,20 @@ const Sidebar = () => {
   const handleSalesClick = () => setSalesDropdownOpen(!salesDropdownOpen);
 
   const menuItems = [
-    { text: 'Dashboard', icon: <HomeOutlined />, route: '/job-report' },
-    { text: 'Settings', icon: <SettingsOutlined />, route: '/admin-settings' },
+    { text: 'Master Dashboard', icon: <AssessmentOutlined />, route: '/master-dashboard' },
+    { text: 'Job Openings', icon: <HomeOutlined />, route: '/job-report' },
+    { text: 'Company Management', icon: <BusinessCenterOutlined />, route: '/company-management' },
+    { text: 'User Management', icon: <PeopleOutline />, route: '/user-management' },
+    { text: 'TL Permissions', icon: <SettingsOutlined />, route: '/admin-settings' },
     { text: 'Placement Report', icon: <WorkOutline />, route: '/hr-report' },
     { text: 'All Candidates Details', icon: <GroupsOutlined />, route: '/can-rep' },
-    { text: 'Candidates Form', icon: <AddBoxOutlined />, route: '/candidate-form' },
-    { text: 'Admin Candidates Details', icon: <GroupsOutlined />, route: '/admin-candidate-details' },
-    { text: 'Interview Details', icon: <EventNoteOutlined />, route: '/interview-repo' },
-    { text: 'Assigned Tasks', icon: <AssignmentIndOutlined />, route: '/assigned-tasks' },
-    { text: 'HR Assigned Tasks', icon: <AssignmentTurnedInOutlined />, route: '/hr-assigned-tasks' },
+    { text: 'HR Analytics', icon: <TrendingUpOutlined />, route: '/hr-analytics' },
     { text: 'Daily Task Report', icon: <AssessmentOutlined />, route: '/daily-task-report' },
+    { text: 'Sales Daily Task Report', icon: <AssignmentIndOutlined />, route: '/sales-daily-task-report' },
     { text: 'Master Sheet', icon: <AssessmentOutlined />, route: '/master-sheet' },
+    { text: 'Audit Dashboard', icon: <ListAltOutlined />, route: '/audit-dashboard' },
+    { text: 'IP Whitelist', icon: <SecurityOutlined />, route: '/ip-whitelist' },
+    { text: 'Account Department', icon: <AccountBalanceOutlined />, route: '/account-department' },
   ];
 
   const isActive = (route) => location.pathname.startsWith(route);
@@ -627,7 +631,7 @@ const Sidebar = () => {
           />
           <Typography
             variant="h6"
-            sx={{ fontWeight: 700, color: '#FFD700', fontFamily: 'Lora', textAlign: 'center' }}
+            sx={{ fontWeight: 700, color: '#f6b93b', fontFamily: '"Poppins", "Lora", serif', textAlign: 'center', fontSize: '1.1rem', letterSpacing: '0.5px' }}
           >
             {settings.companyName || 'Ideal Talent Connect'}
           </Typography>
@@ -668,7 +672,12 @@ const Sidebar = () => {
                 <ListItemText
                   primary={item.text}
                   sx={{
-                    '& .MuiTypography-root': { fontWeight: 500, fontFamily: 'Roboto' },
+                    '& .MuiTypography-root': { 
+                      fontWeight: 600, 
+                      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+                      fontSize: '0.9rem',
+                      letterSpacing: '0.3px',
+                    },
                   }}
                 />
               )}
@@ -714,7 +723,15 @@ const Sidebar = () => {
                 }}
                 onClick={() => navigate(`/hr/${hr._id}`)}
               >
-                <ListItemText primary={`${hr.firstName} ${hr.lastName}`} />
+                <ListItemText primary={`${hr.firstName} ${hr.lastName}`} 
+                  sx={{
+                    '& .MuiTypography-root': { 
+                      fontWeight: 500, 
+                      fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+                      fontSize: '0.85rem',
+                    },
+                  }}
+                />
               </ListItem>
             ))}
           </List>
@@ -766,7 +783,15 @@ const Sidebar = () => {
                       navigate(`/sales/${salesId}/${nameSlug}`);
                     }}
                   >
-                    <ListItemText primary={salesName} />
+                    <ListItemText primary={salesName} 
+                      sx={{
+                        '& .MuiTypography-root': { 
+                          fontWeight: 500, 
+                          fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+                          fontSize: '0.85rem',
+                        },
+                      }}
+                    />
                   </ListItem>
                 );
               })

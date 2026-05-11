@@ -150,6 +150,13 @@ export const createSale = async (jobData ,isMultipart = false) => {
   
 
 export const fetchHRUsers = async () => {
-    return await axios.get(`${API_BASE_URL}/hr/hr-users`);
+    const response = await axios.get(`${API_BASE_URL}/hr/hr-users`);
+    // Sort HR users by full name (first name + last name)
+    const sortedData = response.data.sort((a, b) => {
+        const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim().toLowerCase();
+        const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB, undefined, {sensitivity: 'base'});
+    });
+    return { ...response, data: sortedData };
 };
 

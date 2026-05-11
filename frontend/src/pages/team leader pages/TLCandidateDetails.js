@@ -10,9 +10,10 @@ import {
   Button 
 } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
-import Navbar from '../../components/admin components/AdminNavbar';
-import Sidebar from '../../components/admin components/AdminSidebar';
+import Navbar from '../../components/team leader components/TeamLeaderNavbar';
+import Sidebar from '../../components/team leader components/TeamLeaderSidebar';
 import { toast } from "react-toastify";
+import useTLPermissions from '../../hooks/useTLPermissions';
 
 
 const style = {
@@ -28,23 +29,26 @@ const style = {
 };
 
 const AdminCandidateDetails = () => {
+  const { canDo } = useTLPermissions();
   const [candidates, setCandidates] = useState([]);
   const [open, setOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
 
-  const fetchCandidates = async () => {
+ const fetchCandidates = async () => {
     try {
       const token = sessionStorage.getItem("token");
-      const response = await axios.get(`${API_BASE_URL}/candidate/all-candidates`, {
+      const hrId = sessionStorage.getItem("userId");
+      const response = await axios.get(`${API_BASE_URL}/candidate/all-candidates/${hrId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       const formattedData = response.data.map((candidate) => ({
         id: candidate._id,
-        name: candidate.name,
-        phoneNumber: candidate.phoneNumber,
-        email:candidate.email,
+        // Handle both model types - use the field that exists
+        name: candidate.name || candidate.candidateName,
+        phoneNumber: candidate.phoneNumber || candidate.candidatePhone,
+        email: candidate.email || candidate.candidateEmail,
         positionName: candidate.positionName,
         qualification: candidate.qualification,
         experience: candidate.experience,
@@ -56,7 +60,9 @@ const AdminCandidateDetails = () => {
         reasonforLeaving: candidate.reasonforLeaving,
         currentCompany: candidate.currentCompany,
         remark: candidate.remark,
+        resumeLink: candidate.resumeLink,
         resumeUpload: candidate.resumeUpload,
+        modelType: candidate.modelType, // Include modelType for updates
       }));
       setCandidates(formattedData);
     } catch (error) {
@@ -170,6 +176,7 @@ const handleUpdate = async () => {
   };
 
   const columns = [
+    
     { field: "name", headerName: "Name", width: 150 },
     { field: "phoneNumber", headerName: "Phone", width: 130 },
     { field: "email", headerName: "Email", width: 130 },
@@ -204,13 +211,13 @@ const handleUpdate = async () => {
       renderCell: (params) => (
         <>
           <button
-            onClick={() => handleEdit(params.row)}
+            onClick={() => handleEdit(params.row)} disabled={!canDo('tl-candidate-details:edit')}
             style={{ marginRight: 8, backgroundColor: "#1976d2", color: "#fff", border: "none", padding: "4px 8px", cursor: "pointer", borderRadius: "4px" }}
           >
             Edit
           </button>
           <button
-            onClick={() => handleDelete(params.row.id)}
+            onClick={() => handleDelete(params.row.id)} disabled={!canDo('tl-candidate-details:delete')}
             style={{ backgroundColor: "red", color: "#fff", border: "none", padding: "4px 8px", cursor: "pointer", borderRadius: "4px" }}
           >
             Delete

@@ -13,6 +13,11 @@ import {
   DialogActions,
   Autocomplete,
   CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormHelperText,
 } from "@mui/material";
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Navbar from '../../components/admin components/AdminNavbar';
@@ -23,7 +28,7 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import * as XLSX from 'xlsx';
 
-const AdminCandidateForm = ({ userId }) => {
+const AdminCandidateForm = ({ userId, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: "",
     phoneNumber: "",
@@ -32,7 +37,9 @@ const AdminCandidateForm = ({ userId }) => {
     qualification: "",
     experience: "",
     currentLocation: "",
+    preferredLocation: "",
     currentPosition: "",
+    industry: "",
     currentCTC: {
       amount: "",
       period: "Monthly"
@@ -57,19 +64,38 @@ const AdminCandidateForm = ({ userId }) => {
   const [positions, setPositions] = useState([]);
   const [loadingPositions, setLoadingPositions] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [experiences, setExperiences] = useState([]);
-  const [loadingExperiences, setLoadingExperiences] = useState(false);
+  
+  // Predefined experience options (no API call needed)
+  const experienceOptions = [
+    'Fresher',
+    '0-6 Months',
+    '6 Months',
+    '1 Year',
+    '1 Year 3 Months',
+    '1 Year 6 Months',
+    '2 Years',
+    '2 Years 3 Months',
+    '2 Years 6 Months',
+    '3 Years',
+    '3-5 Years',
+    '5 Years',
+    '5-7 Years',
+    '7-10 Years',
+    '10+ Years',
+    '15+ Years'
+  ];
+  
   const [expSearchTerm, setExpSearchTerm] = useState("");
 
   // Filter experiences based on search term
   const filteredExperiences = React.useMemo(() => {
-    if (!expSearchTerm) return experiences;
+    if (!expSearchTerm) return experienceOptions;
     
     const searchLower = expSearchTerm.toLowerCase();
-    return experiences.filter(exp => 
+    return experienceOptions.filter(exp => 
       exp.toLowerCase().includes(searchLower)
     );
-  }, [experiences, expSearchTerm]);
+  }, [expSearchTerm]);
 
   // Error states for required fields
   const [errors, setErrors] = useState({
@@ -81,12 +107,21 @@ const AdminCandidateForm = ({ userId }) => {
     experience: false,
     currentLocation: false,
     currentPosition: false,
-    currentCTC: false
+    currentCTC: false,
+    resumeFile: false
   });
 
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Special handling for phone number field
+    if (name === 'phoneNumber') {
+      // Only allow numbers and limit to 10 digits
+      const numericValue = value.replace(/\D/g, '').slice(0, 10);
+      setFormData(prev => ({ ...prev, [name]: numericValue }));
+      return;
+    }
     
     // Special handling for CTC fields
     if (name === 'expectedCTC' || name === 'currentCTC') {
@@ -98,6 +133,24 @@ const AdminCandidateForm = ({ userId }) => {
           amount: value
         }
       }));
+    } else if ([
+      'name',
+      'positionName',
+      'currentLocation',
+      'preferredLocation',
+      'currentPosition',
+      'qualification',
+      'currentCompany',
+      'industry',
+      'reasonforLeaving',
+      'remark'
+    ].includes(name)) {
+      // Capitalize first letter of each word in text fields
+      const capitalizedValue = value
+        .split(' ')
+        .map(word => word.length > 0 ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '')
+        .join(' ');
+      setFormData(prev => ({ ...prev, [name]: capitalizedValue }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -142,30 +195,6 @@ useEffect(() => {
   return () => clearTimeout(delayDebounce);
 }, [searchTerm]);
 
-// Fetch all experiences on component mount
-useEffect(() => {
-  const fetchAllExperiences = async () => {
-    try {
-      setLoadingExperiences(true);
-      const response = await fetch(`${API_BASE_URL}/candidate/experience-ranges`);
-      const data = await response.json();
-      
-      if (data?.success && Array.isArray(data.experiences)) {
-        setExperiences(data.experiences);
-      } else {
-        setExperiences([]);
-      }
-    } catch (error) {
-      console.error("Error fetching experiences:", error);
-      setExperiences([]);
-    } finally {
-      setLoadingExperiences(false);
-    }
-  };
-
-  fetchAllExperiences();
-}, []);
-
 const handlePositionChange = (event, newValue) => {
   setFormData(prev => ({
     ...prev, 
@@ -188,15 +217,16 @@ const handleExperienceChange = (event, newValue) => {
 const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Prepare the data to be sent
+    // Prepare the data to be sent — convert monthly CTC to annual LPA
+    const toAnnualLPA = (amount) => {
+      const n = Number(amount);
+      if (!n) return "";
+      return `${((n * 12) / 100000).toFixed(2)} LPA`;
+    };
     const submitData = {
       ...formData,
-      currentCTC: formData.currentCTC.amount 
-        ? `${formData.currentCTC.amount} ${formData.currentCTC.period}`
-        : "",
-      expectedCTC: formData.expectedCTC.amount 
-        ? `${formData.expectedCTC.amount} ${formData.expectedCTC.period}`
-        : ""
+      currentCTC:  toAnnualLPA(formData.currentCTC.amount),
+      expectedCTC: toAnnualLPA(formData.expectedCTC.amount),
     };
     
     // Validate required fields
@@ -210,8 +240,16 @@ const handleSubmit = async (e) => {
       currentLocation: !formData.currentLocation.trim(),
       currentPosition: !formData.currentPosition.trim(),
       currentCTC: !formData.currentCTC.amount?.trim(),
-      expectedCTC: !formData.expectedCTC.amount?.trim()
+      expectedCTC: !formData.expectedCTC.amount?.trim(),
+      resumeFile: !resumeFile,
+      noticePeriod: !formData.noticePeriod.trim(),
     };
+    
+    if (resumeFile) {
+      setFileError('');
+    } else {
+      setFileError('Resume is required');
+    }
     
     setErrors(newErrors);
     
@@ -278,6 +316,7 @@ const handleSubmit = async (e) => {
         qualification:"",
         experience: "",
         currentLocation: "",
+        preferredLocation: "",
         currentPosition: "",
         currentCTC: "",
         expectedCTC: "",
@@ -288,6 +327,11 @@ const handleSubmit = async (e) => {
         createdBy: userId || "",
       });
       setResumeFile(null);
+      
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       toast.dismiss(loadingToast);
   
@@ -336,24 +380,57 @@ const handleSubmit = async (e) => {
         setShowConfirmDialog(false);
         return;
       }
-  
-      // ✅ Filter out entries without phoneNumber
-      const validData = jsonData.filter((row) => row.phoneNumber && String(row.phoneNumber).trim() !== "");
-      const invalidDataCount = jsonData.length - validData.length;
+
+      // ── Required field validation (mirrors form validation) ──────────────
+      const REQUIRED = ['name', 'phoneNumber', 'email', 'positionName', 'qualification', 'experience', 'currentLocation', 'currentPosition', 'currentCTC', 'noticePeriod'];
+      const rowErrors = [];
+      jsonData.forEach((row, i) => {
+        const missing = REQUIRED.filter(f => !row[f] || String(row[f]).trim() === '');
+        if (missing.length) rowErrors.push(`Row ${i + 2}: missing ${missing.join(', ')}`);
+      });
+
+      if (rowErrors.length > 0) {
+        toast.error(
+          <div>
+            <strong>❌ Validation failed — fix these rows:</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12 }}>
+              {rowErrors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
+              {rowErrors.length > 8 && <li>...and {rowErrors.length - 8} more</li>}
+            </ul>
+          </div>,
+          { position: "top-right", autoClose: false, closeOnClick: true }
+        );
+        setShowConfirmDialog(false);
+        return;
+      }
+
+      // ── Convert monthly currentCTC / expectedCTC → LPA ──────────────────
+      const toAnnualLPA = (val) => {
+        const n = Number(val);
+        if (!n) return val;
+        if (String(val).match(/[a-zA-Z]/)) return val;
+        return `${((n * 12) / 100000).toFixed(2)} LPA`;
+      };
+
+      const processedData = jsonData.map(row => ({
+        ...row,
+        currentCTC:  row.currentCTC  != null ? toAnnualLPA(row.currentCTC)  : row.currentCTC,
+        expectedCTC: row.expectedCTC != null ? toAnnualLPA(row.expectedCTC) : row.expectedCTC,
+      }));
+
+      // ── Filter out rows missing phoneNumber (duplicate guard) ────────────
+      const validData = processedData.filter((row) => row.phoneNumber && String(row.phoneNumber).trim() !== "");
+      const invalidDataCount = processedData.length - validData.length;
   
       if (validData.length === 0) {
-        toast.error("❌ All rows missing phone number. Cannot import.", {
-          position: "top-right",
-          autoClose: 5000,
-        });
+        toast.error("❌ All rows missing phone number. Cannot import.", { position: "top-right", autoClose: 5000 });
         setShowConfirmDialog(false);
         return;
       }
   
       if (invalidDataCount > 0) {
         toast.warn(`⚠️ ${invalidDataCount} rows skipped due to missing phone number`, {
-          position: "top-right",
-          autoClose: 4000,
+          position: "top-right", autoClose: 4000,
           style: { backgroundColor: "#fff8e1", color: "#ff6f00" },
         });
       }
@@ -464,39 +541,92 @@ const handleSubmit = async (e) => {
       "qualification",
       "experience",
       "currentLocation",
+      "preferredLocation",
       "currentPosition",
       "currentCTC",
       "expectedCTC",
       "noticePeriod",
       "reasonforLeaving",
       "currentCompany",
+      "industry",
       "remark"
     ];
 
-    const worksheet = XLSX.utils.json_to_sheet([], { header: headers });
+    // Sample rows — one real-looking example + one showing all allowed values
+    const sampleRows = [
+      {
+        name:             "Rahul Sharma",
+        phoneNumber:      "9876543210",
+        email:            "rahul.sharma@email.com",
+        positionName:     "Software Engineer",
+        qualification:    "B.Tech",
+        experience:       "2 Years",
+        currentLocation:  "Surat",
+        preferredLocation:"Ahmedabad",
+        currentPosition:  "Junior Developer",
+        currentCTC:       20000,   // monthly ₹ — auto-converted to LPA on import
+        expectedCTC:      28000,   // monthly ₹ — auto-converted to LPA on import
+        noticePeriod:     "30 Days",
+        reasonforLeaving: "Better Growth Opportunity",
+        currentCompany:   "Tech Solutions Pvt Ltd",
+        industry:         "IT",
+        remark:           "Good communication skills",
+      },
+      {
+        name:             "Priya Patel",
+        phoneNumber:      "9123456780",
+        email:            "priya.patel@email.com",
+        positionName:     "HR Manager",
+        qualification:    "MBA",
+        experience:       "5 Years",
+        currentLocation:  "Mumbai",
+        preferredLocation:"Mumbai",
+        currentPosition:  "HR Executive",
+        currentCTC:       35000,
+        expectedCTC:      45000,
+        noticePeriod:     "45 Days",
+        reasonforLeaving: "Salary Growth",
+        currentCompany:   "ABC Corp",
+        industry:         "Manufacturing",
+        remark:           "Team player",
+      },
+    ];
+
+    // Build worksheet with headers + sample rows
+    const worksheet = XLSX.utils.json_to_sheet(sampleRows, { header: headers });
+
+    // ── Column widths ──────────────────────────────────────────────────────
+    worksheet['!cols'] = headers.map(h => ({
+      wch: Math.max(h.length + 4, 18),
+    }));
+
+    // ── Style header row (bold + light blue fill) ──────────────────────────
+    // Note: basic xlsx doesn't support cell styles; use xlsx-style for that.
+    // We add a comment row above the data to explain the CTC format.
+    XLSX.utils.sheet_add_aoa(worksheet, [
+      ["⚠ currentCTC & expectedCTC: enter monthly amount in ₹ (e.g. 20000 = ₹20,000/month = 2.40 LPA). It will be auto-converted on import."],
+    ], { origin: { r: sampleRows.length + 2, c: 0 } });
+
+    // ── Allowed values note ────────────────────────────────────────────────
+    XLSX.utils.sheet_add_aoa(worksheet, [
+      ["Allowed experience values: Fresher | 0-6 Months | 6 Months | 1 Year | 1 Year 6 Months | 2 Years | 3 Years | 3-5 Years | 5 Years | 5-7 Years | 7-10 Years | 10+ Years | 15+ Years"],
+      ["Allowed noticePeriod values: Immediate | 1 Week | 15 Days | 30 Days | 45 Days | 60 Days | 90 Days"],
+      ["Required columns: name, phoneNumber, email, positionName, qualification, experience, currentLocation, currentPosition, currentCTC, noticePeriod"],
+    ], { origin: { r: sampleRows.length + 3, c: 0 } });
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "CandidatesTemplate");
 
-    XLSX.writeFile(workbook, "Candidate_Template.xlsx");
+    XLSX.writeFile(workbook, "Candidate_Import_Template.xlsx");
   };
 
 
-  return (
-    <div style={{ display: "flex", height: "100vh", backgroundColor: "#f0f2f5" }}>
-      <div style={{ position: "fixed", height: "100vh", width: "250px", backgroundColor: "#3f51b5", color: "white" }}>
-        <Sidebar />
-      </div>
-
-      <Box sx={{ flexGrow: 1, marginLeft: "250px", overflowY: "auto" }}>
-        <Navbar />
-        <Box sx={{ p: 4 }}>
-          <Paper elevation={3} sx={{ p: 4, borderRadius: 3, backgroundColor: "#ffffff" }}>
-            <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: "#3f51b5" }}>
-              Candidate Application Form
-            </Typography>
-
-<form onSubmit={handleSubmit} encType="multipart/form-data">
-      <Grid container spacing={2}>
+  return onSuccess ? (
+    // Dialog mode - Only form without Sidebar/Navbar
+    <Box sx={{ width: '100%' }}>
+      <Paper elevation={0} sx={{ p: 2, borderRadius: 2, backgroundColor: "#ffffff", boxShadow: 'none' }}>
+        <form onSubmit={handleSubmit} encType="multipart/form-data">
+          <Grid container spacing={1.5}>
         {Object.keys(formData)
           .filter((f) => f !== "createdBy")
           .map((field) => {
@@ -517,7 +647,7 @@ const handleSubmit = async (e) => {
 
             if (field === "positionName") {
               return (
-                <Grid item xs={12} sm={6} key={field}>
+                <Grid item xs={12} sm={6} md={3} key={field}>
                   <Autocomplete
                     freeSolo
                     options={positions}
@@ -537,7 +667,7 @@ const handleSubmit = async (e) => {
                         size="medium"
                         InputProps={{
                           ...params.InputProps,
-                          style: { height: 50 },
+                          style: { height: 44 },
                           endAdornment: (
                             <>
                               {loadingPositions ? <CircularProgress size={20} /> : null}
@@ -558,302 +688,147 @@ const handleSubmit = async (e) => {
 
             if (field === "experience") {
               return (
-                <Grid item xs={12} sm={6} key={field}>
-                  <Autocomplete
-                    freeSolo
-                    options={filteredExperiences}
-                    value={formData.experience}
-                    onChange={(event, newValue) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        experience: newValue || ""
-                      }));
-                      if (errors.experience) {
-                        setErrors(prev => ({ ...prev, experience: false }));
-                      }
-                    }}
-                    onInputChange={(event, newInputValue) => {
-                      setExpSearchTerm(newInputValue);
-                      setFormData(prev => ({
-                        ...prev,
-                        experience: newInputValue
-                      }));
-                    }}
-                    inputValue={formData.experience}
-                    loading={loadingExperiences}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        label="Experience"
-                        variant="outlined"
-                        size="medium"
-                        InputProps={{
-                          ...params.InputProps,
-                          style: { height: 50 },
-                          endAdornment: (
-                            <>
-                              {loadingExperiences ? <CircularProgress size={20} /> : null}
-                              {params.InputProps.endAdornment}
-                            </>
-                          ),
-                        }}
-                        error={errors.experience}
-                        helperText={errors.experience ? "Experience is required" : ""}
-                        required
-                      />
-                    )}
-                    noOptionsText={expSearchTerm ? "No matching experiences found" : "Type to enter experience"}
-                  />
+                <Grid item xs={12} sm={6} md={3} key={field}>
+                  <FormControl fullWidth error={errors.experience} required>
+                    <InputLabel>Experience *</InputLabel>
+                    <Select
+                      value={formData.experience || ""}
+                      label="Experience *"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, experience: e.target.value }));
+                        if (errors.experience) setErrors(prev => ({ ...prev, experience: false }));
+                      }}
+                      sx={{ height: 44 }}
+                      MenuProps={{
+                        anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                        transformOrigin: { vertical: 'top', horizontal: 'left' },
+                        PaperProps: {
+                          style: { maxHeight: 220, overflowY: 'auto' },
+                        },
+                      }}
+                    >
+                      {experienceOptions.map(opt => (
+                        <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                      ))}
+                    </Select>
+                    {errors.experience && <FormHelperText>Experience is required</FormHelperText>}
+                  </FormControl>
                 </Grid>
               );
             }
 
             if (field === "currentCTC") {
+              const monthly = Number(formData.currentCTC.amount) || 0;
+              const annualLPA = monthly > 0 ? ((monthly * 12) / 100000).toFixed(2) : null;
               return (
-                <Grid item xs={12} sm={6} key={field}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      fullWidth
-                      name="currentCTC"
-                      label="Current CTC"
-                      placeholder="e.g. 50000"
-                      value={formData.currentCTC.amount || ''}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        // Allow only whole numbers
-                        if (value === '' || /^\d*$/.test(value)) {
-                          setFormData(prev => ({
-                            ...prev,
-                            currentCTC: {
-                              ...prev.currentCTC,
-                              amount: value
-                            }
-                          }));
-                        }
-                        if (errors.currentCTC) {
-                          setErrors(prev => ({ ...prev, currentCTC: false }));
-                        }
-                      }}
-                      variant="outlined"
-                      size="medium"
-                      InputProps={{
-                        style: { height: 50 },
-                        inputProps: { 
-                          inputMode: 'numeric',
-                          pattern: '\\d*',
-                          min: '0',
-                          step: '1',
-                          title: 'Please enter a whole number (e.g., 50000)'
-                        },
-                        endAdornment: (
-                          <Box sx={{ pr: 1 }}>
-                            <Autocomplete
-                              options={['Monthly', 'Yearly']}
-                              value={formData.currentCTC.period || 'Monthly'}
-                              onChange={(event, newValue) => {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  currentCTC: {
-                                    ...prev.currentCTC,
-                                    period: newValue || 'Monthly'
-                                  }
-                                }));
-                              }}
-                              disableClearable
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  variant="standard"
-                                  InputProps={{
-                                    ...params.InputProps,
-                                    disableUnderline: true,
-                                    style: { 
-                                      width: 100,
-                                      fontSize: '0.875rem',
-                                      paddingLeft: '8px'
-                                    }
-                                  }}
-                                  sx={{
-                                    '& .MuiInputBase-input': {
-                                      padding: '0 !important',
-                                    },
-                                    '& .MuiAutocomplete-endAdornment': {
-                                      right: 0,
-                                      '& .MuiSvgIcon-root': {
-                                        fontSize: '1.25rem',
-                                      }
-                                    }
-                                  }}
-                                />
-                              )}
-                            />
-                          </Box>
-                        ),
-                      }}
-                      error={errors.currentCTC}
-                      helperText={
-                        errors.currentCTC 
-                          ? "Current CTC is required" 
-                          : "Enter a whole number (e.g., 50000)"
+                <Grid item xs={12} sm={6} md={3} key={field}>
+                  <TextField
+                    fullWidth
+                    name="currentCTC"
+                    label="Current CTC (Monthly ₹)"
+                    placeholder="e.g. 20000"
+                    value={formData.currentCTC.amount || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || /^\d*$/.test(value)) {
+                        setFormData(prev => ({ ...prev, currentCTC: { ...prev.currentCTC, amount: value } }));
                       }
-                      required
-                    />
-                  </Box>
+                      if (errors.currentCTC) setErrors(prev => ({ ...prev, currentCTC: false }));
+                    }}
+                    variant="outlined"
+                    size="medium"
+                    InputProps={{
+                      style: { height: 44 },
+                      inputProps: { inputMode: 'numeric', pattern: '\\d*' },
+                    }}
+                    error={errors.currentCTC}
+                    helperText={
+                      errors.currentCTC
+                        ? "Current CTC is required"
+                        : annualLPA
+                        ? `= ₹${annualLPA} LPA (Annual)`
+                        : "Enter monthly amount in ₹"
+                    }
+                    required
+                  />
                 </Grid>
               );
             }
 
             if (field === "noticePeriod") {
               const noticePeriodOptions = [
-                "Immediate",
-                "1 Week",
-                "15 Days",
-                "30 Days",
-                "45 Days",
-                "60 Days",
-                "90 Days"
+                "Immediate", "1 Week", "15 Days", "30 Days", "45 Days", "60 Days", "90 Days"
               ];
-              
               return (
-                <Grid item xs={12} sm={6} key={field}>
-                  <Autocomplete
-                    freeSolo
-                    options={noticePeriodOptions}
-                    value={formData.noticePeriod || ''}
-                    onChange={(event, newValue) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        noticePeriod: newValue || ""
-                      }));
-                      if (errors.noticePeriod) {
-                        setErrors(prev => ({ ...prev, noticePeriod: false }));
-                      }
-                    }}
-                    onInputChange={(event, newInputValue) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        noticePeriod: newInputValue
-                      }));
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        fullWidth
-                        label="Notice Period"
-                        variant="outlined"
-                        size="medium"
-                        InputProps={{
-                          ...params.InputProps,
-                          style: { height: 50 }
-                        }}
-                        error={errors.noticePeriod}
-                        helperText={errors.noticePeriod ? "Notice Period is required" : ""}
-                        required
-                      />
-                    )}
-                  />
+                <Grid item xs={12} sm={6} md={3} key={field}>
+                  <FormControl fullWidth error={errors.noticePeriod} required>
+                    <InputLabel>Notice Period *</InputLabel>
+                    <Select
+                      value={formData.noticePeriod || ""}
+                      label="Notice Period *"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, noticePeriod: e.target.value }));
+                        if (errors.noticePeriod) setErrors(prev => ({ ...prev, noticePeriod: false }));
+                      }}
+                      sx={{ height: 44 }}
+                      MenuProps={{
+                        anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                        transformOrigin: { vertical: 'top', horizontal: 'left' },
+                        PaperProps: {
+                          style: { maxHeight: 220, overflowY: 'auto' },
+                        },
+                      }}
+                    >
+                      {noticePeriodOptions.map(opt => (
+                        <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                      ))}
+                    </Select>
+                    {errors.noticePeriod && <FormHelperText>Notice Period is required</FormHelperText>}
+                  </FormControl>
                 </Grid>
               );
             }
 
             if (field === "expectedCTC") {
+              const monthly = Number(formData.expectedCTC.amount) || 0;
+              const annualLPA = monthly > 0 ? ((monthly * 12) / 100000).toFixed(2) : null;
               return (
-                <Grid item xs={12} sm={6} key={field}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <TextField
-                      fullWidth
-                      name="expectedCTC"
-                      label="Expected CTC"
-                      placeholder="e.g. 50000"
-                      value={formData.expectedCTC.amount || ''}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        // Allow only whole numbers
-                        if (value === '' || /^\d*$/.test(value)) {
-                          setFormData(prev => ({
-                            ...prev,
-                            expectedCTC: {
-                              ...prev.expectedCTC,
-                              amount: value
-                            }
-                          }));
-                        }
-                        if (errors.expectedCTC) {
-                          setErrors(prev => ({ ...prev, expectedCTC: false }));
-                        }
-                      }}
-                      variant="outlined"
-                      size="medium"
-                      InputProps={{
-                        style: { height: 50 },
-                        inputProps: { 
-                          inputMode: 'numeric',
-                          pattern: '\\d*',
-                          min: '0',
-                          step: '1',
-                          title: 'Please enter a whole number (e.g., 50000)'
-                        },
-                        endAdornment: (
-                          <Box sx={{ pr: 1 }}>
-                            <Autocomplete
-                              options={['Monthly', 'Yearly']}
-                              value={formData.expectedCTC.period || 'Monthly'}
-                              onChange={(event, newValue) => {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  expectedCTC: {
-                                    ...prev.expectedCTC,
-                                    period: newValue || 'Monthly'
-                                  }
-                                }));
-                              }}
-                              disableClearable
-                              renderInput={(params) => (
-                                <TextField
-                                  {...params}
-                                  variant="standard"
-                                  InputProps={{
-                                    ...params.InputProps,
-                                    disableUnderline: true,
-                                    style: { 
-                                      width: 100,
-                                      fontSize: '0.875rem',
-                                      paddingLeft: '8px'
-                                    }
-                                  }}
-                                  sx={{
-                                    '& .MuiInputBase-input': {
-                                      padding: '0 !important',
-                                    },
-                                    '& .MuiAutocomplete-endAdornment': {
-                                      right: 0,
-                                      '& .MuiSvgIcon-root': {
-                                        fontSize: '1.25rem',
-                                      }
-                                    }
-                                  }}
-                                />
-                              )}
-                            />
-                          </Box>
-                        ),
-                      }}
-                      error={errors.expectedCTC}
-                      helperText={
-                        errors.expectedCTC 
-                          ? "Expected CTC is required" 
-                          : "Enter a whole number (e.g., 50000)"
+                <Grid item xs={12} sm={6} md={3} key={field}>
+                  <TextField
+                    fullWidth
+                    name="expectedCTC"
+                    label="Expected CTC (Monthly ₹)"
+                    placeholder="e.g. 25000"
+                    value={formData.expectedCTC.amount || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || /^\d*$/.test(value)) {
+                        setFormData(prev => ({ ...prev, expectedCTC: { ...prev.expectedCTC, amount: value } }));
                       }
-                      required
-                    />
-                  </Box>
+                      if (errors.expectedCTC) setErrors(prev => ({ ...prev, expectedCTC: false }));
+                    }}
+                    variant="outlined"
+                    size="medium"
+                    InputProps={{
+                      style: { height: 44 },
+                      inputProps: { inputMode: 'numeric', pattern: '\\d*' },
+                    }}
+                    error={errors.expectedCTC}
+                    helperText={
+                      errors.expectedCTC
+                        ? "Expected CTC is required"
+                        : annualLPA
+                        ? `= ₹${annualLPA} LPA (Annual)`
+                        : "Enter monthly amount in ₹"
+                    }
+                    required
+                  />
                 </Grid>
               );
             }
 
             return (
-              <Grid item xs={12} sm={6} key={field}>
+              <Grid item xs={12} sm={6} md={3} key={field}>
                 <TextField
                   fullWidth
                   name={field}
@@ -865,7 +840,7 @@ const handleSubmit = async (e) => {
                   }}
                   variant="outlined"
                   size="medium"
-                  InputProps={{ style: { height: 50 } }}
+                  InputProps={{ style: { height: 44 } }}
                   error={errors[field]}
                   helperText={errors[field] ? `${fieldName} is required` : ""}
                   required={isRequired}
@@ -950,9 +925,574 @@ const handleSubmit = async (e) => {
       </Grid>
     </form>
 
+        {/* Excel Upload Section in Dialog Mode */}
+        <Box sx={{ mt: 4, pt: 3, borderTop: '2px solid #e8eaf6' }}>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, color: '#3f51b5', mb: 2 }}>
+            Bulk Import Candidates (Excel)
+          </Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Button 
+              variant="outlined" 
+              component="label" 
+              sx={{ 
+                textTransform: "none", 
+                height: 45,
+                borderColor: '#3f51b5',
+                color: '#3f51b5',
+                fontWeight: 600,
+                '&:hover': {
+                  bgcolor: '#e8eaf6',
+                  borderColor: '#3f51b5',
+                }
+              }}
+            >
+              Upload Excel File
+              <input type="file" accept=".xlsx, .csv" hidden onChange={handleExcelUpload} />
+            </Button>
+            
+            <Button
+              variant="outlined"
+              onClick={handleTemplateDownload}
+              sx={{
+                textTransform: "none",
+                height: 45,
+                borderColor: "#1e88e5",
+                color: "#1e88e5",
+                fontWeight: 600,
+                '&:hover': { 
+                  backgroundColor: "#e3f2fd", 
+                  borderColor: "#1e88e5" 
+                }
+              }}
+            >
+              Download Template
+            </Button>
+
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+              Accepted formats: .xlsx, .csv
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Excel Confirm Dialog */}
+        <Dialog
+          open={showConfirmDialog}
+          onClose={() => setShowConfirmDialog(false)}
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              padding: 2,
+              width: 400,
+              background: '#fafafa',
+              boxShadow: 10,
+            }
+          }}
+        >
+          <DialogTitle sx={{ textAlign: 'center', fontWeight: 700, color: '#3f51b5' }}>
+            📁 Confirm Excel Import
+          </DialogTitle>
+
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 1 }}>
+              <Typography variant="body1" sx={{ textAlign: 'center', color: '#555' }}>
+                You're about to import candidate data from the following file:
+              </Typography>
+
+              <Box
+                sx={{
+                  backgroundColor: '#e3f2fd',
+                  color: '#0d47a1',
+                  padding: '10px 15px',
+                  borderRadius: 2,
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {selectedExcelFile?.name}
+              </Box>
+
+              <Typography variant="body2" sx={{ color: '#888', textAlign: 'center' }}>
+                Make sure your file follows the required column structure.
+                <br />
+                This action will insert all valid rows into the system.
+              </Typography>
+            </Box>
+          </DialogContent>
+
+          <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 2 }}>
+            <Button
+              onClick={confirmExcelUpload}
+              variant="contained"
+              sx={{
+                background: 'linear-gradient(to right, #3f51b5, #1e88e5)',
+                color: '#fff',
+                textTransform: 'none',
+                px: 4,
+                borderRadius: 2,
+                fontWeight: 600,
+                '&:hover': {
+                  background: 'linear-gradient(to right, #1e88e5, #3f51b5)',
+                },
+              }}
+            >
+              Yes, Import
+            </Button>
+
+            <Button
+              onClick={() => {
+                setShowConfirmDialog(false);
+                setSelectedExcelFile(null);
+              }}
+              variant="outlined"
+              sx={{
+                textTransform: 'none',
+                borderColor: '#d32f2f',
+                color: '#d32f2f',
+                px: 4,
+                fontWeight: 600,
+                '&:hover': {
+                  backgroundColor: '#ffebee',
+                  borderColor: '#d32f2f',
+                },
+              }}
+            >
+              Cancel
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Paper>
+    </Box>
+  ) : (
+    // Standalone page mode - Full page with Sidebar/Navbar
+    <div style={{ display: "flex", height: "100vh", backgroundColor: "#f0f2f5" }}>
+      <div style={{ position: "fixed", height: "100vh", width: "250px", backgroundColor: "#3f51b5", color: "white" }}>
+        <Sidebar />
+      </div>
+
+      <Box sx={{ flexGrow: 1, marginLeft: "250px", overflowY: "auto" }}>
+        <Navbar />
+        <Box sx={{ p: 4 }}>
+          <Paper elevation={3} sx={{ p: 4, borderRadius: 3, backgroundColor: "#ffffff" }}>
+            <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: "#3f51b5" }}>
+              Candidate Application Form
+            </Typography>
+
+            <form onSubmit={handleSubmit} encType="multipart/form-data">
+              <Grid container spacing={2}>
+                {Object.keys(formData)
+                  .filter((f) => f !== "createdBy")
+                  .map((field) => {
+                    const isRequired = [
+                      "name",
+                      "phoneNumber",
+                      "email",
+                      "positionName",
+                      "qualification",
+                      "experience",
+                      "currentLocation",
+                      "currentPosition",
+                    ].includes(field);
+
+                    const fieldName = field
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/^./, (str) => str.toUpperCase());
+
+                    if (field === "positionName") {
+                      return (
+                        <Grid item xs={12} sm={6} md={3} key={field}>
+                          <Autocomplete
+                            freeSolo
+                            options={positions}
+                            value={formData.positionName}
+                            onChange={handlePositionChange}
+                            onInputChange={(event, newInputValue) => {
+                              setFormData((prev) => ({ ...prev, positionName: newInputValue }));
+                              setSearchTerm(newInputValue);
+                            }}
+                            loading={loadingPositions}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                fullWidth
+                                label="Position Name"
+                                variant="outlined"
+                                size="medium"
+                                InputProps={{
+                                  ...params.InputProps,
+                                  style: { height: 44 },
+                                  endAdornment: (
+                                    <>
+                                      {loadingPositions ? <CircularProgress size={20} /> : null}
+                                      {params.InputProps.endAdornment}
+                                    </>
+                                  ),
+                                }}
+                                error={errors.positionName}
+                                helperText={errors.positionName ? "Position Name is required" : ""}
+                                required
+                              />
+                            )}
+                            noOptionsText={searchTerm ? "No matching positions found" : "Type to search positions"}
+                          />
+                        </Grid>
+                      );
+                    }
+
+                    if (field === "experience") {
+                      return (
+                        <Grid item xs={12} sm={6} md={3} key={field}>
+                          <FormControl fullWidth error={errors.experience} required>
+                            <InputLabel>Experience *</InputLabel>
+                            <Select
+                              value={formData.experience || ""}
+                              label="Experience *"
+                              onChange={(e) => {
+                                setFormData(prev => ({ ...prev, experience: e.target.value }));
+                                if (errors.experience) setErrors(prev => ({ ...prev, experience: false }));
+                              }}
+                              sx={{ height: 44 }}
+                              MenuProps={{
+                                anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                                transformOrigin: { vertical: 'top', horizontal: 'left' },
+                                PaperProps: {
+                                  style: { maxHeight: 220, overflowY: 'auto' },
+                                },
+                              }}
+                            >
+                              {experienceOptions.map(opt => (
+                                <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                              ))}
+                            </Select>
+                            {errors.experience && <FormHelperText>Experience is required</FormHelperText>}
+                          </FormControl>
+                        </Grid>
+                      );
+                    }
+
+                    if (field === "currentCTC") {
+                      return (
+                        <Grid item xs={12} sm={6} md={3} key={field}>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <TextField
+                              fullWidth
+                              name="currentCTC"
+                              label="Current CTC"
+                              placeholder="e.g. 50000"
+                              value={formData.currentCTC.amount || ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === '' || /^\d*$/.test(value)) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    currentCTC: {
+                                      ...prev.currentCTC,
+                                      amount: value
+                                    }
+                                  }));
+                                }
+                                if (errors.currentCTC) {
+                                  setErrors(prev => ({ ...prev, currentCTC: false }));
+                                }
+                              }}
+                              variant="outlined"
+                              size="medium"
+                              InputProps={{
+                                style: { height: 44 },
+                                inputProps: { 
+                                  inputMode: 'numeric',
+                                  pattern: '\\d*',
+                                  min: '0',
+                                  step: '1',
+                                  title: 'Please enter a whole number (e.g., 50000)'
+                                },
+                                endAdornment: (
+                                  <Box sx={{ pr: 1 }}>
+                                    <Autocomplete
+                                      options={['Monthly', 'Yearly']}
+                                      value={formData.currentCTC.period || 'Monthly'}
+                                      onChange={(event, newValue) => {
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          currentCTC: {
+                                            ...prev.currentCTC,
+                                            period: newValue || 'Monthly'
+                                          }
+                                        }));
+                                      }}
+                                      disableClearable
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          variant="standard"
+                                          InputProps={{
+                                            ...params.InputProps,
+                                            disableUnderline: true,
+                                            style: { 
+                                              width: 100,
+                                              fontSize: '0.875rem',
+                                              paddingLeft: '8px'
+                                            }
+                                          }}
+                                          sx={{
+                                            '& .MuiInputBase-input': {
+                                              padding: '0 !important',
+                                            },
+                                            '& .MuiAutocomplete-endAdornment': {
+                                              right: 0,
+                                              '& .MuiSvgIcon-root': {
+                                                fontSize: '1.25rem',
+                                              }
+                                            }
+                                          }}
+                                        />
+                                      )}
+                                    />
+                                  </Box>
+                                ),
+                              }}
+                              error={errors.currentCTC}
+                              helperText={
+                                errors.currentCTC 
+                                  ? "Current CTC is required" 
+                                  : "Enter a whole number (e.g., 50000)"
+                              }
+                              required
+                            />
+                          </Box>
+                        </Grid>
+                      );
+                    }
+
+                    if (field === "noticePeriod") {
+                      const noticePeriodOptions = [
+                        "Immediate", "1 Week", "15 Days", "30 Days", "45 Days", "60 Days", "90 Days"
+                      ];
+                      return (
+                        <Grid item xs={12} sm={6} md={3} key={field}>
+                          <FormControl fullWidth error={errors.noticePeriod} required>
+                            <InputLabel>Notice Period *</InputLabel>
+                            <Select
+                              value={formData.noticePeriod || ""}
+                              label="Notice Period *"
+                              onChange={(e) => {
+                                setFormData(prev => ({ ...prev, noticePeriod: e.target.value }));
+                                if (errors.noticePeriod) setErrors(prev => ({ ...prev, noticePeriod: false }));
+                              }}
+                              sx={{ height: 44 }}
+                              MenuProps={{
+                                anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                                transformOrigin: { vertical: 'top', horizontal: 'left' },
+                                PaperProps: {
+                                  style: { maxHeight: 220, overflowY: 'auto' },
+                                },
+                              }}
+                            >
+                              {noticePeriodOptions.map(opt => (
+                                <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                              ))}
+                            </Select>
+                            {errors.noticePeriod && <FormHelperText>Notice Period is required</FormHelperText>}
+                          </FormControl>
+                        </Grid>
+                      );
+                    }
+
+                    if (field === "expectedCTC") {
+                      return (
+                        <Grid item xs={12} sm={6} md={3} key={field}>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <TextField
+                              fullWidth
+                              name="expectedCTC"
+                              label="Expected CTC"
+                              placeholder="e.g. 50000"
+                              value={formData.expectedCTC.amount || ''}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === '' || /^\d*$/.test(value)) {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    expectedCTC: {
+                                      ...prev.expectedCTC,
+                                      amount: value
+                                    }
+                                  }));
+                                }
+                                if (errors.expectedCTC) {
+                                  setErrors(prev => ({ ...prev, expectedCTC: false }));
+                                }
+                              }}
+                              variant="outlined"
+                              size="medium"
+                              InputProps={{
+                                style: { height: 44 },
+                                inputProps: { 
+                                  inputMode: 'numeric',
+                                  pattern: '\\d*',
+                                  min: '0',
+                                  step: '1',
+                                  title: 'Please enter a whole number (e.g., 50000)'
+                                },
+                                endAdornment: (
+                                  <Box sx={{ pr: 1 }}>
+                                    <Autocomplete
+                                      options={['Monthly', 'Yearly']}
+                                      value={formData.expectedCTC.period || 'Monthly'}
+                                      onChange={(event, newValue) => {
+                                        setFormData(prev => ({
+                                          ...prev,
+                                          expectedCTC: {
+                                            ...prev.expectedCTC,
+                                            period: newValue || 'Monthly'
+                                          }
+                                        }));
+                                      }}
+                                      disableClearable
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          variant="standard"
+                                          InputProps={{
+                                            ...params.InputProps,
+                                            disableUnderline: true,
+                                            style: { 
+                                              width: 100,
+                                              fontSize: '0.875rem',
+                                              paddingLeft: '8px'
+                                            }
+                                          }}
+                                          sx={{
+                                            '& .MuiInputBase-input': {
+                                              padding: '0 !important',
+                                            },
+                                            '& .MuiAutocomplete-endAdornment': {
+                                              right: 0,
+                                              '& .MuiSvgIcon-root': {
+                                                fontSize: '1.25rem',
+                                              }
+                                            }
+                                          }}
+                                        />
+                                      )}
+                                    />
+                                  </Box>
+                                ),
+                              }}
+                              error={errors.expectedCTC}
+                              helperText={
+                                errors.expectedCTC 
+                                  ? "Expected CTC is required" 
+                                  : "Enter a whole number (e.g., 50000)"
+                              }
+                              required
+                            />
+                          </Box>
+                        </Grid>
+                      );
+                    }
+
+                    return (
+                      <Grid item xs={12} sm={6} md={3} key={field}>
+                        <TextField
+                          fullWidth
+                          name={field}
+                          label={fieldName}
+                          value={formData[field]}
+                          onChange={(e) => {
+                            handleChange(e);
+                            if (errors[field]) setErrors((prev) => ({ ...prev, [field]: false }));
+                          }}
+                          variant="outlined"
+                          size="medium"
+                          InputProps={{ style: { height: 44 } }}
+                          error={errors[field]}
+                          helperText={errors[field] ? `${fieldName} is required` : ""}
+                          required={isRequired}
+                        />
+                      </Grid>
+                    );
+                  })}
+
+                {loading && (
+                  <Grid item xs={12}>
+                    <LinearProgress color="primary" />
+                  </Grid>
+                )}
+
+                {success && (
+                  <Grid item xs={12} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <CheckCircleIcon sx={{ color: "green" }} />
+                    <Typography sx={{ fontWeight: 600, color: "green" }}>
+                      Candidate created successfully!
+                    </Typography>
+                  </Grid>
+                )}
+
+                <Grid item xs={12}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      gap: 2,
+                      flexWrap: "wrap",
+                      mt: 2,
+                    }}
+                  >
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      sx={{ textTransform: "none", height: 45 }}
+                    >
+                      Upload Resume (PDF)
+                      <input type="file" accept=".pdf" hidden onChange={handleFileChange} />
+                    </Button>
+
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      disabled={loading}
+                      sx={{
+                        background: "linear-gradient(to right, #3f51b5, #1e88e5)",
+                        color: "white",
+                        fontWeight: 600,
+                        px: 4,
+                        height: 45,
+                        borderRadius: 2,
+                        textTransform: "none",
+                        "&:hover": {
+                          background: "linear-gradient(to right, #1e88e5, #3f51b5)",
+                        },
+                      }}
+                    >
+                      Submit Candidate
+                    </Button>
+                  </Box>
+
+                  {resumeFile && (
+                    <Typography variant="body2" align="center" mt={1}>
+                      Selected File: {resumeFile.name}
+                    </Typography>
+                  )}
+                  {fileError && (
+                    <Typography
+                      variant="caption"
+                      color="error"
+                      display="block"
+                      align="center"
+                      mt={1}
+                    >
+                      {fileError}
+                    </Typography>
+                  )}
+                </Grid>
+              </Grid>
+            </form>
           </Paper>
 
-          {/* ✅ Bulk Excel Upload Section */}
+          {/* Bulk Excel Upload Section */}
           <Paper elevation={3} sx={{ p: 4, mt: 4, borderRadius: 3, backgroundColor: "#ffffff" }}>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 600, color: "#3f51b5" }}>
               Bulk Import Candidates (Excel)
@@ -983,97 +1523,95 @@ const handleSubmit = async (e) => {
               </Typography>
             </Box>
           </Paper>
-
-          <Dialog
-  open={showConfirmDialog}
-  onClose={() => setShowConfirmDialog(false)}
-  PaperProps={{
-    sx: {
-      borderRadius: 3,
-      padding: 2,
-      width: 400,
-      background: '#fafafa',
-      boxShadow: 10,
-    }
-  }}
->
-  <DialogTitle sx={{ textAlign: 'center', fontWeight: 700, color: '#3f51b5' }}>
-    📁 Confirm Excel Import
-  </DialogTitle>
-
-  <DialogContent>
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 1 }}>
-      <Typography variant="body1" sx={{ textAlign: 'center', color: '#555' }}>
-        You're about to import candidate data from the following file:
-      </Typography>
-
-      <Box
-        sx={{
-          backgroundColor: '#e3f2fd',
-          color: '#0d47a1',
-          padding: '10px 15px',
-          borderRadius: 2,
-          fontWeight: 600,
-          fontSize: '0.95rem',
-          wordBreak: 'break-all',
-        }}
-      >
-        {selectedExcelFile?.name}
-      </Box>
-
-      <Typography variant="body2" sx={{ color: '#888', textAlign: 'center' }}>
-        Make sure your file follows the required column structure.
-        <br />
-        This action will insert all valid rows into the system.
-      </Typography>
-    </Box>
-  </DialogContent>
-
-  <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 2 }}>
-    <Button
-      onClick={confirmExcelUpload}
-      variant="contained"
-      sx={{
-        background: 'linear-gradient(to right, #3f51b5, #1e88e5)',
-        color: '#fff',
-        textTransform: 'none',
-        px: 4,
-        borderRadius: 2,
-        fontWeight: 600,
-        '&:hover': {
-          background: 'linear-gradient(to right, #1e88e5, #3f51b5)',
-        },
-      }}
-    >
-      Yes, Import
-    </Button>
-
-    <Button
-      onClick={() => {
-        setShowConfirmDialog(false);
-        setSelectedExcelFile(null);
-      }}
-      variant="outlined"
-      sx={{
-        textTransform: 'none',
-        borderColor: '#d32f2f',
-        color: '#d32f2f',
-        px: 4,
-        fontWeight: 600,
-        '&:hover': {
-          backgroundColor: '#ffebee',
-          borderColor: '#d32f2f',
-        },
-      }}
-    >
-      Cancel
-    </Button>
-  </DialogActions>
-</Dialog>
-
-
         </Box>
       </Box>
+
+      <Dialog
+        open={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            padding: 2,
+            width: 400,
+            background: '#fafafa',
+            boxShadow: 10,
+          }
+        }}
+      >
+        <DialogTitle sx={{ textAlign: 'center', fontWeight: 700, color: '#3f51b5' }}>
+          📁 Confirm Excel Import
+        </DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, mt: 1 }}>
+            <Typography variant="body1" sx={{ textAlign: 'center', color: '#555' }}>
+              You're about to import candidate data from the following file:
+            </Typography>
+
+            <Box
+              sx={{
+                backgroundColor: '#e3f2fd',
+                color: '#0d47a1',
+                padding: '10px 15px',
+                borderRadius: 2,
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                wordBreak: 'break-all',
+              }}
+            >
+              {selectedExcelFile?.name}
+            </Box>
+
+            <Typography variant="body2" sx={{ color: '#888', textAlign: 'center' }}>
+              Make sure your file follows the required column structure.
+              <br />
+              This action will insert all valid rows into the system.
+            </Typography>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ justifyContent: 'center', gap: 2, pb: 2 }}>
+          <Button
+            onClick={confirmExcelUpload}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(to right, #3f51b5, #1e88e5)',
+              color: '#fff',
+              textTransform: 'none',
+              px: 4,
+              borderRadius: 2,
+              fontWeight: 600,
+              '&:hover': {
+                background: 'linear-gradient(to right, #1e88e5, #3f51b5)',
+              },
+            }}
+          >
+            Yes, Import
+          </Button>
+
+          <Button
+            onClick={() => {
+              setShowConfirmDialog(false);
+              setSelectedExcelFile(null);
+            }}
+            variant="outlined"
+            sx={{
+              textTransform: 'none',
+              borderColor: '#d32f2f',
+              color: '#d32f2f',
+              px: 4,
+              fontWeight: 600,
+              '&:hover': {
+                backgroundColor: '#ffebee',
+                borderColor: '#d32f2f',
+              },
+            }}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

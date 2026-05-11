@@ -3,8 +3,9 @@ import { DataGrid } from '@mui/x-data-grid';
 import axios from 'axios';
 import { Box, TextField, Button, Tooltip, Typography } from '@mui/material';
 import { API_BASE_URL } from '../../config/api.config';
-import Navbar from '../../components/admin components/AdminNavbar';
-import Sidebar from '../../components/admin components/AdminSidebar';
+import Navbar from '../../components/team leader components/TeamLeaderNavbar';
+import Sidebar from '../../components/team leader components/TeamLeaderSidebar';
+import useTLPermissions from '../../hooks/useTLPermissions';
 import * as XLSX from 'xlsx';
 
 
@@ -14,6 +15,7 @@ const formatDate = (dateString) => {
 };
 
 const HRReport = () => {
+  const { canDo } = useTLPermissions();
 const [rowData, setRowData] = useState([]);
 const [startDate, setStartDate] = useState('');
 const [endDate, setEndDate] = useState('');
@@ -301,7 +303,7 @@ const columns = [
             <Button 
               variant="contained" 
               color="primary" 
-              onClick={handleFilter}
+              onClick={handleFilter} disabled={!canDo('tl-interview-repo:filter')}
               size="small"
             >
               Filter
@@ -317,7 +319,7 @@ const columns = [
             <Button 
               variant="contained" 
               color="primary" 
-              onClick={handleExport}
+              onClick={handleExport} disabled={!canDo('tl-interview-repo:export')}
               size="small"
             >
               Export to Excel

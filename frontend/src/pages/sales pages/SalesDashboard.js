@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -44,6 +44,165 @@ import {
   fetchMySales,
   updateMySale,
 } from '../../utils/salesPanelService';
+
+// ── Job Opening Report Dialog (Converted Jobs) ────────────────────────────────
+const JobReportDialog = ({ open, onClose }) => {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const fetchJobs = async () => {
+      setLoading(true);
+      try {
+        const token = sessionStorage.getItem('token');
+        const res = await axios.get(`${API_BASE_URL}/panel/converted-jobs`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setRows(res.data.map((item, i) => ({ id: item._id || i, ...item })));
+      } catch (err) {
+        console.error('Error fetching converted jobs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobs();
+  }, [open]);
+
+  const reportColumns = [
+    { field: 'companyName',          headerName: 'Company Name',          width: 180 },
+    { field: 'jobTitle',             headerName: 'Job Title',             width: 150 },
+    { field: 'numberOfRequirements', headerName: 'Requirements',          width: 130 },
+    { field: 'salary',               headerName: 'Salary',                width: 130 },
+    { field: 'jobTiming',            headerName: 'Job Timing',            width: 150 },
+    { field: 'jobLocation',          headerName: 'Job Location',          width: 140 },
+    { field: 'education',            headerName: 'Education',             width: 130 },
+    { field: 'experience',           headerName: 'Experience',            width: 120 },
+    { field: 'gender',               headerName: 'Gender',                width: 100 },
+    { field: 'requiredSkills',       headerName: 'Required Skills',       width: 180 },
+    { field: 'keyResponsibility',    headerName: 'Key Responsibility',    width: 200 },
+    { field: 'industries',           headerName: 'Industries',            width: 140 },
+    { field: 'contactName',          headerName: 'Contact Name',          width: 140 },
+    { field: 'email',                headerName: 'Email',                 width: 180 },
+    { field: 'phoneNumber',          headerName: 'Phone',                 width: 130 },
+    { field: 'response',             headerName: 'Response',              width: 130 },
+    { field: 'benefits',             headerName: 'Benefits',              width: 140 },
+    { field: 'remarks',              headerName: 'Remarks',               width: 160 },
+    {
+      field: 'agreementSigned', headerName: 'Agreement', width: 130,
+      renderCell: (p) => {
+        const v = p.value;
+        const isLink = typeof v === 'string' && (v.startsWith('http://') || v.startsWith('https://'));
+        return isLink ? (
+          <Button size="small" variant="outlined" href={v} target="_blank" rel="noopener noreferrer"
+            sx={{ fontSize: '0.72rem', borderRadius: '6px', borderColor: '#3f51b5', color: '#3f51b5' }}>
+            View
+          </Button>
+        ) : <Typography variant="caption" sx={{ color: '#9e9e9e' }}>{v || 'N/A'}</Typography>;
+      },
+    },
+    {
+      field: 'descriptionFile', headerName: 'Job Description', width: 150,
+      renderCell: (p) => p.value ? (
+        <Button size="small" variant="outlined" href={p.value} target="_blank" rel="noopener noreferrer"
+          sx={{ fontSize: '0.72rem', borderRadius: '6px', borderColor: '#3f51b5', color: '#3f51b5' }}>
+          View PDF
+        </Button>
+      ) : <Typography variant="caption" sx={{ color: '#9e9e9e' }}>N/A</Typography>,
+    },
+    {
+      field: 'convertedAt', headerName: 'Converted At', width: 180,
+      renderCell: (p) => {
+        if (!p.value) return 'N/A';
+        const d = new Date(p.value);
+        return isNaN(d) ? 'N/A' : d.toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+      },
+    },
+  ];
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth
+      PaperProps={{ sx: { borderRadius: '16px', maxHeight: '92vh', overflow: 'hidden' } }}>
+      <DialogTitle sx={{
+        background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
+        color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 3,
+      }}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Box sx={{ width: 42, height: 42, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CheckCircleIcon sx={{ color: '#fff', fontSize: 22 }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" fontWeight={800}>Job Opening Report</Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+              {rows.length} converted job{rows.length !== 1 ? 's' : ''}
+            </Typography>
+          </Box>
+        </Box>
+        <IconButton onClick={onClose} sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' } }}>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+
+      <DialogContent sx={{ p: 0 }}>
+        {/* Table header bar */}
+        <Box sx={{
+          px: 3, py: 1.5,
+          background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
+          borderBottom: '1px solid #c5cae9',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <Box display="flex" alignItems="center" gap={1}>
+            <Box sx={{ width: 4, height: 18, bgcolor: '#3f51b5', borderRadius: 2 }} />
+            <Typography variant="subtitle2" fontWeight={700} color="#3f51b5" textTransform="uppercase" letterSpacing="0.06em">
+              Converted Jobs
+            </Typography>
+          </Box>
+          <Box sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 700, fontSize: '0.75rem', px: 1.5, py: 0.5, borderRadius: '8px' }}>
+            {rows.length} records
+          </Box>
+        </Box>
+
+        <Box sx={{ height: 'calc(92vh - 180px)' }}>
+          <DataGrid
+            rows={rows}
+            columns={reportColumns}
+            loading={loading}
+            pageSize={25}
+            rowsPerPageOptions={[25, 50, 100]}
+            disableSelectionOnClick
+            sx={{
+              border: 'none',
+              height: '100%',
+              '& .MuiDataGrid-columnHeaders': {
+                background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
+                borderBottom: '2px solid #c5cae9',
+              },
+              '& .MuiDataGrid-columnHeaderTitle': {
+                fontWeight: 700, color: '#3f51b5', fontSize: '0.78rem',
+                textTransform: 'uppercase', letterSpacing: '0.04em',
+              },
+              '& .MuiDataGrid-cell': {
+                borderBottom: '1px solid #f0f2ff', fontSize: '0.82rem', color: '#334155',
+                '&:focus': { outline: 'none' },
+              },
+              '& .MuiDataGrid-row:hover': { bgcolor: '#f5f6ff' },
+              '& .MuiDataGrid-footerContainer': { borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' },
+              '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': { height: 7, width: 7 },
+              '& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 4 },
+            }}
+          />
+        </Box>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' }}>
+        <Button onClick={onClose} variant="outlined"
+          sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, borderColor: '#3f51b5', color: '#3f51b5' }}>
+          Close
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+};
 
 const JobOpeningsDashboard = () => {
   const [salesMessages, setSalesMessages] = useState([]);
@@ -98,6 +257,10 @@ const JobOpeningsDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [companyOptions, setCompanyOptions] = useState([]);
+  const [selectedBranch, setSelectedBranch] = useState(null);
+  const [jobTimingStart, setJobTimingStart] = useState(''); // start time for job timing
+  const [jobTimingEnd, setJobTimingEnd] = useState('');     // end time for job timing
+  const [errors, setErrors] = useState({});
   const [openReschedule, setOpenReschedule] = useState(false);
   const [validationErrors, setValidationErrors] = useState({
     email: '',
@@ -112,6 +275,7 @@ const [reminderDate, setReminderDate] = useState(null);
 const [reminderList, setReminderList] = useState([]);
 const [openSnackbar, setOpenSnackbar] = useState(false);
 const [snackbarMessage, setSnackbarMessage] = useState('');
+const [jobReportOpen, setJobReportOpen] = useState(false);
   const [fileError, setFileError] = useState('');
 
   const shownReminders = useRef(new Set());
@@ -133,15 +297,15 @@ const [snackbarMessage, setSnackbarMessage] = useState('');
     });
 
     socketInstance.on('connect', () => {
-      console.log('🟢 Socket connected to reminder system');
+      console.log('ðŸŸ¢ Socket connected to reminder system');
     });
 
     socketInstance.on('disconnect', (reason) => {
-      console.log('🔴 Socket disconnected:', reason);
+      console.log('ðŸ”´ Socket disconnected:', reason);
     });
 
     socketInstance.on('initial-reminders', (data) => {
-      console.log("🔔 Received reminders:", data);
+      console.log("ðŸ”” Received reminders:", data);
       if (!data || data.length === 0) return;
 
       data.forEach(reminder => {
@@ -152,9 +316,9 @@ const [snackbarMessage, setSnackbarMessage] = useState('');
 
         toast.info(
           <div style={{ fontSize: '15px', fontWeight: 500 }}>
-            <strong>📌 {reminder.message}</strong>
+            <strong>ðŸ“Œ {reminder.message}</strong>
             <div style={{ fontSize: '12px', color: '#666' }}>
-              📅 Due: {new Date(reminder.remindAt).toLocaleString()}
+              ðŸ“… Due: {new Date(reminder.remindAt).toLocaleString()}
             </div>
           </div>,
           {
@@ -231,6 +395,7 @@ const handleSubmitReschedule = async () => {
 
   useEffect(() => {
     getJobData();
+    fetchAllCompaniesFromCreate();
   }, []);
 
   const handleDelete = async (id) => {
@@ -281,13 +446,25 @@ const handleSubmitReschedule = async () => {
   const fetchCompanySuggestions = debounce(async (input) => {
     if (!input) return;
     try {
-      // Search by both companyName and companyId
       const res = await axios.get(`${API_BASE_URL}/allType/companies?query=${input}`);
       setCompanyOptions(res.data);
     } catch (err) {
       console.error('Error fetching suggestions', err);
     }
   }, 300);
+
+  // Fetch all companies from CompanyCreate model for the new dropdown
+  const fetchAllCompaniesFromCreate = async () => {
+    try {
+      const token = sessionStorage.getItem('token');
+      const res = await axios.get(`${API_BASE_URL}/companies`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCompanyOptions(res.data.data || []);
+    } catch (err) {
+      console.error('Error fetching companies', err);
+    }
+  };
 
   const validateFileSize = (file) => {
     const maxSizeMB = 1;
@@ -490,58 +667,58 @@ const handleSubmitReschedule = async () => {
       setEditMode(true);
       setSelectedId(data._id || data.id);
       setFormData({
-        industries: data?.industries || '',
         companyName: data?.companyName || '',
-        companyId: data?.companyId ? Number(data.companyId) : '',
-        companyAddress: data?.companyAddress || '',
-        contactName: data?.contactName || '',
-        email: data?.email || '',
-        phoneNumber: data?.phoneNumber || '',
-        response: data?.response || '',
-        jobTitle: data?.jobTitle || '',
-        benefits: data?.benefits || '',
+        companyId:   data?.companyId ? Number(data.companyId) : '',
+        branchId:    data?.branchId   || '',
+        branchName:  data?.branchName || '',
+        jobTitle:             data?.jobTitle             || '',
+        jobLocation:          data?.jobLocation          || '',
         numberOfRequirements: data?.numberOfRequirements || '',
-        websiteURL: data?.websiteURL || '',
-        keyResponsibility: data?.keyResponsibility || '',
-        requiredSkills: data?.requiredSkills || '',
-        education: data?.education || '',
-        experience: data?.experience || '',
-        salary: data?.salary || '',
-        jobLocation: data?.jobLocation || '',
-        jobTiming:data?.jobTiming||'',
-        gender:data?.gender||'',
-        remarks: data?.remarks || '',
-        agreementSigned: data?.agreementSigned || '',
-        //description: data?.description || '',
+        jobTiming:            data?.jobTiming            || '',
+        education:            data?.education            || '',
+        gender:               data?.gender               || '',
+        salary:               data?.salary               || '',
+        experience:           data?.experience           || '',
+        requiredSkills:       data?.requiredSkills       || '',
+        keyResponsibility:    data?.keyResponsibility    || '',
+        benefits:             data?.benefits             || '',
+        response:             data?.response             || '',
+        remarks:              data?.remarks              || '',
+        descriptionFile:      null,
       });
+      // Restore branch selection
+      if (data.branchId) {
+        const co = companyOptions.find(c => c.companyId === Number(data.companyId));
+        const br = co?.branches?.find(b => b._id === data.branchId);
+        setSelectedBranch(br || null);
+      } else {
+        setSelectedBranch(null);
+      }
+
+      // Parse existing jobTiming into start/end parts
+      if (data.jobTiming && data.jobTiming.includes(' - ')) {
+        const [start, end] = data.jobTiming.split(' - ');
+        setJobTimingStart(start.trim());
+        setJobTimingEnd(end.trim());
+      } else {
+        setJobTimingStart(data.jobTiming || '');
+        setJobTimingEnd('');
+      }
     } else {
       setEditMode(false);
       setSelectedId(null);
       setFormData({
-        industries: '',
-        companyName: '',
-        companyId: '',
-        companyAddress: '',
-        contactName: '',
-        email: '',
-        phoneNumber: '',
-        response: '',
-        jobTitle: '',
-        benefits: '',
-        numberOfRequirements: '',
-        websiteURL: '',
-        keyResponsibility: '',
-        requiredSkills: '',
-        education: '',
-        experience: '',
-        salary: '',
-        jobLocation: '',
-        remarks: '',
-        agreementSigned: null,
-        //description: '',
-        descriptionFile: null,
+        companyName: '', companyId: '', branchId: '', branchName: '',
+        jobTitle: '', jobLocation: '', numberOfRequirements: '', jobTiming: '',
+        education: '', gender: '', salary: '', experience: '',
+        requiredSkills: '', keyResponsibility: '', benefits: '', response: '',
+        remarks: '', descriptionFile: null,
       });
+      setSelectedBranch(null);
+      setJobTimingStart('');
+      setJobTimingEnd('');
     }
+    setErrors({});
     setOpen(true);
   };
 
@@ -577,6 +754,8 @@ const handleSubmitReschedule = async () => {
       descriptionFile: null,
     });
     setSelectedId(null);
+    setJobTimingStart('');
+    setJobTimingEnd('');
   };
 
 
@@ -658,65 +837,76 @@ const handleSubmitReschedule = async () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setSuccess(false);
 
-    // Validate form
-    if (!validateForm()) {
-      setLoading(false);
+    // Validate required fields
+    const newErrors = {};
+    if (!formData.companyName)          newErrors.companyName          = true;
+    if (!formData.jobTitle?.trim())     newErrors.jobTitle             = true;
+    if (!formData.jobLocation?.trim())  newErrors.jobLocation          = true;
+    if (!formData.numberOfRequirements) newErrors.numberOfRequirements = true;
+    if (!formData.experience?.trim())   newErrors.experience           = true;
+    if (!formData.education?.trim())    newErrors.education            = true;
+    if (!formData.requiredSkills?.trim())newErrors.requiredSkills       = true;
+    if (Object.keys(newErrors).length) {
+      setErrors(newErrors);
+      toast.error('Please fill in all required fields');
       return;
     }
 
+    setLoading(true);
+    setSuccess(false);
+
     const data = new FormData();
-    
-    if (reminderMessage && reminderDate) {
-      const reminderText = formatReminderText(reminderMessage, reminderDate);
-      console.log('Setting reminder:', reminderText); // Debug log
-      data.append('remarks', reminderText);
-    } else {
-      data.append('remarks', formData.remarks);
-    }
 
-    // Debug log for form data
-    for (let pair of data.entries()) {
-      console.log(pair[0] + ': ' + pair[1]);
-    }
+    // Combine jobTimingStart + jobTimingEnd into jobTiming string
+    const combinedJobTiming = jobTimingStart && jobTimingEnd
+      ? `${jobTimingStart} - ${jobTimingEnd}`
+      : jobTimingStart || jobTimingEnd || formData.jobTiming || '';
 
+    // Append all scalar fields
+    const skipKeys = ['descriptionFile'];
     for (let key in formData) {
-      if (formData[key] !== null && formData[key] !== undefined && key !== 'remarks') {
+      if (skipKeys.includes(key)) continue;
+      if (key === 'jobTiming') {
+        if (combinedJobTiming) data.append('jobTiming', combinedJobTiming);
+        continue;
+      }
+      if (formData[key] !== null && formData[key] !== undefined && formData[key] !== '') {
         if (key === 'companyId') {
-          if (formData[key] !== '') {
-            data.append(key, Number(formData[key]));
-          }
+          data.append(key, Number(formData[key]));
         } else {
           data.append(key, formData[key]);
         }
       }
     }
 
+    // File
+    if (formData.descriptionFile instanceof File) {
+      data.append('descriptionFile', formData.descriptionFile);
+    }
+
     try {
       if (editMode) {
         const response = await updateMySale(selectedId, data, true);
-        if (response.error) {
-          throw new Error(response.message || 'Failed to update job');
-        }
+        if (response?.error) throw new Error(response.message || 'Failed to update job');
       } else {
         const response = await createMySale(data, true);
-        if (response.error) {
-          throw new Error(response.message || 'Failed to create job');
-        }
+        if (response?.error) throw new Error(response.message || 'Failed to create job');
       }
 
       setSuccess(true);
+      setSelectedBranch(null);
       await getJobData();
 
       setTimeout(() => {
         setSuccess(false);
+        setJobTimingStart('');
+        setJobTimingEnd('');
         handleClose();
       }, 1500);
     } catch (err) {
       console.error('Error saving job opening:', err);
-      toast.error(err.message || 'Something went wrong');
+      toast.error(err.response?.data?.message || err.message || 'Something went wrong');
     } finally {
       setLoading(false);
     }
@@ -850,7 +1040,7 @@ const handleSubmitReschedule = async () => {
       'keyResponsibility',
       'requiredSkills',
       'remarks',
-      // ⛔️ excluded: assignedHR, agreementSigned, descriptionFile, companyId
+      // â›”ï¸ excluded: assignedHR, agreementSigned, descriptionFile, companyId
     ];
     
   
@@ -865,100 +1055,7 @@ const handleSubmitReschedule = async () => {
     
 
 
-  const columns = [
-
-    { field: 'createdAt', headerName: 'Created At', width: 180 },
-    { field: 'industries', headerName: 'Industries', width: 160 },
-    { field: 'companyId', headerName: 'Company ID', width: 160 },
-    { field: 'companyName', headerName: 'Company Name', width: 160 },
-    { field: 'companyAddress', headerName: 'Permanent Address', width: 200 },
-    { field: 'contactName', headerName: 'Contact Person', width: 160 },
-    { field: 'phoneNumber', headerName: 'Phone Number', width: 140 },
-    {
-      field: 'websiteURL',
-      headerName: 'Website',
-      width: 180,
-      renderCell: (params) => {
-        const url = params.value;
-        return url ? (
-          <a href={url.startsWith('http') ? url : `https://${url}`} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2', textDecoration: 'underline' }}>
-            {url}
-          </a>
-        ) : <span>No Website</span>;
-      },
-    },
-    { field: 'response', headerName: 'Response', width: 200 },
-    { field: 'email', headerName: 'Email', width: 200 },
-    { field: 'numberOfRequirements', headerName: 'Vacancies', width: 130 },
-   
-    // 
-    { field: 'jobTitle', headerName: 'Job Title', width: 180 },
-    { field: 'benefits', headerName: 'Benefits', width: 180 },
-    { field: 'keyResponsibility', headerName: 'Key Responsibility ', width: 200 },
-    { field: 'requiredSkills', headerName: 'Required Skills ', width: 200 },
-    { field: 'education', headerName: 'Education ', width: 160 },
-    { field: 'experience', headerName: 'Experience ', width: 140 },
-    { field: 'salary', headerName: 'Salary ', width: 140 },
-
-    {
-      field: 'agreementSigned',
-      headerName: 'Agreement Signed',
-      width: 150,
-      renderCell: (params) => {
-        const value = params.value;
-        const isPdfLink = typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
-        return isPdfLink ? (
-          <a href={value} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-            <button style={{ backgroundColor: '#1976d2', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer' }}>
-              View
-            </button>
-          </a>
-        ) : <span>{value || 'No'}</span>;
-      }
-    },
-
-    {
-      field: 'descriptionFile',
-      headerName: 'Job Description (PDF)',
-      width: 200,
-      renderCell: (params) => {
-        const fileUrl = params.row.descriptionFile;
-        return fileUrl ? (
-          <a
-            href={fileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            style={{ color: '#1976d2', textDecoration: 'underline' }}
-          >
-            View PDF
-          </a>
-        ) : (
-          <span>No PDF available</span>
-        );
-      },
-    },
-    
-
-    
-
-    { field: 'jobLocation', headerName: 'Job Location', width: 160 },
-    { field: 'jobTiming', headerName: 'Job Timing', width: 140 },
-    { field: 'gender', headerName: 'Gender', width: 140 },
-    { field: 'remarks', headerName: 'Remarks', width: 250 },
-    {
-      field: 'rescheduledDate',
-      headerName: 'Rescheduled Date',
-      width: 180,
-      renderCell: (params) => {
-        if (!params.value) return '—';
-        const date = new Date(params.value);
-        return date.toLocaleString(); 
-      },
-    },
-    
-        { field: 'rescheduleReason', headerName: 'Reschedule Reason', width: 200 },
-
+    const columns = [
     {
       field: 'actions',
       headerName: 'Actions',
@@ -989,6 +1086,240 @@ const handleSubmitReschedule = async () => {
         </div>
       )
     },
+
+    { 
+      field: 'companyName', 
+      headerName: 'Company / Branch', 
+      width: 260,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    { 
+      field: 'jobTitle', 
+      headerName: 'Job Title', 
+      width: 150,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    { 
+      field: 'numberOfRequirements', 
+      headerName: 'No. of Requirements', 
+      width: 170,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    { 
+      field: 'salary', 
+      headerName: 'Salary', 
+      width: 150,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    { 
+      field: 'jobTiming', 
+      headerName: 'Job Timing', 
+      width: 150,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    { 
+      field: 'jobLocation', 
+      headerName: 'Job Location', 
+      width: 150,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    { 
+      field: 'education', 
+      headerName: 'Education', 
+      width: 150,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    { 
+      field: 'experience', 
+      headerName: 'Experience', 
+      width: 150,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
+      field: "createdAt",
+      headerName: "Created At",
+      width: 180,
+      renderCell: (params) => {
+        const formattedDate = params.value ? dayjs(params.value).format("DD/MM/YYYY hh:mm A") : "";
+        return (
+          <Tooltip title={formattedDate} arrow>
+            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {formattedDate}
+            </div>
+          </Tooltip>
+        );
+      }
+    },
+
+    {
+      field: 'response',
+      headerName: 'Response',
+      width: 150,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
+      field: 'gender',
+      headerName: 'Gender',
+      width: 120,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    { 
+      field: 'keyResponsibility', 
+      headerName: 'Key Responsibility', 
+      width: 200,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+    
+    { 
+      field: 'requiredSkills', 
+      headerName: 'Required Skills', 
+      width: 200,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
+      field: 'descriptionFile',
+      headerName: 'Job Description (PDF)',
+      width: 180,
+      renderCell: (params) => {
+        const fileUrl = params.row.descriptionFile;
+        return fileUrl ? (
+          <Tooltip title="Click to view PDF" arrow>
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+              style={{ color: '#1976d2', textDecoration: 'underline' }}>
+              View PDF
+            </a>
+          </Tooltip>
+        ) : <span>â€”</span>;
+      },
+    },
+
+    { 
+      field: 'remarks', 
+      headerName: 'Remarks', 
+      width: 150,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
+      field: 'rescheduledDate',
+      headerName: 'Rescheduled Date',
+      width: 180,
+      renderCell: (params) => {
+        if (!params.value) return 'â€”';
+        const date = new Date(params.value);
+        const formattedDate = date.toLocaleString();
+        return (
+          <Tooltip title={formattedDate} arrow>
+            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {formattedDate}
+            </div>
+          </Tooltip>
+        );
+      },
+    },
+    
+    { 
+      field: 'rescheduleReason', 
+      headerName: 'Reschedule Reason', 
+      width: 200,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
     {
       field: 'convert',
       headerName: 'Convert',
@@ -1028,72 +1359,78 @@ const handleSubmitReschedule = async () => {
   ];
 
 
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5' }}>
-        <div style={{ position: 'fixed', height: '100vh', width: '250px', backgroundColor: '#3f51b5', color: 'white' }}>
+      <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f0f2f8' }}>
+        <div style={{ position: 'fixed', height: '100vh', width: '250px', backgroundColor: '#1e1e2f', zIndex: 1000 }}>
           <Sidebar />
         </div>
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', marginLeft: '250px', height: '100vh', overflow: 'hidden' }}>
           <Navbar />
-          <Box p={3}>
-            <Typography variant="h4" gutterBottom>
-              Lead Generate
-            </Typography>
+          <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3 }}>
 
-            <Box display="flex" alignItems="center" gap={2} mb={2}>
-              <DatePicker
-                label="Start Date"
-                value={startDate}
-                onChange={(date) => setStartDate(date)}
-              />
-              <DatePicker
-                label="End Date"
-                value={endDate}
-                onChange={(date) => setEndDate(date)}
-              />
-              <Button onClick={() => { setStartDate(null); setEndDate(null); }}>
-                Reset Filter
+            {/* Header */}
+            <Box sx={{
+              background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
+              borderRadius: '16px', p: 3, mb: 3,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              boxShadow: '0 8px 32px rgba(63,81,181,0.25)',
+            }}>
+              <Box display="flex" alignItems="center" gap={2}>
+                <Box sx={{ width: 52, height: 52, borderRadius: '14px', bgcolor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CheckCircleIcon sx={{ color: '#fff', fontSize: 28 }} />
+                </Box>
+                <Box>
+                  <Typography variant="h5" fontWeight={800} color="#fff">Job Openings</Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.75)', mt: 0.3 }}>
+                    Manage and track all job openings
+                  </Typography>
+                </Box>
+              </Box>
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Box sx={{ bgcolor: 'rgba(255,255,255,0.18)', border: '2px solid rgba(255,255,255,0.4)', borderRadius: '12px', px: 2.5, py: 1, textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{filteredData.length}</Typography>
+                  <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.8)', fontWeight: 600, mt: 0.2 }}>Total</Typography>
+                </Box>
+                <Button variant="contained" onClick={() => handleOpen()}
+                  sx={{ bgcolor: '#fff', color: '#3f51b5', fontWeight: 700, borderRadius: '10px', px: 2.5, '&:hover': { bgcolor: '#e8eaf6' } }}>
+                  + Add Job Opening
+                </Button>
+                <Button variant="contained" component="label"
+                  sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: '#fff', fontWeight: 600, borderRadius: '10px', border: '1px solid rgba(255,255,255,0.3)', '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' } }}>
+                  Import Excel
+                  <input hidden accept=".xlsx,.xls" type="file" onChange={handleFileUpload} />
+                </Button>
+                <Button variant="outlined" onClick={handleDownloadJobTemplate}
+                  sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.5)', fontWeight: 600, borderRadius: '10px', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}>
+                  Template
+                </Button>
+                <Button variant="contained" onClick={() => setJobReportOpen(true)}
+                  sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: '#fff', fontWeight: 600, borderRadius: '10px', border: '1px solid rgba(255,255,255,0.3)', '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' } }}>
+                  Job Opening Report
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Filters */}
+            <Box sx={{ bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px', p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', boxShadow: '0 2px 8px rgba(63,81,181,0.06)' }}>
+              <DatePicker label="Start Date" value={startDate} onChange={(date) => setStartDate(date)}
+                slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+              <DatePicker label="End Date" value={endDate} onChange={(date) => setEndDate(date)}
+                slotProps={{ textField: { size: 'small', sx: { width: 160 } } }} />
+              <Button variant="outlined" size="small" onClick={() => { setStartDate(null); setEndDate(null); }}
+                sx={{ borderRadius: '8px', textTransform: 'none', borderColor: '#9fa8da', color: '#3f51b5' }}>
+                Reset
               </Button>
             </Box>
 
-            <Box mb={2}>
-              <Button variant="contained" onClick={() => handleOpen()} sx={{ mr: 2 }}>
-                Add Job Opening
-              </Button>
-              {/* <Button variant="contained" color="success" onClick={exportToExcel}>
-                Export to Excel
-              </Button> */}
-                  <Button variant="contained" component="label" sx={{ ml: 2 }}>
-                              Import from Excel
-                              <input hidden accept=".xlsx, .xls" type="file" onChange={handleFileUpload} />
-                            </Button>
-
-                               <Button
-                              variant="outlined"
-                              sx={{
-                                minWidth: 180,
-                                color: '#FF9800', // orange text
-                                borderColor: '#FF9800',
-                                ml:6,
-                                '&:hover': {
-                                  backgroundColor: '#FFF3E0', // light orange on hover
-                                  borderColor: '#FB8C00',
-                                  
-                                },
-                              }}
-                              onClick={handleDownloadJobTemplate}
-                            >
-                              Download Template
-                            </Button>
-
-            </Box>
-
-            <Box sx={{ height: 600, width: '100%', overflow: 'auto' }}>
+            {/* DataGrid */}
+            <Box sx={{ bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '14px', overflow: 'hidden', height: 'calc(100vh - 310px)', boxShadow: '0 2px 12px rgba(63,81,181,0.08)' }}>
               <DataGrid
                 rows={filteredData}
                 columns={columns}
-                pageSize={5}
+                pageSize={25}
                 getRowId={(row) => row.id}
                 disableSelectionOnClick
                 onError={(error) => console.error('DataGrid Error:', error)}
@@ -1101,577 +1438,292 @@ const handleSubmitReschedule = async () => {
                 components={{
                   NoRowsOverlay: () => (
                     <Box display="flex" alignItems="center" justifyContent="center" height="100%">
-                      <Typography>No data available</Typography>
+                      <Typography color="text.secondary">No data available</Typography>
                     </Box>
                   ),
+                }}
+                sx={{
+                  border: 'none', height: '100%',
+                  '& .MuiDataGrid-columnHeaders': { background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', borderBottom: '2px solid #c5cae9' },
+                  '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, color: '#3f51b5', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' },
+                  '& .MuiDataGrid-cell': { borderBottom: '1px solid #f0f2ff', fontSize: '0.82rem', '&:focus': { outline: 'none' } },
+                  '& .MuiDataGrid-row:hover': { bgcolor: '#f5f6ff' },
+                  '& .MuiDataGrid-footerContainer': { borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' },
+                  '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': { height: 7, width: 7 },
+                  '& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 4 },
                 }}
               />
             </Box>
 
-            <Dialog
-              open={open}
-              onClose={(event, reason) => {
-                if (reason && (reason === "backdropClick" || reason === "escapeKeyDown")) {
-                  return;
-                }
-                handleClose();
-              }}
-              maxWidth="lg"
-              fullWidth
-              PaperProps={{
-                sx: {
-                  borderRadius: 3,
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-                  backgroundColor: '#fff',
-                  padding: 3,
 
-                },
-              }}
-            >
-              <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: '700', fontSize: '1.8rem', color: '#1a237e' }}>
-                {editMode ? 'Edit Job Opening' : 'Add Job Opening'}
-                <IconButton onClick={handleClose} sx={{ color: '#1a237e' }}>
-                  <CloseIcon />
-                </IconButton>
-              </DialogTitle>
+            {/* â”€â”€ Job Opening Modal (Admin-style) â”€â”€ */}
+            <Modal open={open} onClose={null} disableEscapeKeyDown aria-labelledby="sales-job-form-modal">
+              <Box component="form" onSubmit={handleSubmit} sx={{
+                position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                width: '90vw', maxWidth: 1400, maxHeight: '95vh', bgcolor: '#fff',
+                borderRadius: '16px', boxShadow: '0 16px 48px rgba(63,81,181,0.25)',
+                display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              }}>
+                {/* Header */}
+                <Box sx={{ background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)', px: 4, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <Box sx={{ width: 6, height: 28, bgcolor: 'rgba(255,255,255,0.7)', borderRadius: 3 }} />
+                    <Typography variant="h6" fontWeight={700} color="#fff">
+                      {editMode ? 'Edit Job Opening' : 'Add New Job Opening'}
+                    </Typography>
+                  </Box>
+                  <IconButton onClick={handleClose} sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' } }}>
+                    <CloseIcon />
+                  </IconButton>
+                </Box>
 
-              <DialogContent dividers sx={{ maxHeight: '80vh', overflowY: 'auto', backgroundColor: '#f5f7fa', borderRadius: 2, p: 4 }}>
-                <Box sx={{ p: 2, backgroundColor: '#f9f9f9', borderRadius: 2 }}>
-                  <Grid container spacing={4}>
-                    <Grid item xs={12} sm={4}>
-                      <Autocomplete
-                        freeSolo
-                        options={companyOptions}
-                        getOptionLabel={(option) => {
-                          if (typeof option === 'string') return option;
-                          return `${option.companyName} (ID: ${option.companyId})`;
-                        }}
-                        inputValue={formData.companyName}
-                        onInputChange={(e, newValue) => {
-                          handleChange({ target: { name: 'companyName', value: newValue } });
-                          fetchCompanySuggestions(newValue);
-                        }}
-                        onChange={(e, value) => {
-                          if (value) {
-                            setFormData(prev => ({
-                              ...prev,
-                              companyName: value.companyName || '',
-                              companyAddress: value.companyAddress || '',
-                              contactName: value.contactName || '',
-                              email: value.email || '',
-                              phoneNumber: value.phoneNumber || '',
-                            }));
-                          }
-                        }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label="Company Name or ID"
-                            fullWidth
-                            helperText="Search by company name or ID"
-                            variant="outlined"
-                            sx={{
-                              '& label': { fontWeight: 600, color: '#555' },
-                              '& input': { fontWeight: 500, color: '#333' },
-                            }}
-                          />
-                        )}
-                        renderOption={(props, option) => (
-                          <li {...props}>
-                            <Box>
-                              <Typography variant="body1">
-                                {option.companyName}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                ID: {option.companyId}
-                                {option.companyAddress && ` • ${option.companyAddress}`}
-                              </Typography>
-                            </Box>
-                          </li>
-                        )}
-                      />
+                <Grid container spacing={3} sx={{ flexGrow: 1, overflowY: 'auto', p: 3,
+                  '&::-webkit-scrollbar': { width: 6 },
+                  '&::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 3 },
+                }}>
+                  {/* Left Column */}
+                  <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+                    {/* Company Dropdown from CompanyCreate */}
+                    <Autocomplete
+                      options={companyOptions || []}
+                      getOptionLabel={(option) =>
+                        option ? `${option.companyName}${option.companyId ? ` (ID: ${option.companyId})` : ''}` : ''
+                      }
+                      value={companyOptions.find(c => c.companyId === formData.companyId) || null}
+                      onChange={(e, value) => {
+                        if (value) {
+                          setFormData(prev => ({ ...prev, companyName: value.companyName, companyId: value.companyId }));
+                          setSelectedBranch(null);
+                          if (errors.companyName) setErrors(p => ({ ...p, companyName: false }));
+                        } else {
+                          setFormData(prev => ({ ...prev, companyName: '', companyId: '' }));
+                          setSelectedBranch(null);
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Select Company *"
+                          error={!!errors.companyName}
+                          helperText={errors.companyName ? 'Company is required' : 'Choose from registered companies'} />
+                      )}
+                      renderOption={(props, option) => (
+                        <li {...props} key={option._id || option.companyId}>
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>{option.companyName}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              ID: {option.companyId}{option.city ? ` â€¢ ${option.city}` : ''}{option.industries ? ` â€¢ ${option.industries}` : ''}
+                            </Typography>
+                          </Box>
+                        </li>
+                      )}
+                      isOptionEqualToValue={(o, v) => o.companyId === v?.companyId}
+                    />
+
+                    {/* Branch Dropdown */}
+                    {(() => {
+                      const selectedCo = companyOptions.find(c => c.companyId === formData.companyId);
+                      const branches = selectedCo?.branches || [];
+                      const hasBranches = branches.length > 0;
+                      return (
+                        <Autocomplete
+                          options={branches}
+                          getOptionLabel={(b) => b.branchName || ''}
+                          value={selectedBranch}
+                          disabled={!hasBranches}
+                          onChange={(e, val) => {
+                            setSelectedBranch(val);
+                            setFormData(prev => ({ ...prev, branchId: val?._id || '', branchName: val?.branchName || '' }));
+                          }}
+                          renderInput={(params) => (
+                            <TextField {...params} label="Select Branch"
+                              helperText={!formData.companyId ? 'Select a company first' : !hasBranches ? 'No branches for this company' : 'Optional â€” select a branch'}
+                              sx={{ '& .MuiOutlinedInput-root': { bgcolor: !hasBranches ? '#f5f5f5' : undefined } }} />
+                          )}
+                          renderOption={(props, option) => (
+                            <li {...props} key={option._id}>
+                              <Box>
+                                <Typography variant="body2" fontWeight={600}>{option.branchName}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {[option.city, option.area].filter(Boolean).join(' â€¢ ')}
+                                </Typography>
+                              </Box>
+                            </li>
+                          )}
+                          isOptionEqualToValue={(o, v) => o._id === v?._id}
+                        />
+                      );
+                    })()}
+
+                    <TextField label="Job Title *" name="jobTitle" value={formData.jobTitle}
+                      onChange={(e) => { handleChange(e); if (errors.jobTitle) setErrors(p => ({ ...p, jobTitle: false })); }}
+                      fullWidth error={!!errors.jobTitle} helperText={errors.jobTitle ? 'Required' : ''} required />
+
+                    <TextField label="Job Location *" name="jobLocation" value={formData.jobLocation}
+                      onChange={(e) => { handleChange(e); if (errors.jobLocation) setErrors(p => ({ ...p, jobLocation: false })); }}
+                      fullWidth error={!!errors.jobLocation} helperText={errors.jobLocation ? 'Required' : ''} required />
+
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <TextField label="No. of Openings *" name="numberOfRequirements" type="number"
+                          value={formData.numberOfRequirements}
+                          onChange={(e) => { handleChange(e); if (errors.numberOfRequirements) setErrors(p => ({ ...p, numberOfRequirements: false })); }}
+                          fullWidth error={!!errors.numberOfRequirements} helperText={errors.numberOfRequirements ? 'Required' : ''} required />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+                            Job Timing
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <TextField
+                              label="Start Time"
+                              type="time"
+                              value={jobTimingStart ? (() => { const [h,m] = jobTimingStart.split(':'); const hh = parseInt(h); return `${String(hh > 12 ? hh - 12 : hh || 12).padStart(2,'0')}:${m}`; })() : ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (!val) { setJobTimingStart(''); return; }
+                                const [h, m] = val.split(':');
+                                const hh = parseInt(h);
+                                const ampm = hh >= 12 ? 'PM' : 'AM';
+                                const h12 = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
+                                setJobTimingStart(`${h12}:${m} ${ampm}`);
+                              }}
+                              InputLabelProps={{ shrink: true }}
+                              inputProps={{ step: 300 }}
+                              size="small"
+                              sx={{ flex: 1 }}
+                            />
+                            <Typography variant="body2" color="text.secondary">to</Typography>
+                            <TextField
+                              label="End Time"
+                              type="time"
+                              value={jobTimingEnd ? (() => { const [h,m] = jobTimingEnd.split(':'); const hh = parseInt(h); return `${String(hh > 12 ? hh - 12 : hh || 12).padStart(2,'0')}:${m}`; })() : ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (!val) { setJobTimingEnd(''); return; }
+                                const [h, m] = val.split(':');
+                                const hh = parseInt(h);
+                                const ampm = hh >= 12 ? 'PM' : 'AM';
+                                const h12 = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
+                                setJobTimingEnd(`${h12}:${m} ${ampm}`);
+                              }}
+                              InputLabelProps={{ shrink: true }}
+                              inputProps={{ step: 300 }}
+                              size="small"
+                              sx={{ flex: 1 }}
+                            />
+                          </Box>
+                          {(jobTimingStart || jobTimingEnd) && (
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                              {jobTimingStart && jobTimingEnd
+                                ? `${jobTimingStart} - ${jobTimingEnd}`
+                                : jobTimingStart || jobTimingEnd}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Grid>
                     </Grid>
 
-
-                    {[
-                      { name: 'industries', label: 'Industries' },
-                      { name: 'companyAddress', label: 'Company Address' },
-                      { name: 'contactName', label: 'Contact Person Name' },
-                      { 
-                        name: 'email', 
-                        label: 'Email', 
-                        type: 'email', 
-                        error: !!validationErrors.email, 
-                        helperText: validationErrors.email,
-                        sx: { 
-                          '& .MuiFormHelperText-root': {
-                            color: 'error.main',
-                            fontSize: '0.75rem',
-                            marginLeft: 0,
-                            marginTop: '3px'
-                          }
-                        }
-                      },
-                      { 
-                        name: 'phoneNumber', 
-                        label: 'Phone Number', 
-                        // error: !!validationErrors.phoneNumber, 
-                        // helperText: validationErrors.phoneNumber,
-                        // sx: { 
-                        //   '& .MuiFormHelperText-root': {
-                        //     color: 'error.main',
-                        //     fontSize: '0.75rem',
-                        //     marginLeft: 0,
-                        //     marginTop: '3px'
-                        //   }
-                        // }
-                      },
-                      { name: 'jobTitle', label: 'Job Title' },
-                      { name: 'response', label: 'Response' },
-                      { name: 'benefits', label: 'Benefits' },
-                      { name: 'numberOfRequirements', label: 'Number of Requirements', type: 'number' },
-                      { name: 'websiteURL', label: 'Website URL', type: 'url' },
-                      { name: 'keyResponsibility', label: 'Key Responsibility ' },
-                      { name: 'requiredSkills', label: 'Required Skills ' },
-                      { name: 'education', label: 'Education ' },
-                      { name: 'experience', label: 'Experience ' },
-                      { name: 'salary', label: 'Salary ' },
-                      { name: 'jobLocation', label: 'Job Location' },
-                      
-                      { name: 'jobTiming', label: 'Job Timing' },
-                    ].map((field, index) => (
-                      <Grid item xs={12} sm={4} key={index}>
-                        <TextField
-                          name={field.name}
-                          label={field.label}
-                          type={field.type || 'text'}
-                          fullWidth
-                          value={formData[field.name]}
-                          onChange={handleChange}
-                          variant="outlined"
-                          error={field.error}
-                          helperText={field.helperText}
-                          inputProps={field.name === 'phoneNumber' ? {} : {}}
-                          sx={{
-                            '& label': { fontWeight: 600, color: '#555' },
-                            '& input': { fontWeight: 500, color: '#333' },
-                            '& .MuiFormHelperText-root': {
-                              marginLeft: 0,
-                              mt: 0.5,
-                              fontSize: '0.75rem',
-                              lineHeight: 1.2,
-                              minHeight: '1.2rem',
-                              display: 'block',
-                              visibility: field.error ? 'visible' : 'hidden'
-                            }
-                          }}
-                        />
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <TextField label="Education *" name="education" value={formData.education}
+                          onChange={(e) => { handleChange(e); if (errors.education) setErrors(p => ({ ...p, education: false })); }}
+                          fullWidth error={!!errors.education} helperText={errors.education ? 'Required' : ''} required />
                       </Grid>
-                    ))}
+                      <Grid item xs={6}>
+                        <Autocomplete freeSolo options={['Male', 'Female', 'Other']}
+                          value={formData.gender || ''}
+                          onChange={(e, v) => setFormData(p => ({ ...p, gender: v || '' }))}
+                          onInputChange={(e, v) => setFormData(p => ({ ...p, gender: v }))}
+                          renderInput={(params) => <TextField {...params} label="Gender" fullWidth />} />
+                      </Grid>
+                    </Grid>
 
-<Grid item xs={12} sm={4}>
-  <Autocomplete
-    freeSolo
-    options={['Male', 'Female', 'Other']}
-    value={formData.gender || ''}
-    onChange={(event, newValue) => {
-      setFormData({ ...formData, gender: newValue || '' });
-    }}
-    onInputChange={(event, newInputValue) => {
-      setFormData({ ...formData, gender: newInputValue });
-    }}
-    renderInput={(params) => (
-      <TextField
-        {...params}
-        label="Gender"
-        name="gender"
-        fullWidth
-        variant="outlined"
-        sx={{
-          '& label': { fontWeight: 600, color: '#555' },
-          '& input': { fontWeight: 500, color: '#333' },
-        }}
-      />
-    )}
-  />
-</Grid>
-
-
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#555', mb: 1 }}>
-                        Set Reminder
-                      </Typography>
-                      <TextField
-                        label="Reminder Message"
-                        fullWidth
-                        value={reminderMessage}
-                        onChange={(e) => setReminderMessage(e.target.value)}
-                        sx={{ mb: 2 }}
-                      />
-                      <DatePicker
-                        label="Reminder Date"
-                        value={reminderDate}
-                        onChange={(date) => setReminderDate(date)}
-                        sx={{ width: '100%' }}
-                      />
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <TextField label="Salary" name="salary" value={formData.salary} onChange={handleChange} fullWidth />
+                      </Grid>
+                      <Grid item xs={6}>
+                        <TextField label="Experience *" name="experience" value={formData.experience}
+                          onChange={(e) => { handleChange(e); if (errors.experience) setErrors(p => ({ ...p, experience: false })); }}
+                          fullWidth error={!!errors.experience} helperText={errors.experience ? 'Required' : ''} required />
+                      </Grid>
                     </Grid>
                   </Grid>
-                </Box>
-                {loading && (
-                  <Box sx={{ my: 2 }}>
-                    <LinearProgress color="primary" />
-                  </Box>
-                )}
 
-                {success && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
-                    <CheckCircleIcon sx={{ color: 'green' }} />
-                    <Typography sx={{ fontWeight: 600, color: 'green' }}>
-                      {editMode ? 'Update Successful!' : 'Create Successful!'}
-                    </Typography>
-                  </Box>
-                )}
+                  {/* Right Column */}
+                  <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
+                    <TextField label="Required Skills *" name="requiredSkills" value={formData.requiredSkills}
+                      onChange={(e) => { handleChange(e); if (errors.requiredSkills) setErrors(p => ({ ...p, requiredSkills: false })); }}
+                      fullWidth multiline rows={2} error={!!errors.requiredSkills}
+                      helperText={errors.requiredSkills ? 'Required' : ''} required />
 
-                <Divider sx={{ my: 3 }} />
+                    <TextField label="Key Responsibilities" name="keyResponsibility"
+                      value={formData.keyResponsibility} onChange={handleChange} fullWidth multiline rows={3} />
 
-                {/* PDF Upload Section */}
-                <Box sx={{ p: 2, backgroundColor: '#f9f9f9', borderRadius: 2 }}>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 700, color: '#333' }}>
-                    Agreement Document
-                  </Typography>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        if (validateFileSize(file)) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            agreementSigned: file,
-                          }));
-                        } else {
-                          e.target.value = ''; // Reset the file input
-                        }
-                      }
-                    }}
-                    style={{ marginBottom: 16 }}
-                  />
-                  {fileError && (
-                    <Typography color="error" variant="caption" display="block" gutterBottom>
-                      {fileError}
-                    </Typography>
-                  )}
+                    <TextField label="Benefits" name="benefits" value={formData.benefits} onChange={handleChange} fullWidth />
 
-                 
+                    <TextField label="Response" name="response" value={formData.response} onChange={handleChange} fullWidth />
 
-                  <Typography variant="body2" sx={{ mb: 1, color: '#555' }}>
-                    Upload Additional Description (PDF)
-                  </Typography>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        if (validateFileSize(file)) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            descriptionFile: file,
-                          }));
-                        } else {
-                          e.target.value = ''; // Reset the file input
-                        }
-                      }
-                    }}
-                    style={{ marginBottom: 16 }}
-                  />
-                  {fileError && (
-                    <Typography color="error" variant="caption" display="block" gutterBottom>
-                      {fileError}
-                    </Typography>
-                  )}
-                </Box>
-              </DialogContent>
+                    <TextField label="Remarks" name="remarks" value={formData.remarks} onChange={handleChange} fullWidth multiline rows={2} />
 
-              <DialogActions sx={{ px: 4, py: 3 }}>
-                <Button
-                  onClick={handleClose}
-                  sx={{
-                    color: '#1a237e',
-                    fontWeight: 600,
-                    textTransform: 'none',
-                    borderRadius: 2,
-                    border: '1px solid #1a237e',
-                    '&:hover': { backgroundColor: '#1a237e', color: '#fff' },
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  variant="contained"
-                  disabled={loading}
-                  sx={{
-                    backgroundColor: '#1a237e',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    borderRadius: 2,
-                    px: 3,
-                    '&:hover': { backgroundColor: '#3949ab' },
-                  }}
-                >
-                  {loading ? 'Saving...' : editMode ? 'Update' : 'Save'}
-                </Button>
-
-              </DialogActions>
-            </Dialog>
-
-               <Modal open={importModalOpen} onClose={() => setImportModalOpen(false)}>
-                      <Box sx={{
-                        position: 'absolute',
-                        top: '50%', left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        width: 400, bgcolor: 'background.paper',
-                        boxShadow: 24, p: 4, borderRadius: 2, textAlign: 'center',
-                      }}>
-                        <Typography variant="h6" gutterBottom>Confirm Import</Typography>
-            <DialogContent>
-            <Typography>Are you sure you want to import {parsedJobs?.length || 0} jobs from {uploadedFileName}?</Typography>
-            {isImporting && (
-              <Box sx={{ width: '100%', mt: 2 }}>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={importProgress} 
-                  sx={{ height: 10, borderRadius: 5 }}
-                />
-                <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
-                  {importProgress}% Complete
-                </Typography>
-              </Box>
-            )}
-          </DialogContent>
-                        <Box mt={3} display="flex" justifyContent="space-between">
-                          <Button variant="outlined" onClick={() => setImportModalOpen(false)}>Cancel</Button>
-                          <Button 
-            onClick={handleConfirmImport} 
-            color="primary"
-            variant="contained"
-            disabled={isImporting}
-          >
-            {isImporting ? 'Importing...' : 'Import'}
-          </Button>
+                    {/* Job Description PDF */}
+                    <Box>
+                      <Typography mb={1} variant="body2" fontWeight={600}>Job Description PDF:</Typography>
+                      <Button variant="outlined" component="label" startIcon={<CheckCircleIcon sx={{ display: 'none' }} />}>
+                        Upload PDF
+                        <input type="file" hidden accept=".pdf,.doc,.docx"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file && file.size > 5 * 1024 * 1024) {
+                              toast.error('File size exceeds 5MB');
+                            } else {
+                              setFormData(p => ({ ...p, descriptionFile: file }));
+                            }
+                          }} />
+                      </Button>
+                      {formData.descriptionFile instanceof File && (
+                        <Typography variant="body2" color="text.secondary" mt={0.5}>{formData.descriptionFile.name}</Typography>
+                      )}
+                      {typeof formData.descriptionFile === 'string' && formData.descriptionFile && (
+                        <Box mt={0.5} display="flex" alignItems="center" gap={1}>
+                          <Typography variant="body2" color="text.secondary">Existing PDF</Typography>
+                          <Button size="small" onClick={() => window.open(formData.descriptionFile, '_blank')}>View</Button>
                         </Box>
-                      </Box>
-                    </Modal>
+                      )}
+                    </Box>
+                  </Grid>
+                </Grid>
 
-            <Dialog
-              open={verifyModalOpen}
-              onClose={(event, reason) => {
-                if (reason !== 'backdropClick' && reason !== 'escapeKeyDown') {
-                  setVerifyModalOpen(false);
-                }
-              }}
-              maxWidth="md"
-              fullWidth
-              PaperProps={{
-                sx: {
-                  borderRadius: 3,
-                  boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-                  backgroundColor: '#fff',
-                  padding: 3,
-                },
-              }}
-            >
-              <DialogTitle sx={{ fontWeight: '700', fontSize: '1.8rem', color: '#1a237e' }}>
-                Confirm Conversion
-              </DialogTitle>
+                {/* Footer */}
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+                  px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff', gap: 2 }}>
+                  {loading && <LinearProgress sx={{ flex: 1 }} />}
+                  {success && (
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <CheckCircleIcon color="success" />
+                      <Typography color="green" variant="body2">
+                        {editMode ? 'Updated!' : 'Created!'}
+                      </Typography>
+                    </Box>
+                  )}
+                  <Button variant="outlined" color="error" onClick={handleClose}
+                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
+                    Close
+                  </Button>
+                  <Button type="submit" variant="contained" disabled={loading}
+                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700,
+                      background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
+                      '&:hover': { background: 'linear-gradient(135deg, #303f9f, #3f51b5)' } }}>
+                    {loading ? (editMode ? 'Updating...' : 'Creating...') : editMode ? 'Update Job Opening' : 'Add Job Opening'}
+                  </Button>
+                </Box>
+              </Box>
+            </Modal>
 
-              <DialogContent dividers sx={{ backgroundColor: '#f5f7fa', borderRadius: 2, p: 4, position: 'relative' }}>
-                {/* Conversion Status UI */}
-                {(progress > 0 || done || error) && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      backgroundColor: 'rgba(255,255,255,0.8)',
-                      zIndex: 10,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: 2,
-                    }}
-                  >
-                    {progress > 0 && !done && !error && (
-                      <Box width="80%" textAlign="center">
-                        <Typography mb={2} fontWeight={600}>Processing Conversion...</Typography>
-                        <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 5 }} />
-                        <Typography variant="body2" mt={1}>{progress}%</Typography>
-                      </Box>
-                    )}
-
-                    {done && (
-                      <Box textAlign="center">
-                        <CheckCircleIcon sx={{ fontSize: 60, color: 'green' }} />
-                        <Typography variant="h6" mt={1} fontWeight={600}>Conversion Successful!</Typography>
-                      </Box>
-                    )}
-
-                    {error && (
-                      <Box textAlign="center">
-                        <Typography color="error" variant="h6" fontWeight={600}>❌ Conversion failed</Typography>
-                        <Typography>Please try again.</Typography>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-
-                {/* Always show POP data */}
-                {selectedConvertRow ? (
-                  <Box display="grid" gridTemplateColumns="repeat(3, 1fr)" gap={3}>
-                    {[
-                      ['Industry', selectedConvertRow.industries],
-                      ['Company', selectedConvertRow.companyName],
-                      ['Company Address', selectedConvertRow.companyAddress],
-                      ['Contact Name', selectedConvertRow.contactName],
-                      ['Phone Number', selectedConvertRow.phoneNumber],
-                      ['Email', selectedConvertRow.email],
-                      ['Job Title', selectedConvertRow.jobTitle],
-                      ['Benefits', selectedConvertRow.benefits],
-                      ['Required Skills', selectedConvertRow.requiredSkills],
-                      ['Key Responsibility', selectedConvertRow.keyResponsibility],
-                      ['Education', selectedConvertRow.education],
-                      ['Experience', selectedConvertRow.experience],
-                      ['Salary', selectedConvertRow.salary],
-                      ['Job Location', selectedConvertRow.jobLocation],
-                      ['Job Timing', selectedConvertRow.jobTiming],
-                      ['Gender', selectedConvertRow.gender],
-                      ['Response', selectedConvertRow.response],
-                      ['Requirements', selectedConvertRow.numberOfRequirements],
-                      [
-                        'Website',
-                        selectedConvertRow.websiteURL ? (
-                          <Link
-                            href={selectedConvertRow.websiteURL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            underline="hover"
-                            color="primary"
-                            sx={{ fontWeight: 500 }}
-                          >
-                            {selectedConvertRow.websiteURL}
-                          </Link>
-                        ) : 'N/A',
-                      ],
-                      [
-                        'Agreement',
-                        selectedConvertRow.agreementSigned && selectedConvertRow.agreementSigned !== 'no' ? (
-                          <Link
-                            href={selectedConvertRow.agreementSigned}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            underline="hover"
-                            color="primary"
-                            sx={{ fontWeight: 500 }}
-                          >
-                            View PDF
-                          </Link>
-                        ) : 'N/A',
-                      ],
-                      [
-                        'Description (PDF)',
-                        selectedConvertRow.descriptionFile ? (
-                          <Link
-                            href={selectedConvertRow.descriptionFile}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            underline="hover"
-                            color="primary"
-                            sx={{ fontWeight: 500 }}
-                          >
-                            View PDF
-                          </Link>
-                        ) : 'N/A',
-                      ],
-                      ['Remarks', selectedConvertRow.remarks],
-                      ['Created By', selectedConvertRow.createdBy?.name || 'N/A'],
-                    ].map(([label, value], idx) => (
-                      <Box key={idx} sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <Typography variant="subtitle2" sx={{ color: '#555', fontWeight: '600', mb: 0.5 }}>
-                          {label}:
-                        </Typography>
-                        <Typography variant="body1" sx={{ color: '#333', fontWeight: 500 }}>
-                          {value || 'N/A'}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-
-                ) : (
-                  <Typography>No data available</Typography>
-                )}
-              </DialogContent>
-
-
-              <DialogActions sx={{ px: 4, py: 3 }}>
-                <Button
-                  onClick={() => setVerifyModalOpen(false)}
-                  sx={{
-                    color: '#1a237e',
-                    fontWeight: 600,
-                    textTransform: 'none',
-                    borderRadius: 2,
-                    border: '1px solid #1a237e',
-                    '&:hover': { backgroundColor: '#1a237e', color: '#fff' },
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleConfirmConvert}
-                  variant="contained"
-                  sx={{
-                    backgroundColor: '#1a237e',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    borderRadius: 2,
-                    px: 3,
-                    '&:hover': { backgroundColor: '#3949ab' },
-                  }}
-                >
-                  Confirm
-                </Button>
-                <Button
-                  onClick={() => {
-                    setVerifyModalOpen(false);
-                    setEditMode(true);
-                    setSelectedId(selectedConvertRow._id);
-                    setFormData({ ...selectedConvertRow });
-                    setOpen(true);
-                  }}
-                  variant="outlined"
-                  sx={{
-                    color: '#1a237e',
-                    fontWeight: 600,
-                    textTransform: 'none',
-                    borderRadius: 2,
-                    borderColor: '#1a237e',
-                    px: 3,
-                    '&:hover': {
-                      backgroundColor: '#e8eaf6',
-                      borderColor: '#3949ab',
-                    },
-                  }}
-                >
-                  Edit
-                </Button>
-              </DialogActions>
-            </Dialog>
+            {/* ── Job Opening Report Dialog ── */}
+            <JobReportDialog open={jobReportOpen} onClose={() => setJobReportOpen(false)} />
 
             <Dialog open={openReschedule} onClose={() => setOpenReschedule(false)}>
   <DialogTitle>Reschedule Meeting</DialogTitle>

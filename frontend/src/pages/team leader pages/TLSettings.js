@@ -1,10 +1,11 @@
 // import React, { useState } from 'react';
 // import { Typography, Container, Box, Button, TextField } from '@mui/material';
-// import Navbar from '../../components/admin components/AdminNavbar';
-// import Sidebar from '../../components/admin components/AdminSidebar';
+// import Navbar from '../../components/team leader components/TeamLeaderNavbar';
+// import Sidebar from '../../components/team leader components/TeamLeaderSidebar';
 // import axios from 'axios';
 
 // const AdminSetting = () => {
+//   const { canDo } = useTLPermissions();
 //   const [logo, setLogo] = useState(null);
 //   const [companyName, setCompanyName] = useState('');
 
@@ -81,7 +82,7 @@
 //             <Button
 //               variant="contained"
 //               color="primary"
-//               onClick={handleSaveSettings}
+//               onClick={handleSaveSettings} disabled={!canDo('tl-settings:save')}
 //               sx={{ mt: 2 }}
 //             >
 //               Save Settings
@@ -90,13 +91,15 @@
 //         </Container>
 import React, { useState, useEffect } from 'react';
 import { Typography, Container, Box, Button, TextField } from '@mui/material';
-import Navbar from '../../components/admin components/AdminNavbar';
-import Sidebar from '../../components/admin components/AdminSidebar';
+import Navbar from '../../components/team leader components/TeamLeaderNavbar';
+import Sidebar from '../../components/team leader components/TeamLeaderSidebar';
 import axios from 'axios';
 // Add this import at the top of the file, after the other imports
 import { API_BASE_URL } from '../../config/api.config';
+import useTLPermissions from '../../hooks/useTLPermissions';
 
 const AdminSetting = () => {
+  const { canDo } = useTLPermissions();
   const [logo, setLogo] = useState(null); // Logo preview (Base64)
   const [companyName, setCompanyName] = useState('');
   const [savedLogo, setSavedLogo] = useState(null); // For displaying saved logo
@@ -214,7 +217,7 @@ const AdminSetting = () => {
             <Button
               variant="contained"
               color="primary"
-              onClick={handleSaveSettings}
+              onClick={handleSaveSettings} disabled={!canDo('tl-settings:save')}
               sx={{ mt: 2 }}
             >
               Save Settings

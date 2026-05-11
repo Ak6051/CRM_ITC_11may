@@ -31,7 +31,8 @@ import {
   Divider,
   alpha,
   useTheme,
-  DialogContentText
+  DialogContentText,
+  Drawer,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
@@ -54,6 +55,14 @@ import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ListIcon from '@mui/icons-material/List';
+import CloseIcon from '@mui/icons-material/Close';
+import BusinessIcon from '@mui/icons-material/Business';
+import PersonIcon from '@mui/icons-material/Person';
+import PhoneIcon from '@mui/icons-material/Phone';
+import EmailIcon from '@mui/icons-material/Email';
+import WorkIcon from '@mui/icons-material/Work';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 // Styled Components
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -149,6 +158,11 @@ const HrReport = () => {
     paymentRemark: '',
   });
   const [totalSalary, setTotalSalary] = useState(0);
+
+  // ── Detail drawers ────────────────────────────────────────────────────────
+  const [companyDrawer, setCompanyDrawer] = useState({ open: false, row: null });
+  const [candidateDrawer, setCandidateDrawer] = useState({ open: false, row: null });
+  const [jobDrawer, setJobDrawer] = useState({ open: false, row: null });
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
@@ -157,7 +171,7 @@ const HrReport = () => {
 
   useEffect(() => {
     fetchCandidates();
-  }, []);
+  }, [dateRange]);
 
   const handleToggleStatus = async (jobId) => {
     if (!jobId) {
@@ -205,8 +219,19 @@ const HrReport = () => {
   const fetchCandidates = async () => {
     try {
       const token = sessionStorage.getItem('token');
+
+      // Build query params — send selectionDate range to backend
+      const params = {};
+      if (dateRange.startDate) {
+        params.startDate = new Date(dateRange.startDate).toISOString().split('T')[0];
+      }
+      if (dateRange.endDate) {
+        params.endDate = new Date(dateRange.endDate).toISOString().split('T')[0];
+      }
+
       const response = await axios.get(`${API_BASE_URL}/fetch/candidates`, {
         headers: { Authorization: `Bearer ${token}` },
+        params,
       });
       setCandidates(response.data);
       setLoading(false);
@@ -240,7 +265,7 @@ const HrReport = () => {
     return candidates.filter((row) => {
       const fullName = `${row.createdBy?.firstName || ''} ${row.createdBy?.lastName || ''}`.trim();
       
-          // If HRs are selected, check if this row's HR is in the selected list
+      // HR filter
       if (selectedHRs && selectedHRs.length > 0) {
         const hrMatch = selectedHRs.some(hr => fullName === hr);
         if (!hrMatch) return false;
@@ -251,21 +276,20 @@ const HrReport = () => {
         return true;
       }
 
-      const joiningDate = row.joiningDate ? new Date(row.joiningDate) : null;
-      if (!joiningDate) return false;
+      // Filter by selectionDate
+      const selectionDate = row.selectionDate ? new Date(row.selectionDate) : null;
+      if (!selectionDate) return false;
 
-      // Adjust dates to start/end of day for proper date comparison
       const startDate = dateRange.startDate ? new Date(dateRange.startDate) : null;
       const endDate = dateRange.endDate ? new Date(dateRange.endDate) : null;
 
       if (startDate) startDate.setHours(0, 0, 0, 0);
       if (endDate) endDate.setHours(23, 59, 59, 999);
 
-      const dateInRange =
-        (!startDate || joiningDate >= startDate) &&
-        (!endDate || joiningDate <= endDate);
-
-      return dateInRange;
+      return (
+        (!startDate || selectionDate >= startDate) &&
+        (!endDate || selectionDate <= endDate)
+      );
     });
   }, [candidates, selectedHRs, dateRange]);
 
@@ -721,61 +745,173 @@ const HrReport = () => {
     },
     {
       field: 'companyName',
-      headerName: 'Company Name',
+      headerName: 'Company',
       width: 180,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.row.jobId?.companyName || 'N/A'}</Typography>
-      ),
+      renderCell: (params) => {
+        const company = params.row.jobId?.companyName;
+        if (!company) return <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+        return (
+          <Tooltip title="Click to view company details" arrow>
+            <span
+              onClick={(e) => { e.stopPropagation(); setCompanyDrawer({ open: true, row: params.row }); }}
+              style={{
+                color: '#3f51b5', fontWeight: 600, fontSize: '0.82rem',
+                cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden',
+                textOverflow: 'ellipsis', display: 'block', maxWidth: '100%',
+                textDecoration: 'underline', textDecorationStyle: 'dotted',
+              }}
+            >
+              {company}
+            </span>
+          </Tooltip>
+        );
+      },
     },
     {
       field: 'candidateName',
-      headerName: 'Name',
-      width: 180,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
+      headerName: 'Candidate',
+      width: 160,
+      renderCell: (params) => {
+        const name = params.value;
+        if (!name) return <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+        return (
+          <Tooltip title="Click to view candidate details" arrow>
+            <span
+              onClick={(e) => { e.stopPropagation(); setCandidateDrawer({ open: true, row: params.row }); }}
+              style={{
+                color: '#0288d1', fontWeight: 600, fontSize: '0.82rem',
+                cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden',
+                textOverflow: 'ellipsis', display: 'block', maxWidth: '100%',
+                textDecoration: 'underline', textDecorationStyle: 'dotted',
+              }}
+            >
+              {name}
+            </span>
+          </Tooltip>
+        );
+      },
     },
     {
       field: 'jobTitle',
       headerName: 'Job Title',
       width: 180,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.row.jobId?.jobTitle || 'N/A'}</Typography>
-      ),
+      renderCell: (params) => {
+        const title = params.row.jobId?.jobTitle;
+        if (!title) return <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+        return (
+          <Tooltip title="Click to view job details" arrow>
+            <span
+              onClick={(e) => { e.stopPropagation(); setJobDrawer({ open: true, row: params.row }); }}
+              style={{
+                color: '#388e3c', fontWeight: 600, fontSize: '0.82rem',
+                cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden',
+                textOverflow: 'ellipsis', display: 'block', maxWidth: '100%',
+                textDecoration: 'underline', textDecorationStyle: 'dotted',
+              }}
+            >
+              {title}
+            </span>
+          </Tooltip>
+        );
+      },
+    },
+   
+     // ── CandidateApplication tracking fields ──────────────────────────────────
+    {
+      field: 'internalInterviewDate', headerName: 'Internal Interview Date', width: 170,
+      renderCell: (p) => <Typography sx={{ fontSize: '0.875rem' }}>{p.value ? formatDate(p.value) : 'N/A'}</Typography>,
     },
     {
-      field: 'jobLocation',
-      headerName: 'Job Location',
-      width: 180,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.row.jobId?.jobLocation || 'N/A'}</Typography>
-      ),
+      field: 'interviewByWhom', headerName: 'Interview By', width: 150,
+      renderCell: (p) => {
+        const v = p.value;
+        if (!v) return <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+        if (typeof v === 'object') return <Typography sx={{ fontSize: '0.875rem' }}>{`${v.firstName || ''} ${v.lastName || ''}`.trim() || 'N/A'}</Typography>;
+        return <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+      },
     },
     {
-      field: 'salaryOffered',
-      headerName: 'Salary Offered',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
+      field: 'candidateReview', headerName: 'Candidate Review', width: 140,
+      renderCell: (p) => {
+        const colorMap = { Green: '#4caf50', Yellow: '#ff9800', Red: '#f44336' };
+        const c = colorMap[p.value];
+        return p.value
+          ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40`, fontSize: '0.75rem' }} />
+          : <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+      },
     },
     {
-      field: 'interviewDate',
-      headerName: 'Interview Date',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? formatDate(params.value) : 'N/A'}</Typography>
-      ),
+      field: 'candidateRemark', headerName: 'Candidate Remark', width: 180,
+      renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap sx={{ fontSize: '0.875rem' }}>{p.value || 'N/A'}</Typography></Tooltip>,
     },
     {
-      field: 'selectionDate',
-      headerName: 'Selection Date',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? formatDate(params.value) : 'N/A'}</Typography>
-      ),
+      field: 'resumeSubmitDate', headerName: 'Resume Submit Date', width: 160,
+      renderCell: (p) => <Typography sx={{ fontSize: '0.875rem' }}>{p.value ? formatDate(p.value) : 'N/A'}</Typography>,
     },
     {
+      field: 'lineupStatus', headerName: 'Lineup Status', width: 130,
+      renderCell: (p) => {
+        const colorMap = { Shortlisted: '#3f51b5', Scheduled: '#0288d1', Completed: '#4caf50', Cancelled: '#f44336', Pending: '#ff9800' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value
+          ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40`, fontSize: '0.75rem' }} />
+          : <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+      },
+    },
+    {
+      field: 'remarks1', headerName: 'Remarks 1', width: 150,
+      renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap sx={{ fontSize: '0.875rem' }}>{p.value || 'N/A'}</Typography></Tooltip>,
+    },
+    {
+      field: 'interviewRounds', headerName: 'Interview Rounds', width: 150,
+      renderCell: (p) => {
+        const rounds = p.value;
+        if (!rounds || rounds.length === 0) return <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+        return (
+          <Tooltip title={rounds.map(r => `${r.roundName}: ${r.roundDate ? formatDate(r.roundDate) : 'TBD'} (${r.interviewMode})`).join('\n')} arrow>
+            <Chip label={`${rounds.length} Round${rounds.length > 1 ? 's' : ''}`} size="small"
+              sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 700, fontSize: '0.75rem' }} />
+          </Tooltip>
+        );
+      },
+    },
+    {
+      field: 'interviewStatus', headerName: 'Interview Status', width: 150,
+      renderCell: (p) => {
+        const colorMap = { Selected: '#4caf50', Rejected: '#f44336', 'On Hold': '#ff9800', 'On Discussion': '#0288d1', Trail: '#9c27b0' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value
+          ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40`, fontSize: '0.75rem' }} />
+          : <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+      },
+    },
+    {
+      field: 'trailDays', headerName: 'Trail Days', width: 100,
+      renderCell: (p) => <Typography sx={{ fontSize: '0.875rem' }}>{p.value != null ? p.value : 'N/A'}</Typography>,
+    },
+    {
+      field: 'remarks2', headerName: 'Remarks 2', width: 150,
+      renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap sx={{ fontSize: '0.875rem' }}>{p.value || 'N/A'}</Typography></Tooltip>,
+    },
+    {
+      field: 'offeredSalary', headerName: 'Offered Salary', width: 130,
+      renderCell: (p) => <Typography sx={{ fontSize: '0.875rem' }}>{p.value || 'N/A'}</Typography>,
+    },
+    {
+      field: 'offeredStatus', headerName: 'Offered Status', width: 130,
+      renderCell: (p) => {
+        const colorMap = { Accepted: '#4caf50', Rejected: '#f44336' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value
+          ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40`, fontSize: '0.75rem' }} />
+          : <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+      },
+    },
+    {
+      field: 'remarks3', headerName: 'Remarks 3', width: 150,
+      renderCell: (p) => <Tooltip title={p.value || ''}><Typography noWrap sx={{ fontSize: '0.875rem' }}>{p.value || 'N/A'}</Typography></Tooltip>,
+    },
+      {
       field: 'selectionStatus',
       headerName: 'Selection Status',
       width: 150,
@@ -783,16 +919,20 @@ const HrReport = () => {
         <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
       ),
     },
-    {
-      field: 'noticePeriod',
-      headerName: 'Notice Period',
+     {
+      field: 'selectionDate',
+      headerName: 'Selection Date',
       width: 150,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
+        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? formatDate(params.value) : 'N/A'}</Typography>
       ),
     },
-
+  
     {
+      field: 'joiningDateStatus', headerName: 'Joining Status', width: 160,
+      renderCell: (p) => <Typography noWrap sx={{ fontSize: '0.875rem' }}>{p.value || 'N/A'}</Typography>,
+    },
+        {
       field: 'joiningDate',
       headerName: 'Joining Date',
       width: 150,
@@ -801,197 +941,16 @@ const HrReport = () => {
       ),
     },
     {
-      field: 'billingDate',
-      headerName: 'Billing Date',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? formatDate(params.value) : 'N/A'}</Typography>
-      ),
+      field: 'hasJoined', headerName: 'Has Joined', width: 150,
+      renderCell: (p) => {
+        const colorMap = { Yes: '#4caf50', No: '#f44336', Backout: '#ff5722', 'Confirmation Awaited': '#ff9800' };
+        const c = colorMap[p.value] || '#9e9e9e';
+        return p.value
+          ? <Chip label={p.value} size="small" sx={{ bgcolor: `${c}20`, color: c, fontWeight: 700, border: `1px solid ${c}40`, fontSize: '0.75rem' }} />
+          : <Typography sx={{ fontSize: '0.875rem', color: '#9e9e9e' }}>N/A</Typography>;
+      },
     },
-
-    {
-      field: 'billingAmount',
-      headerName: 'Billing Amount',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? `₹${params.value}` : 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'paymentStatus',
-      headerName: 'Payment Status',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'paymentDate',
-      headerName: 'Payment Date',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? formatDate(params.value) : 'N/A'}</Typography>
-      ),
-    },
-
-    {
-      field: 'paymentMode',
-      headerName: 'Payment Mode',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-
-    {
-      field: 'companyAddress',
-      headerName: 'Company Address',
-      width: 220,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.row.jobId?.companyAddress || 'N/A'}</Typography>
-      ),
-    },
-
-    {
-      field: 'companyPhoneNumber',
-      headerName: 'Company Phone',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.row.jobId?.phoneNumber || 'N/A'}</Typography>
-      ),
-    },
-
-    {
-      field: 'candidatePhone',
-      headerName: 'Phone',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'candidateEmail',
-      headerName: 'Email',
-      width: 200,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-
-    {
-      field: 'jobTiming',
-      headerName: 'Job Timing',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.row.jobId?.jobTiming || 'N/A'}</Typography>
-      ),
-    },
-
-
-
-    {
-      field: 'qualification',
-      headerName: 'Qualification',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'experience',
-      headerName: 'Experience',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'currentPosition',
-      headerName: 'Current Position',
-      width: 180,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'currentCTC',
-      headerName: 'Current CTC',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'expectedCTC',
-      headerName: 'Expected CTC',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'reasonforLeaving',
-      headerName: 'Reason for Leaving',
-      width: 200,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'currentCompany',
-      headerName: 'Current Company',
-      width: 200,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'remark',
-      headerName: 'Remark',
-      width: 200,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-    {
-      field: 'paymentRemark',
-      headerName: 'Payment Remark',
-      width: 200,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-
-
-    {
-      field: 'positionName',
-      headerName: 'Position Name',
-      width: 180,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-
-    {
-      field: 'currentLocation',
-      headerName: 'Current Location',
-      width: 180,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
-
-
-
-
-    {
-      field: 'offerStatus',
-      headerName: 'Offer Status',
-      width: 150,
-      renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
-      ),
-    },
+   
 
     {
       field: "jobStatus",
@@ -1053,7 +1012,8 @@ const HrReport = () => {
       ),
     },
 
-    
+   
+
   ];
 
   // Row style for backout candidates
@@ -1243,7 +1203,7 @@ const HrReport = () => {
  {/* Date Filters */}
 <LocalizationProvider dateAdapter={AdapterDateFns}>
   <DatePicker
-    label="From Date"
+    label="Selection From"
     value={dateRange.startDate}
     onChange={(date) => setDateRange({ ...dateRange, startDate: date })}
     renderInput={(params) => (
@@ -1272,7 +1232,7 @@ const HrReport = () => {
   />
 
   <DatePicker
-    label="To Date"
+    label="Selection To"
     value={dateRange.endDate}
     onChange={(date) => setDateRange({ ...dateRange, endDate: date })}
     minDate={dateRange.startDate}
@@ -1723,84 +1683,6 @@ const HrReport = () => {
 </Grid>
 
 
-            {/* Billing Details Section */}
-            <Typography variant="subtitle1" sx={{ mt: 3, mb: 1, fontWeight: 'bold', color: '#424242' }}>
-              Billing Information
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Billing Date"
-                  type="date"
-                  value={editFormData.billingDate}
-                  onChange={handleInputChange('billingDate')}
-                  InputLabelProps={{ shrink: true }}
-                  fullWidth
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Billing Amount"
-                  type="number"
-                  value={editFormData.billingAmount}
-                  onChange={handleInputChange('billingAmount')}
-                  fullWidth
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Payment Status"
-                  value={editFormData.paymentStatus}
-                  onChange={handleInputChange('paymentStatus')}
-                  fullWidth
-                  margin="normal"
-                >
-                  <MenuItem value="Pending">Pending</MenuItem>
-                  <MenuItem value="Paid">Paid</MenuItem>
-                  <MenuItem value="Failed">Failed</MenuItem>
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Payment Date"
-                  type="date"
-                  value={editFormData.paymentDate}
-                  onChange={handleInputChange('paymentDate')}
-                  InputLabelProps={{ shrink: true }}
-                  fullWidth
-                  margin="normal"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Payment Mode"
-                  value={editFormData.paymentMode}
-                  onChange={handleInputChange('paymentMode')}
-                  fullWidth
-                  margin="normal"
-                >
-                  <MenuItem value="">Select Payment Mode</MenuItem>
-                  <MenuItem value="Cash">Cash</MenuItem>
-                  <MenuItem value="GPay">GPay</MenuItem>
-                  <MenuItem value="Bank">Bank Transfer</MenuItem>
-                </TextField>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label="Payment Remarks"
-                  value={editFormData.paymentRemark}
-                  onChange={handleInputChange('paymentRemark')}
-                  fullWidth
-                  multiline
-                  rows={2}
-                  margin="normal"
-                />
-              </Grid>
-            </Grid>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, borderTop: '1px solid #e0e0e0' }}>
@@ -2055,6 +1937,400 @@ const HrReport = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* ── Job Detail Drawer ── */}
+      <Drawer
+        anchor="right"
+        open={jobDrawer.open}
+        onClose={() => setJobDrawer({ open: false, row: null })}
+        PaperProps={{ sx: { width: 380, borderRadius: '16px 0 0 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+      >
+        {jobDrawer.row && (() => {
+          const job = jobDrawer.row.jobId || {};
+          const DetailRow = ({ icon, label, value }) => {
+            if (!value) return null;
+            return (
+              <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                <Box sx={{ color: '#9fa8da', mt: 0.2, flexShrink: 0 }}>{icon}</Box>
+                <Box>
+                  <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>{label}</Typography>
+                  <Typography variant="body2" sx={{ color: '#1e293b', fontWeight: 500, wordBreak: 'break-word' }}>{value}</Typography>
+                </Box>
+              </Box>
+            );
+          };
+          return (
+            <>
+              {/* Header */}
+              <Box sx={{ background: 'linear-gradient(135deg, #2e7d32, #388e3c)', px: 3, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                <Box display="flex" alignItems="center" gap={1.5}>
+                  <Box sx={{ width: 42, height: 42, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <WorkIcon sx={{ color: '#fff', fontSize: 22 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={800} color="#fff" lineHeight={1.2}>{job.jobTitle || '—'}</Typography>
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>{job.companyName || 'Job Details'}</Typography>
+                  </Box>
+                </Box>
+                <IconButton size="small" onClick={() => setJobDrawer({ open: false, row: null })}
+                  sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' } }}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+
+              {/* Body */}
+              <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2 }}>
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Job Title"    value={job.jobTitle} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="Job Location" value={job.jobLocation} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Job Timing"   value={job.jobTiming} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Education"    value={job.education} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Experience"   value={job.experience} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Salary"       value={job.salary} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Gender"       value={job.gender} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Week Off"     value={job.weekOff} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="No. of Requirements" value={job.numberOfRequirements != null ? String(job.numberOfRequirements) : ''} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Required Skills"     value={job.requiredSkills} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Key Responsibility"  value={job.keyResponsibility} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Benefits"     value={job.benefits} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Remarks"      value={job.remarks} />
+              </Box>
+
+              {/* Footer */}
+              <Box sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff', flexShrink: 0 }}>
+                <Button fullWidth variant="outlined" onClick={() => setJobDrawer({ open: false, row: null })}
+                  sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#388e3c', fontWeight: 600, textTransform: 'none' }}>
+                  Close
+                </Button>
+              </Box>
+            </>
+          );
+        })()}
+      </Drawer>
+
+      {/* ── Company Detail Drawer ── */}
+      <Drawer
+        anchor="right"
+        open={companyDrawer.open}
+        onClose={() => setCompanyDrawer({ open: false, row: null })}
+        PaperProps={{ sx: { width: 420, borderRadius: '16px 0 0 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+      >
+        {companyDrawer.row && (() => {
+          const job = companyDrawer.row.jobId || {};
+          // Prefer full company details from CompanyCreate, fall back to jobId fields
+          const co = companyDrawer.row.companyDetails || {};
+          const companyName = co.companyName || job.companyName || '—';
+
+          const DetailRow = ({ icon, label, value }) => {
+            if (!value) return null;
+            return (
+              <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                <Box sx={{ color: '#9fa8da', mt: 0.2, flexShrink: 0 }}>{icon}</Box>
+                <Box>
+                  <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>{label}</Typography>
+                  <Typography variant="body2" sx={{ color: '#1e293b', fontWeight: 500, wordBreak: 'break-word' }}>{value}</Typography>
+                </Box>
+              </Box>
+            );
+          };
+
+          const SectionHeader = ({ label }) => (
+            <Box sx={{ mt: 2, mb: 0.5 }}>
+              <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                {label}
+              </Typography>
+              <Divider sx={{ mt: 0.5, borderColor: '#e8eaf6' }} />
+            </Box>
+          );
+
+          const DocLink = ({ label, url }) => {
+            if (!url) return null;
+            return (
+              <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                <Box sx={{ color: '#9fa8da', mt: 0.2, flexShrink: 0 }}><WorkIcon sx={{ fontSize: 18 }} /></Box>
+                <Box>
+                  <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>{label}</Typography>
+                  <a href={url} target="_blank" rel="noreferrer"
+                    style={{ color: '#3f51b5', fontSize: '0.85rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    View Document <OpenInNewIcon sx={{ fontSize: 14 }} />
+                  </a>
+                </Box>
+              </Box>
+            );
+          };
+
+          return (
+            <>
+              {/* Header */}
+              <Box sx={{ background: 'linear-gradient(135deg, #1e1e2f, #2d2d44)', px: 3, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                <Box display="flex" alignItems="center" gap={1.5}>
+                  <Box sx={{ width: 42, height: 42, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <BusinessIcon sx={{ color: '#FFD700', fontSize: 22 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={800} color="#fff" lineHeight={1.2}>{companyName}</Typography>
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                      {co.companyId ? `Company ID: ${co.companyId}` : 'Company Details'}
+                    </Typography>
+                  </Box>
+                </Box>
+                <IconButton size="small" onClick={() => setCompanyDrawer({ open: false, row: null })}
+                  sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' } }}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+
+              {/* Body */}
+              <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2 }}>
+
+                {/* Basic Info */}
+                <SectionHeader label="Basic Info" />
+                <DetailRow icon={<BusinessIcon sx={{ fontSize: 18 }} />}    label="Company Name"  value={companyName} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Industries"    value={co.industries || job.industries} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="Address"       value={co.companyAddress || job.companyAddress} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="Area"          value={co.area || job.Area} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="City"          value={co.city} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="State"         value={co.state} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="Country"       value={co.country} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="Pincode"       value={co.pincode} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="GPS Location"  value={co.gpsLocation} />
+
+                {/* Contact Person 1 */}
+                {(co.contactPerson || co.contactNumber || co.email) && (
+                  <SectionHeader label="Contact Person 1" />
+                )}
+                <DetailRow icon={<PersonIcon sx={{ fontSize: 18 }} />}      label="Contact Person"        value={co.contactPerson || job.contactName} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Designation"           value={co.contactPersonDesignation} />
+                <DetailRow icon={<PhoneIcon sx={{ fontSize: 18 }} />}       label="Phone"                 value={co.contactNumber || job.phoneNumber} />
+                <DetailRow icon={<EmailIcon sx={{ fontSize: 18 }} />}       label="Email"                 value={co.email || job.email} />
+
+                {/* Contact Person 2 */}
+                {(co.contactPerson2 || co.contactNumber2 || co.email2) && (
+                  <SectionHeader label="Contact Person 2" />
+                )}
+                <DetailRow icon={<PersonIcon sx={{ fontSize: 18 }} />}      label="Contact Person 2"      value={co.contactPerson2} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Designation"           value={co.contactPerson2Designation} />
+                <DetailRow icon={<PhoneIcon sx={{ fontSize: 18 }} />}       label="Phone 2"               value={co.contactNumber2} />
+                <DetailRow icon={<EmailIcon sx={{ fontSize: 18 }} />}       label="Email 2"               value={co.email2} />
+
+                {/* Web */}
+                {(co.websiteUrl || job.websiteURL) && (
+                  <SectionHeader label="Web" />
+                )}
+                {(co.websiteUrl || job.websiteURL) && (
+                  <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                    <Box sx={{ color: '#9fa8da', mt: 0.2 }}><OpenInNewIcon sx={{ fontSize: 18 }} /></Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>Website</Typography>
+                      <a href={co.websiteUrl || job.websiteURL} target="_blank" rel="noreferrer"
+                        style={{ color: '#3f51b5', fontSize: '0.85rem', fontWeight: 500 }}>
+                        {co.websiteUrl || job.websiteURL}
+                      </a>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Agreement & GST */}
+                <SectionHeader label="Agreement & Documents" />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}  label="Agreement Start Date"
+                  value={co.agreementStartDate ? formatDate(co.agreementStartDate) : ''} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}  label="Agreement End Date"
+                  value={co.agreementEndDate ? formatDate(co.agreementEndDate) : ''} />
+                <DocLink label="Agreement Document" url={co.agreementUpload || job.agreementSigned} />
+                <DocLink label="GST Document"       url={co.gstUpload || job.gstUpload} />
+                <DocLink label="Other Document"     url={co.otherDocumentUpload} />
+
+                {/* Payment */}
+                {(co.invoiceNumber || co.paymentMode || co.tokenAmount) && (
+                  <SectionHeader label="Payment Info" />
+                )}
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}  label="Invoice Number"  value={co.invoiceNumber} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}  label="Payment Mode"    value={co.paymentMode} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}  label="Payment Remark"  value={co.paymentRemark} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}  label="Token Amount"
+                  value={co.tokenAmount != null ? `₹${co.tokenAmount.toLocaleString('en-IN')}` : ''} />
+                <DocLink label="Token Upload" url={co.tokenUpload} />
+
+              </Box>
+
+              {/* Footer */}
+              <Box sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff', flexShrink: 0 }}>
+                <Button fullWidth variant="outlined" onClick={() => setCompanyDrawer({ open: false, row: null })}
+                  sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', fontWeight: 600, textTransform: 'none' }}>
+                  Close
+                </Button>
+              </Box>
+            </>
+          );
+        })()}
+      </Drawer>
+
+      {/* ── Candidate Detail Drawer ── */}
+      <Drawer
+        anchor="right"
+        open={candidateDrawer.open}
+        onClose={() => setCandidateDrawer({ open: false, row: null })}
+        PaperProps={{ sx: { width: 380, borderRadius: '16px 0 0 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+      >
+        {candidateDrawer.row && (() => {
+          const c = candidateDrawer.row;
+          const DetailRow = ({ icon, label, value }) => {
+            if (!value) return null;
+            return (
+              <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                <Box sx={{ color: '#9fa8da', mt: 0.2, flexShrink: 0 }}>{icon}</Box>
+                <Box>
+                  <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>{label}</Typography>
+                  <Typography variant="body2" sx={{ color: '#1e293b', fontWeight: 500, wordBreak: 'break-word' }}>{value}</Typography>
+                </Box>
+              </Box>
+            );
+          };
+          return (
+            <>
+              <Box sx={{ background: 'linear-gradient(135deg, #0288d1, #0277bd)', px: 3, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                <Box display="flex" alignItems="center" gap={1.5}>
+                  <Box sx={{ width: 42, height: 42, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <PersonIcon sx={{ color: '#fff', fontSize: 22 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={800} color="#fff" lineHeight={1.2}>{c.candidateName || '—'}</Typography>
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>Candidate Profile</Typography>
+                  </Box>
+                </Box>
+                <IconButton size="small" onClick={() => setCandidateDrawer({ open: false, row: null })}
+                  sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' } }}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2 }}>
+                <DetailRow icon={<PhoneIcon sx={{ fontSize: 18 }} />}        label="Phone"             value={c.candidatePhone} />
+                <DetailRow icon={<EmailIcon sx={{ fontSize: 18 }} />}        label="Email"             value={c.candidateEmail} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Position"          value={c.positionName} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Experience"        value={c.experience} />
+                <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}   label="Current Location"  value={c.currentLocation} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Current Position"  value={c.currentPosition} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Current Company"   value={c.currentCompany} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Current CTC"       value={c.currentCTC} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Expected CTC"      value={c.expectedCTC} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Notice Period"     value={c.noticePeriod} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Qualification"     value={c.qualification} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Salary Offered"    value={c.salaryOffered} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Selection Status"  value={c.selectionStatus} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Selection Date"    value={c.selectionDate ? formatDate(c.selectionDate) : ''} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Joining Date"      value={c.joiningDate ? formatDate(c.joiningDate) : ''} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Offer Status"      value={c.offerStatus} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Remark"            value={c.remark} />
+
+                {/* ── Interview Tracking Fields ── */}
+                {(c.internalInterviewDate || c.interviewByWhom || c.candidateReview || c.candidateRemark ||
+                  c.resumeSubmitDate || c.lineupStatus || c.remarks1 || c.interviewStatus ||
+                  c.offeredSalary || c.offeredStatus || c.joiningDateStatus || c.hasJoined) && (
+                  <Box sx={{ mt: 2, mb: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Interview Tracking
+                    </Typography>
+                  </Box>
+                )}
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Internal Interview Date" value={c.internalInterviewDate ? formatDate(c.internalInterviewDate) : ''} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Interview By Whom"
+                  value={c.interviewByWhom
+                    ? (typeof c.interviewByWhom === 'object'
+                        ? `${c.interviewByWhom.firstName || ''} ${c.interviewByWhom.lastName || ''}`.trim()
+                        : c.interviewByWhom)
+                    : ''} />
+                {c.candidateReview && (
+                  <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                    <Box sx={{ color: '#9fa8da', mt: 0.2 }}><WorkIcon sx={{ fontSize: 18 }} /></Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>Candidate Review</Typography>
+                      <Chip label={c.candidateReview} size="small" sx={{
+                        fontWeight: 700, fontSize: '0.72rem',
+                        bgcolor: c.candidateReview === 'Green' ? '#e8f5e9' : c.candidateReview === 'Yellow' ? '#fff8e1' : '#ffebee',
+                        color:   c.candidateReview === 'Green' ? '#2e7d32' : c.candidateReview === 'Yellow' ? '#f57f17' : '#c62828',
+                      }} />
+                    </Box>
+                  </Box>
+                )}
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Candidate Remark"     value={c.candidateRemark} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Resume Submit Date"   value={c.resumeSubmitDate ? formatDate(c.resumeSubmitDate) : ''} />
+                {c.lineupStatus && (
+                  <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                    <Box sx={{ color: '#9fa8da', mt: 0.2 }}><WorkIcon sx={{ fontSize: 18 }} /></Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>Lineup Status</Typography>
+                      <Chip label={c.lineupStatus} size="small" sx={{ fontWeight: 700, fontSize: '0.72rem', bgcolor: '#e8eaf6', color: '#3f51b5' }} />
+                    </Box>
+                  </Box>
+                )}
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Remarks 1"            value={c.remarks1} />
+                {c.interviewStatus && (
+                  <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                    <Box sx={{ color: '#9fa8da', mt: 0.2 }}><WorkIcon sx={{ fontSize: 18 }} /></Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>Interview Status</Typography>
+                      <Chip label={c.interviewStatus} size="small" sx={{
+                        fontWeight: 700, fontSize: '0.72rem',
+                        bgcolor: c.interviewStatus === 'Selected' ? '#e8f5e9' : c.interviewStatus === 'Rejected' ? '#ffebee' : '#e8eaf6',
+                        color:   c.interviewStatus === 'Selected' ? '#2e7d32' : c.interviewStatus === 'Rejected' ? '#c62828' : '#3f51b5',
+                      }} />
+                    </Box>
+                  </Box>
+                )}
+                {c.trailDays != null && c.trailDays !== '' && (
+                  <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Trail Days" value={String(c.trailDays)} />
+                )}
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Remarks 2"            value={c.remarks2} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Offered Salary"       value={c.offeredSalary} />
+                {c.offeredStatus && (
+                  <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                    <Box sx={{ color: '#9fa8da', mt: 0.2 }}><WorkIcon sx={{ fontSize: 18 }} /></Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>Offered Status</Typography>
+                      <Chip label={c.offeredStatus} size="small" sx={{
+                        fontWeight: 700, fontSize: '0.72rem',
+                        bgcolor: c.offeredStatus === 'Accepted' ? '#e8f5e9' : '#ffebee',
+                        color:   c.offeredStatus === 'Accepted' ? '#2e7d32' : '#c62828',
+                      }} />
+                    </Box>
+                  </Box>
+                )}
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Remarks 3"            value={c.remarks3} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Joining Date Status"  value={c.joiningDateStatus} />
+                {c.hasJoined && (
+                  <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                    <Box sx={{ color: '#9fa8da', mt: 0.2 }}><WorkIcon sx={{ fontSize: 18 }} /></Box>
+                    <Box>
+                      <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>Has Joined</Typography>
+                      <Chip label={c.hasJoined} size="small" sx={{
+                        fontWeight: 700, fontSize: '0.72rem',
+                        bgcolor: c.hasJoined === 'Yes' ? '#e8f5e9' : c.hasJoined === 'No' ? '#ffebee' : '#fff8e1',
+                        color:   c.hasJoined === 'Yes' ? '#2e7d32' : c.hasJoined === 'No' ? '#c62828' : '#f57f17',
+                      }} />
+                    </Box>
+                  </Box>
+                )}
+
+                {c.resumeLink && (
+                  <Box sx={{ py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                    <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 0.5 }}>Resume</Typography>
+                    <a href={c.resumeLink} target="_blank" rel="noreferrer"
+                      style={{ color: '#3f51b5', fontSize: '0.85rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      View Resume <OpenInNewIcon sx={{ fontSize: 14 }} />
+                    </a>
+                  </Box>
+                )}
+              </Box>
+              <Box sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff', flexShrink: 0 }}>
+                <Button fullWidth variant="outlined" onClick={() => setCandidateDrawer({ open: false, row: null })}
+                  sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#0288d1', fontWeight: 600, textTransform: 'none' }}>
+                  Close
+                </Button>
+              </Box>
+            </>
+          );
+        })()}
+      </Drawer>
+
     </div>
   );
 };
