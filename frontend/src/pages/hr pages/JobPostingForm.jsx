@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Button, Grid, Typography, TextField, Paper,
+  FormControl, Select, MenuItem, InputLabel, FormHelperText,
 } from '@mui/material';
 import { Autocomplete } from '@mui/material';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -36,6 +37,28 @@ const emptyFormData = {
 const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
   const isEmbedded = !!onSuccess;
   const isEditMode  = !!editId;
+
+  // Predefined experience options for the job opening form
+  const experienceOptions = [
+    'Fresher', '0-6 Months', '6 Months', '1 Year', '1 Year 3 Months',
+    '1 Year 6 Months', '2 Years', '2 Years 3 Months', '2 Years 6 Months',
+    '3 Years', '3-5 Years', '5 Years', '5-7 Years', '7-10 Years',
+    '10+ Years', '15+ Years',
+  ];
+
+  // Convert "9:00 AM" / "1:30 PM" → "09:00" / "13:30" for <input type="time">
+  const to24h = (timeStr) => {
+    if (!timeStr) return '';
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) return '';
+    let [, h, m, period] = match;
+    h = parseInt(h);
+    if (period) {
+      if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (period.toUpperCase() === 'AM' && h === 12) h = 0;
+    }
+    return `${String(h).padStart(2, '0')}:${m}`;
+  };
 
   const [formData, setFormData]             = useState(emptyFormData);
   const [selectedBranch, setSelectedBranch] = useState(null);
@@ -291,7 +314,7 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
                     <TextField
                       label="Start Time"
                       type="time"
-                      value={jobTimingStart ? (() => { const [h,m] = jobTimingStart.split(':'); const hh = parseInt(h); return `${String(hh > 12 ? hh - 12 : hh || 12).padStart(2,'0')}:${m}`; })() : ''}
+                      value={to24h(jobTimingStart)}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (!val) { setJobTimingStart(''); return; }
@@ -310,7 +333,7 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
                     <TextField
                       label="End Time"
                       type="time"
-                      value={jobTimingEnd ? (() => { const [h,m] = jobTimingEnd.split(':'); const hh = parseInt(h); return `${String(hh > 12 ? hh - 12 : hh || 12).padStart(2,'0')}:${m}`; })() : ''}
+                      value={to24h(jobTimingEnd)}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (!val) { setJobTimingEnd(''); return; }
@@ -378,10 +401,22 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
                 />
               </Grid>
               <Grid item xs={6}>
-                <TextField label="Experience *" name="experience" value={formData.experience} size="small"
-                  onChange={(e) => { handleChange(e); if (errors.experience) setErrors(p => ({ ...p, experience: false })); }}
-                  fullWidth error={errors.experience}
-                  helperText={errors.experience ? 'Required' : ''} required />
+                <FormControl fullWidth error={errors.experience} required size="small">
+                  <InputLabel>Experience *</InputLabel>
+                  <Select
+                    value={formData.experience}
+                    label="Experience *"
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, experience: e.target.value }));
+                      if (errors.experience) setErrors(p => ({ ...p, experience: false }));
+                    }}
+                  >
+                    {experienceOptions.map(opt => (
+                      <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                    ))}
+                  </Select>
+                  {errors.experience && <FormHelperText>Required</FormHelperText>}
+                </FormControl>
               </Grid>
             </Grid>
           </Grid>

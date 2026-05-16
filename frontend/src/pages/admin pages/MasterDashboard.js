@@ -57,7 +57,7 @@ import dayjs from 'dayjs';
 
 const MasterDashboard = () => {
   const navigate = useNavigate();
-  const [timeFilter, setTimeFilter] = useState('today');
+  const [timeFilter, setTimeFilter] = useState('week');
   const [countdown, setCountdown] = useState(10);
   const [dateRange, setDateRange] = useState({ from: null, to: null });
   const [dateRangeAnchor, setDateRangeAnchor] = useState(null);
@@ -94,6 +94,15 @@ const MasterDashboard = () => {
       thisMonth: 0,
       thisWeek: 0,
     },
+    workflowMetrics: {
+      resumesShared: { count: 0, candidates: [], trend: 0 },
+      offerAccepted: { count: 0, candidates: [], trend: 0 },
+      offerRejected: { count: 0, candidates: [], trend: 0 },
+      selectionAccepted: { count: 0, candidates: [], trend: 0 },
+      selectionRejected: { count: 0, candidates: [], trend: 0 },
+      actualJoined: { count: 0, candidates: [], trend: 0 },
+      notJoined: { count: 0, candidates: [], trend: 0 },
+    },
   });
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -116,9 +125,18 @@ const MasterDashboard = () => {
       setCountdown(prev => (prev <= 1 ? 10 : prev - 1));
     }, 1000);
 
+    // Listen for global dashboard refresh events
+    const handleDashboardUpdate = () => {
+      fetchDashboardData();
+      fetchHrAnalytics();
+      setCountdown(10);
+    };
+    window.addEventListener('dashboardDataUpdated', handleDashboardUpdate);
+
     return () => {
       clearInterval(interval);
       clearInterval(countdownInterval);
+      window.removeEventListener('dashboardDataUpdated', handleDashboardUpdate);
     };
   }, [timeFilter, dateRange]);
 
@@ -132,7 +150,7 @@ const MasterDashboard = () => {
         params.fromDate = dayjs(dateRange.from).format('YYYY-MM-DD');
         params.toDate = dayjs(dateRange.to).format('YYYY-MM-DD');
       }
-      
+
       const response = await axios.get(`${API_BASE_URL}/dashboard/admin`, {
         headers: { Authorization: `Bearer ${token}` },
         params,
@@ -154,7 +172,7 @@ const MasterDashboard = () => {
       const now = dayjs();
       if (timeFilter === 'today') {
         params.from = now.format('YYYY-MM-DD');
-        params.to   = now.format('YYYY-MM-DD');
+        params.to = now.format('YYYY-MM-DD');
       } else if (timeFilter === 'yesterday') {
         const y = now.subtract(1, 'day').format('YYYY-MM-DD');
         params.from = y; params.to = y;
@@ -163,13 +181,13 @@ const MasterDashboard = () => {
         params.from = t; params.to = t;
       } else if (timeFilter === 'week') {
         params.from = now.subtract(7, 'day').format('YYYY-MM-DD');
-        params.to   = now.format('YYYY-MM-DD');
+        params.to = now.format('YYYY-MM-DD');
       } else if (timeFilter === 'month') {
         params.from = now.startOf('month').format('YYYY-MM-DD');
-        params.to   = now.format('YYYY-MM-DD');
+        params.to = now.format('YYYY-MM-DD');
       } else if (timeFilter === 'dateRange' && dateRange.from && dateRange.to) {
         params.from = dayjs(dateRange.from).format('YYYY-MM-DD');
-        params.to   = dayjs(dateRange.to).format('YYYY-MM-DD');
+        params.to = dayjs(dateRange.to).format('YYYY-MM-DD');
       }
 
       const res = await axios.get(`${API_BASE_URL}/analytics/hr-position`, {
@@ -184,18 +202,18 @@ const MasterDashboard = () => {
           const key = row.hrId || row.hrName;
           if (!hrMap[key]) {
             hrMap[key] = {
-              hrId:   row.hrId,
+              hrId: row.hrId,
               hrName: row.hrName || 'Unknown',
-              sourced:  0, selected: 0, rejected: 0,
-              joined:   0, onHold:   0, backout:  0,
+              sourced: 0, selected: 0, rejected: 0,
+              joined: 0, onHold: 0, backout: 0,
             };
           }
-          hrMap[key].sourced   += row.sourced   || 0;
-          hrMap[key].selected  += row.selected  || 0;
-          hrMap[key].rejected  += row.rejected  || 0;
-          hrMap[key].joined    += row.joined    || 0;
-          hrMap[key].onHold    += row.onHold    || 0;
-          hrMap[key].backout   += row.backout   || 0;
+          hrMap[key].sourced += row.sourced || 0;
+          hrMap[key].selected += row.selected || 0;
+          hrMap[key].rejected += row.rejected || 0;
+          hrMap[key].joined += row.joined || 0;
+          hrMap[key].onHold += row.onHold || 0;
+          hrMap[key].backout += row.backout || 0;
         });
 
         const hrList = Object.values(hrMap)
@@ -281,7 +299,7 @@ const MasterDashboard = () => {
             />
           )}
         </Box>
-        
+
         <Typography
           variant="h3"
           sx={{
@@ -295,11 +313,11 @@ const MasterDashboard = () => {
         >
           {count}
         </Typography>
-        
-        <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 700, mb: 0.5, fontSize: '1rem' }}>
+
+        <Typography variant="body1" sx={{ color: '#64748b', fontWeight: 700, mb: 0.5, fontSize: '1.55rem' }}>
           {title}
         </Typography>
-        
+
         {subtitle && (
           <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.82rem' }}>
             {subtitle}
@@ -364,11 +382,11 @@ const MasterDashboard = () => {
             </Typography>
           </Box>
         </Box>
-        
-        <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 700, display: 'block', mb: 1, fontSize: '0.9rem' }}>
+
+        <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 700, display: 'block', mb: 1, fontSize: '1.05rem' }}>
           {title}
         </Typography>
-        
+
         {trend !== undefined && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             {trend >= 0 ? (
@@ -388,7 +406,7 @@ const MasterDashboard = () => {
             </Typography>
           </Box>
         )}
-        
+
         <Button
           fullWidth
           size="small"
@@ -463,25 +481,7 @@ const MasterDashboard = () => {
                 <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
                   📅 Last updated: {dayjs().format('DD MMM YYYY, hh:mm A')}
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                  <Box
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: '#4ade80',
-                      boxShadow: '0 0 6px #4ade80',
-                      animation: 'pulse 1s infinite',
-                      '@keyframes pulse': {
-                        '0%, 100%': { opacity: 1 },
-                        '50%': { opacity: 0.4 },
-                      },
-                    }}
-                  />
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.78rem' }}>
-                    Auto-refresh in {countdown}s
-                  </Typography>
-                </Box>
+
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1.5 }}>
                 {/* Filter Dropdown */}
@@ -601,7 +601,7 @@ const MasterDashboard = () => {
             </Box>
           </Paper>
 
-          {loading && <LinearProgress sx={{ mb: 3, borderRadius: 2 }} />}
+
 
           {/* Recruitment Analytics - Modern Cards */}
           <Box sx={{ mb: 4 }}>
@@ -620,7 +620,7 @@ const MasterDashboard = () => {
                 <AssignmentIcon sx={{ color: '#fff', fontSize: 22 }} />
               </Box>
               <Box>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.3rem' }}>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.6rem' }}>
                   Recruitment Analytics
                 </Typography>
                 <Typography variant="caption" sx={{ color: '#64748b' }}>
@@ -685,7 +685,7 @@ const MasterDashboard = () => {
                 <PendingIcon sx={{ color: '#fff', fontSize: 22 }} />
               </Box>
               <Box>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.3rem' }}>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.6rem' }}>
                   Current Status Overview
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.88rem' }}>
@@ -714,7 +714,7 @@ const MasterDashboard = () => {
                   candidates={dashboardData.currentStatus.offerAcceptancePending.candidates}
                 />
               </Grid>
-              
+
               <Grid item xs={12} sm={6} md={3}>
                 <StatusCard
                   title="Selected Candidates"
@@ -755,7 +755,7 @@ const MasterDashboard = () => {
                 <CheckCircleIcon sx={{ color: '#fff', fontSize: 22 }} />
               </Box>
               <Box>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.3rem' }}>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.6rem' }}>
                   Interview Status Tracking
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.88rem' }}>
@@ -817,6 +817,105 @@ const MasterDashboard = () => {
             </Grid>
           </Box>
 
+          {/* Workflow Analytics - Offer, Selection & Joining */}
+          <Box sx={{ mb: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #FF512F 0%, #DD2476 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <TrendingUpIcon sx={{ color: '#fff', fontSize: 22 }} />
+              </Box>
+              <Box>
+                <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.6rem' }}>
+                  Workflow Pipeline Analytics
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.88rem' }}>
+                  Detailed metrics for Resume, Offer, Selection and Joining
+                </Typography>
+              </Box>
+            </Box>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatusCard
+                  title="Resumes Shared"
+                  count={dashboardData.workflowMetrics.resumesShared.count}
+                  icon={<AssignmentIcon sx={{ fontSize: 24, color: '#6366f1' }} />}
+                  color="#6366f1"
+                  trend={dashboardData.workflowMetrics.resumesShared.trend}
+                  candidates={dashboardData.workflowMetrics.resumesShared.candidates}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatusCard
+                  title="Offer Accepted"
+                  count={dashboardData.workflowMetrics.offerAccepted.count}
+                  icon={<CheckCircleIcon sx={{ fontSize: 24, color: '#10b981' }} />}
+                  color="#10b981"
+                  trend={dashboardData.workflowMetrics.offerAccepted.trend}
+                  candidates={dashboardData.workflowMetrics.offerAccepted.candidates}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatusCard
+                  title="Offer Rejected"
+                  count={dashboardData.workflowMetrics.offerRejected.count}
+                  icon={<CloseIcon sx={{ fontSize: 24, color: '#ef4444' }} />}
+                  color="#ef4444"
+                  trend={dashboardData.workflowMetrics.offerRejected.trend}
+                  candidates={dashboardData.workflowMetrics.offerRejected.candidates}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatusCard
+                  title="Actual Joined"
+                  count={dashboardData.workflowMetrics.actualJoined.count}
+                  icon={<GroupsIcon sx={{ fontSize: 24, color: '#8b5cf6' }} />}
+                  color="#8b5cf6"
+                  trend={dashboardData.workflowMetrics.actualJoined.trend}
+                  candidates={dashboardData.workflowMetrics.actualJoined.candidates}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatusCard
+                  title="Selection Accepted"
+                  count={dashboardData.workflowMetrics.selectionAccepted.count}
+                  icon={<ThumbUpIcon sx={{ fontSize: 24, color: '#10b981' }} />}
+                  color="#10b981"
+                  trend={dashboardData.workflowMetrics.selectionAccepted.trend}
+                  candidates={dashboardData.workflowMetrics.selectionAccepted.candidates}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatusCard
+                  title="Selection Rejected"
+                  count={dashboardData.workflowMetrics.selectionRejected.count}
+                  icon={<TrendingDownIcon sx={{ fontSize: 24, color: '#ef4444' }} />}
+                  color="#ef4444"
+                  trend={dashboardData.workflowMetrics.selectionRejected.trend}
+                  candidates={dashboardData.workflowMetrics.selectionRejected.candidates}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <StatusCard
+                  title="Not Joined"
+                  count={dashboardData.workflowMetrics.notJoined.count}
+                  icon={<PersonAddIcon sx={{ fontSize: 24, color: '#64748b' }} />}
+                  color="#64748b"
+                  trend={dashboardData.workflowMetrics.notJoined.trend}
+                  candidates={dashboardData.workflowMetrics.notJoined.candidates}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+
           {/* HR Analytics Section */}
           <Box sx={{ mb: 4 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
@@ -831,7 +930,7 @@ const MasterDashboard = () => {
                   <GroupsIcon sx={{ color: '#fff', fontSize: 22 }} />
                 </Box>
                 <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.3rem' }}>
+                  <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', lineHeight: 1, fontSize: '1.6rem' }}>
                     HR Analytics
                   </Typography>
                   <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.88rem' }}>
@@ -872,7 +971,7 @@ const MasterDashboard = () => {
               <Grid container spacing={2}>
                 {hrAnalytics.map((hr, idx) => {
                   const rateColor = hr.selectionRate >= 50 ? '#10b981' : hr.selectionRate >= 25 ? '#f59e0b' : '#ef4444';
-                  const rateBg    = hr.selectionRate >= 50 ? '#d1fae5' : hr.selectionRate >= 25 ? '#fef3c7' : '#fee2e2';
+                  const rateBg = hr.selectionRate >= 50 ? '#d1fae5' : hr.selectionRate >= 25 ? '#fef3c7' : '#fee2e2';
                   const avatarColors = [
                     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                     'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -931,12 +1030,12 @@ const MasterDashboard = () => {
                           {/* Stats Grid */}
                           <Grid container spacing={1}>
                             {[
-                              { label: 'Sourced',  value: hr.sourced,   color: '#3b82f6', bg: '#eff6ff' },
-                              { label: 'Selected', value: hr.selected,  color: '#10b981', bg: '#f0fdf4' },
-                              { label: 'Joined',   value: hr.joined,    color: '#8b5cf6', bg: '#f5f3ff' },
-                              { label: 'Rejected', value: hr.rejected,  color: '#ef4444', bg: '#fef2f2' },
-                              { label: 'On Hold',  value: hr.onHold,    color: '#f59e0b', bg: '#fffbeb' },
-                              { label: 'Backout',  value: hr.backout,   color: '#64748b', bg: '#f8fafc' },
+                              { label: 'Sourced', value: hr.sourced, color: '#3b82f6', bg: '#eff6ff' },
+                              { label: 'Selected', value: hr.selected, color: '#10b981', bg: '#f0fdf4' },
+                              { label: 'Joined', value: hr.joined, color: '#8b5cf6', bg: '#f5f3ff' },
+                              { label: 'Rejected', value: hr.rejected, color: '#ef4444', bg: '#fef2f2' },
+                              { label: 'On Hold', value: hr.onHold, color: '#f59e0b', bg: '#fffbeb' },
+                              { label: 'Backout', value: hr.backout, color: '#64748b', bg: '#f8fafc' },
                             ].map(stat => (
                               <Grid item xs={4} key={stat.label}>
                                 <Box sx={{ textAlign: 'center', p: 0.8, bgcolor: stat.bg, borderRadius: '10px' }}>
@@ -983,7 +1082,7 @@ const MasterDashboard = () => {
                     <WorkIcon />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontSize: '1.15rem' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontSize: '1.4rem' }}>
                       Job Openings
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.88rem' }}>
@@ -991,9 +1090,9 @@ const MasterDashboard = () => {
                     </Typography>
                   </Box>
                 </Box>
-                
+
                 <Divider sx={{ mb: 2 }} />
-                
+
                 <Grid container spacing={2}>
                   <Grid item xs={4}>
                     <Box sx={{ textAlign: 'center', p: 2, bgcolor: '#f0f9ff', borderRadius: '16px' }}>
@@ -1081,7 +1180,7 @@ const MasterDashboard = () => {
                     <PeopleIcon />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontSize: '1.15rem' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', fontSize: '1.4rem' }}>
                       Candidates Database
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.88rem' }}>
@@ -1089,9 +1188,9 @@ const MasterDashboard = () => {
                     </Typography>
                   </Box>
                 </Box>
-                
+
                 <Divider sx={{ mb: 2 }} />
-                
+
                 <Box
                   sx={{
                     textAlign: 'center',
@@ -1109,7 +1208,7 @@ const MasterDashboard = () => {
                     Total Candidates
                   </Typography>
                 </Box>
-                
+
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <Box sx={{ textAlign: 'center', p: 2, bgcolor: '#fef3c7', borderRadius: '16px' }}>
@@ -1173,7 +1272,7 @@ const MasterDashboard = () => {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        
+
         <DialogContent sx={{ p: 0 }}>
           {selectedCandidates.length > 0 ? (
             <TableContainer>
@@ -1186,7 +1285,8 @@ const MasterDashboard = () => {
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Location</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Status</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Interview Status</TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Interview Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Internal Interview</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Interview Rounds</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Joining Date</TableCell>
                   </TableRow>
                 </TableHead>
@@ -1255,10 +1355,10 @@ const MasterDashboard = () => {
                           label={candidate.lineupStatus || 'N/A'}
                           size="small"
                           sx={{
-                            bgcolor: candidate.lineupStatus === 'Selected' ? '#d1fae5' : 
-                                     candidate.lineupStatus === 'Rejected' ? '#fee2e2' : '#e0e7ff',
-                            color: candidate.lineupStatus === 'Selected' ? '#065f46' : 
-                                   candidate.lineupStatus === 'Rejected' ? '#991b1b' : '#3730a3',
+                            bgcolor: candidate.lineupStatus === 'Selected' ? '#d1fae5' :
+                              candidate.lineupStatus === 'Rejected' ? '#fee2e2' : '#e0e7ff',
+                            color: candidate.lineupStatus === 'Selected' ? '#065f46' :
+                              candidate.lineupStatus === 'Rejected' ? '#991b1b' : '#3730a3',
                             fontWeight: 600,
                           }}
                         />
@@ -1272,16 +1372,16 @@ const MasterDashboard = () => {
                               sx={{
                                 bgcolor:
                                   candidate.interviewStatus === 'On Discussion' ? '#dbeafe' :
-                                  candidate.interviewStatus === 'On Hold'       ? '#ffedd5' :
-                                  candidate.interviewStatus === 'Trail'         ? '#cffafe' :
-                                  candidate.interviewStatus === 'Selected'      ? '#d1fae5' :
-                                  candidate.interviewStatus === 'Rejected'      ? '#fee2e2' : '#f1f5f9',
+                                    candidate.interviewStatus === 'On Hold' ? '#ffedd5' :
+                                      candidate.interviewStatus === 'Trail' ? '#cffafe' :
+                                        candidate.interviewStatus === 'Selected' ? '#d1fae5' :
+                                          candidate.interviewStatus === 'Rejected' ? '#fee2e2' : '#f1f5f9',
                                 color:
                                   candidate.interviewStatus === 'On Discussion' ? '#1d4ed8' :
-                                  candidate.interviewStatus === 'On Hold'       ? '#c2410c' :
-                                  candidate.interviewStatus === 'Trail'         ? '#0e7490' :
-                                  candidate.interviewStatus === 'Selected'      ? '#065f46' :
-                                  candidate.interviewStatus === 'Rejected'      ? '#991b1b' : '#475569',
+                                    candidate.interviewStatus === 'On Hold' ? '#c2410c' :
+                                      candidate.interviewStatus === 'Trail' ? '#0e7490' :
+                                        candidate.interviewStatus === 'Selected' ? '#065f46' :
+                                          candidate.interviewStatus === 'Rejected' ? '#991b1b' : '#475569',
                                 fontWeight: 600,
                               }}
                             />
@@ -1296,17 +1396,62 @@ const MasterDashboard = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.92rem' }}>
-                          {candidate.internalInterviewDate 
-                            ? dayjs(candidate.internalInterviewDate).format('DD MMM YYYY')
-                            : candidate.interviewDate 
-                            ? dayjs(candidate.interviewDate).format('DD MMM YYYY')
-                            : 'N/A'}
-                        </Typography>
+                        <Box>
+                          {candidate.internalInterviewDate ? (
+                            <Box>
+                              <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.92rem', fontWeight: 600 }}>
+                                {dayjs(candidate.internalInterviewDate).format('DD MMM YYYY')}
+                              </Typography>
+                              {candidate.interviewByWhom?.firstName && (
+                                <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.75rem' }}>
+                                  By: {candidate.interviewByWhom.firstName} {candidate.interviewByWhom.lastName}
+                                </Typography>
+                              )}
+                              {candidate.candidateReview && (
+                                <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.75rem' }}>
+                                  Review: {candidate.candidateReview}
+                                </Typography>
+                              )}
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" sx={{ color: '#94a3b8' }}>—</Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box>
+                          {candidate.interviewRounds && candidate.interviewRounds.length > 0 ? (
+                            <Box>
+                              {candidate.interviewRounds.map((round, idx) => (
+                                <Box key={idx} sx={{ mb: 1, p: 1, bgcolor: '#f8fafc', borderRadius: '4px' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+                                    {round.roundName}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.75rem' }}>
+                                    Date: {round.roundDate ? dayjs(round.roundDate).format('DD MMM YYYY') : 'Not set'}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.75rem' }}>
+                                    Time: {round.roundTime || 'Not set'}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.75rem' }}>
+                                    Mode: {round.interviewMode || 'Not set'}
+                                  </Typography>
+                                  {round.interviewedByWhom && (
+                                    <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.75rem' }}>
+                                      By: {round.interviewedByWhom}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              ))}
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" sx={{ color: '#94a3b8' }}>—</Typography>
+                          )}
+                        </Box>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.92rem' }}>
-                          {candidate.joiningDate 
+                          {candidate.joiningDate
                             ? dayjs(candidate.joiningDate).format('DD MMM YYYY')
                             : 'N/A'}
                         </Typography>
@@ -1328,7 +1473,7 @@ const MasterDashboard = () => {
             </Box>
           )}
         </DialogContent>
-        
+
         <DialogActions sx={{ p: 2, bgcolor: '#f8fafc' }}>
           <Button
             onClick={handleCloseDialog}

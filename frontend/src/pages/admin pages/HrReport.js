@@ -117,47 +117,16 @@ const HrReport = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [backoutDialogOpen, setBackoutDialogOpen] = useState(false);
   const [backoutCandidatesDialogOpen, setBackoutCandidatesDialogOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [backoutReason, setBackoutReason] = useState('');
   const [backoutCandidates, setBackoutCandidates] = useState([]);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [editingCandidate, setEditingCandidate] = useState(null);
   const [selectedHRs, setSelectedHRs] = useState([]);
   const [dateRange, setDateRange] = useState({
     startDate: null,
     endDate: null,
   });
 
-  const [editFormData, setEditFormData] = useState({
-    candidateName: '',
-    candidateEmail: '',
-    candidatePhone: '',
-    qualification: '',
-    positionName: '',
-    experience: '',
-    currentLocation: '',
-    currentPosition: '',
-    currentCTC: '',
-    expectedCTC: '',
-    noticePeriod: '',
-    reasonforLeaving: '',
-    currentCompany: '',
-    remark: '',
-    interviewDate: '',
-    originalInterviewDate: '',
-    selectionStatus: '',
-    selectionDate: '',
-    salaryOffered: '',
-    offerStatus: '',
-    joiningDate: '',
-    candidateRemarks: '',
-    billingDate: '',
-    billingAmount: '',
-    paymentStatus: '',
-    paymentDate: '',
-    paymentMode: '',
-    paymentRemark: '',
-  });
-  const [totalSalary, setTotalSalary] = useState(0);
+    const [totalSalary, setTotalSalary] = useState(0);
 
   // ── Detail drawers ────────────────────────────────────────────────────────
   const [companyDrawer, setCompanyDrawer] = useState({ open: false, row: null });
@@ -229,7 +198,7 @@ const HrReport = () => {
         params.endDate = new Date(dateRange.endDate).toISOString().split('T')[0];
       }
 
-      const response = await axios.get(`${API_BASE_URL}/fetch/candidates`, {
+      const response = await axios.get(`${API_BASE_URL}/report/fetch/candidates`, {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
@@ -335,7 +304,7 @@ const HrReport = () => {
   const handleDeleteConfirm = async () => {
     try {
       const token = sessionStorage.getItem('token');
-      await axios.delete(`${API_BASE_URL}/fetch/candidates/${selectedCandidate._id}`, {
+      await axios.delete(`${API_BASE_URL}/applications/${selectedCandidate._id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       // Refresh the candidates list after deletion
@@ -408,151 +377,10 @@ const HrReport = () => {
     return date.toISOString().split('T')[0];
   };
 
-  const handleEditClick = (candidate) => {
-    setSelectedCandidate(candidate);
-    setEditFormData({
-      candidateName: candidate.candidateName || '',
-      candidateEmail: candidate.candidateEmail || '',
-      candidatePhone: candidate.candidatePhone || '',
-      qualification: candidate.qualification || '',
-      positionName: candidate.positionName || '',
-      experience: candidate.experience || '',
-      currentLocation: candidate.currentLocation || '',
-      currentPosition: candidate.currentPosition || '',
-      currentCTC: candidate.currentCTC || '',
-      expectedCTC: candidate.expectedCTC || '',
-      noticePeriod: candidate.noticePeriod || '',
-      reasonforLeaving: candidate.reasonforLeaving || '',
-      currentCompany: candidate.currentCompany || '',
-      remark: candidate.remark || '',
-      interviewDate: formatDateForInput(candidate.interviewDate),
-      originalInterviewDate: formatDateForInput(candidate.originalInterviewDate),
-      selectionStatus: candidate.selectionStatus || '',
-      selectionDate: formatDateForInput(candidate.selectionDate),
-      salaryOffered: candidate.salaryOffered || '',
-      offerStatus: candidate.offerStatus || '',
-      joiningDate: formatDateForInput(candidate.joiningDate),
-      candidateRemarks: candidate.candidateRemarks || '',
-      // Preserve billing related fields
-      billingDate: formatDateForInput(candidate.billingDate),
-      billingAmount: candidate.billingAmount || '',
-      paymentStatus: candidate.paymentStatus || '',
-      paymentDate: formatDateForInput(candidate.paymentDate),
-      paymentMode: candidate.paymentMode || '',
-      paymentRemark: candidate.paymentRemark || '',
-    });
-    setEditDialogOpen(true);
-  };
-
-  const handleEditConfirm = async () => {
-    if (!selectedCandidate) return;
-
-    try {
-      const token = sessionStorage.getItem('token');
-      
-      // Prepare candidate data for the first API call
-      const candidatePayload = {
-        candidateName: editFormData.candidateName,
-        candidateEmail: editFormData.candidateEmail,
-        candidatePhone: editFormData.candidatePhone,
-        qualification: editFormData.qualification,
-        positionName: editFormData.positionName,
-        experience: editFormData.experience,
-        currentLocation: editFormData.currentLocation,
-        currentPosition: editFormData.currentPosition,
-        currentCTC: editFormData.currentCTC,
-        expectedCTC: editFormData.expectedCTC,
-        noticePeriod: editFormData.noticePeriod,
-        reasonforLeaving: editFormData.reasonforLeaving,
-        currentCompany: editFormData.currentCompany,
-        remark: editFormData.remark,
-        interviewDate: editFormData.interviewDate,
-        originalInterviewDate: editFormData.originalInterviewDate,
-        selectionStatus: editFormData.selectionStatus,
-        selectionDate: editFormData.selectionDate,
-        salaryOffered: editFormData.salaryOffered,
-        offerStatus: editFormData.offerStatus,
-        joiningDate: editFormData.joiningDate,
-        candidateRemarks: editFormData.candidateRemarks,
-      };
-
-      // First API call to update candidate details
-      await axios.put(
-        `${API_BASE_URL}/candidate/${selectedCandidate._id}`,
-        candidatePayload,
-        {
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}` 
-          }
-        }
-      );
-
-      // Prepare billing data for the second API call
-      const billingPayload = {
-        billingDate: editFormData.billingDate,
-        billingAmount: editFormData.billingAmount,
-        paymentStatus: editFormData.paymentStatus,
-        paymentDate: editFormData.paymentDate,
-        paymentMode: editFormData.paymentMode,
-        paymentRemark: editFormData.paymentRemark,
-      };
-
-      // Second API call to update billing information
-      await axios.put(
-        `${API_BASE_URL}/lineup/${selectedCandidate._id}`,
-        billingPayload,
-        {
-          headers: { 
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}` 
-          }
-        }
-      );
-      
-      // Refresh the candidates list
-      await fetchCandidates();
-      
-      // Close dialog and reset state
-      setEditDialogOpen(false);
-      setSelectedCandidate(null);
-      
-      // Show success message
-      setSnackbar({
-        open: true,
-        message: 'Candidate and billing information updated successfully',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Error updating candidate:', error);
-      setSnackbar({
-        open: true,
-        message: error.response?.data?.message || 'Failed to update candidate information',
-        severity: 'error'
-      });
-    }
-  };
-
-  const handleEditCancel = () => {
-    setEditDialogOpen(false);
-    setSelectedCandidate(null);
-    setEditFormData({
-      billingDate: '',
-      billingAmount: '',
-      paymentStatus: '',
-      paymentDate: '',
-      paymentMode: '',
-      paymentRemark: '',
-    });
-  };
-
-  const handleInputChange = (field) => (event) => {
-    setEditFormData({
-      ...editFormData,
-      [field]: event.target.value
-    });
-  };
-
+  
+  
+  
+  
   // Reset all filters
   const handleResetFilters = () => {
     setSelectedHRs([]);
@@ -647,30 +475,7 @@ const HrReport = () => {
       width: 300,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEditClick(params.row);
-            }}
-            startIcon={<EditIcon />}
-            sx={{
-              textTransform: 'none',
-              color: '#1976d2',
-              borderColor: '#1976d2',
-              '&:hover': {
-                backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                borderColor: '#1976d2',
-              },
-              fontSize: '0.8125rem',
-              py: 0.5,
-              px: 1.5,
-            }}
-          >
-            Edit
-          </Button>
-          <Button
+                    <Button
             variant="outlined"
             size="small"
             onClick={(e) => {
@@ -1443,263 +1248,6 @@ const HrReport = () => {
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" autoFocus>
             Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog
-        open={editDialogOpen}
-        onClose={handleEditCancel}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle sx={{ color: '#2196f3', borderBottom: '1px solid #e0e0e0', pb: 1 }}>
-          Edit Candidate Details
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-            {/* Candidate Details Section */}
-            <Typography variant="subtitle1" sx={{ mt: 2, fontWeight: 'bold', color: '#424242' }}>
-              Candidate Information
-            </Typography>
-            <Grid container spacing={2}>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Candidate Name"
-      value={editFormData.candidateName}
-      onChange={handleInputChange('candidateName')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Candidate Email"
-      type="email"
-      value={editFormData.candidateEmail}
-      onChange={handleInputChange('candidateEmail')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Candidate Phone"
-      value={editFormData.candidatePhone}
-      onChange={handleInputChange('candidatePhone')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Qualification"
-      value={editFormData.qualification}
-      onChange={handleInputChange('qualification')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Position Name"
-      value={editFormData.positionName}
-      onChange={handleInputChange('positionName')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Experience"
-      value={editFormData.experience}
-      onChange={handleInputChange('experience')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Current Location"
-      value={editFormData.currentLocation}
-      onChange={handleInputChange('currentLocation')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Current Position"
-      value={editFormData.currentPosition}
-      onChange={handleInputChange('currentPosition')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Current CTC"
-      value={editFormData.currentCTC}
-      onChange={handleInputChange('currentCTC')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Expected CTC"
-      value={editFormData.expectedCTC}
-      onChange={handleInputChange('expectedCTC')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Notice Period"
-      value={editFormData.noticePeriod}
-      onChange={handleInputChange('noticePeriod')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Reason for Leaving"
-      value={editFormData.reasonforLeaving}
-      onChange={handleInputChange('reasonforLeaving')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Current Company"
-      value={editFormData.currentCompany}
-      onChange={handleInputChange('currentCompany')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Remarks"
-      value={editFormData.remark}
-      onChange={handleInputChange('remark')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-
-
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Interview Date"
-      type="date"
-      InputLabelProps={{ shrink: true }}
-      value={editFormData.interviewDate}
-      onChange={handleInputChange('interviewDate')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Original Interview Date"
-      type="date"
-      InputLabelProps={{ shrink: true }}
-      value={editFormData.originalInterviewDate}
-      onChange={handleInputChange('originalInterviewDate')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Selection Status"
-      value={editFormData.selectionStatus}
-      onChange={handleInputChange('selectionStatus')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Selection Date"
-      type="date"
-      InputLabelProps={{ shrink: true }}
-      value={editFormData.selectionDate}
-      onChange={handleInputChange('selectionDate')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Salary Offered"
-      value={editFormData.salaryOffered}
-      onChange={handleInputChange('salaryOffered')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Offer Status"
-      value={editFormData.offerStatus}
-      onChange={handleInputChange('offerStatus')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Joining Date"
-      type="date"
-      InputLabelProps={{ shrink: true }}
-      value={editFormData.joiningDate}
-      onChange={handleInputChange('joiningDate')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-  <Grid item xs={12} sm={4}>
-    <TextField
-      label="Candidate Remarks"
-      value={editFormData.candidateRemarks}
-      onChange={handleInputChange('candidateRemarks')}
-      fullWidth
-      margin="normal"
-    />
-  </Grid>
-
-</Grid>
-
-
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, borderTop: '1px solid #e0e0e0' }}>
-          <Button 
-            onClick={handleEditCancel} 
-            color="inherit"
-            sx={{ textTransform: 'none' }}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleEditConfirm} 
-            color="primary" 
-            variant="contained"
-            sx={{ textTransform: 'none', px: 3 }}
-          >
-            Save Changes
           </Button>
         </DialogActions>
       </Dialog>

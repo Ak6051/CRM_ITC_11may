@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
+import { updateUserStatus, listenForUserStatus } from './services/chatService';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import {
   BrowserRouter as Router,
   Route,
@@ -42,6 +44,7 @@ import SalesCompanyDetails from './pages/admin pages/SalesCompanyDetails';
 import PlacedData from './pages/hr pages/PlacedData';
 import AdminCandidateForm from './pages/admin pages/AdminCandidateForm';
 import MasterSheet from './pages/admin pages/MasterSheet';
+import MySourcedData from './pages/hr pages/MySourcedData';
 import UserManagement from './pages/admin pages/UserManagement';
 import CompanyManagement from './pages/admin pages/CompanyManagement';
 import SalesCompanyCreate from './pages/sales pages/SalesCompanyCreate';
@@ -119,7 +122,46 @@ axios.interceptors.response.use(
 );
 
 
+
+
+
 const App = () => {
+  const statusTracked = useRef(false);
+
+  // Global status tracking & Firebase Auth
+  useEffect(() => {
+    const userId = sessionStorage.getItem('userId');
+    const token = sessionStorage.getItem('token');
+
+    if (userId && token && !statusTracked.current) {
+      statusTracked.current = true;
+      
+      // Sign in to Firebase anonymously to satisfy security rules
+      const auth = getAuth();
+      signInAnonymously(auth)
+        .then(() => {
+          updateUserStatus(userId, 'online');
+        })
+        .catch((error) => {
+          console.error('Firebase Auth Error:', error);
+          // Still try to update status, but rules might block it
+          updateUserStatus(userId, 'online');
+        });
+
+      const handleTabClose = () => {
+        updateUserStatus(userId, 'offline');
+      };
+
+      window.addEventListener('beforeunload', handleTabClose);
+      window.addEventListener('unload', handleTabClose);
+
+      return () => {
+        window.removeEventListener('beforeunload', handleTabClose);
+        window.removeEventListener('unload', handleTabClose);
+      };
+    }
+  }, []);
+
   return (
     <ThemeProvider theme={Theme}>
       <CssBaseline />
@@ -142,33 +184,34 @@ const App = () => {
           <Route path="/jobopennings" element={<JobOpennings />} />
           <Route path="/job-report" element={<JobReport />} />
           <Route path="/candidate-list" element={<HrTaskGuard><JobListWithCandidates /></HrTaskGuard>} />
-          <Route path="/job-form" element={<JobPostingForm />  }/>
+          <Route path="/job-form" element={<JobPostingForm />} />
           <Route path="/hr-job-post-report" element={<HrTaskGuard><HRJobList /></HrTaskGuard>} />
-          <Route path="/hr-report" element={<HrReport/>  }/>
-          <Route path="/forgot-password" element={<ForgotPassword/>  }/>
-          <Route path="/all-candidates-form" element={<CandidateForm/>  }/>
-          <Route path="/can-rep" element={<AdminCandidateList/>  }/>
-          <Route path="/master-sheet" element={<MasterSheet/>  }/>
-          <Route path="/user-management" element={<UserManagement/>  }/>
+          <Route path="/hr-report" element={<HrReport />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/all-candidates-form" element={<CandidateForm />} />
+          <Route path="/can-rep" element={<AdminCandidateList />} />
+          <Route path="/master-sheet" element={<MasterSheet />} />
+          <Route path="/user-management" element={<UserManagement />} />
           <Route path="/company-management" element={<CompanyManagement />} />
           <Route path="/sales-company-create" element={<SalesCompanyCreate />} />
           <Route path="/lead-management" element={<LeadManagement />} />
-          
 
-<Route path="/hr/:hrId" element={<HRCompanyCandidateReport />} />
-<Route path="/sales/:salesId/:salesName" element={<SalesCompanyDetails />} />
+
+          <Route path="/hr/:hrId" element={<HRCompanyCandidateReport />} />
+          <Route path="/sales/:salesId/:salesName" element={<SalesCompanyDetails />} />
           <Route path="/hr-analytics" element={<HrAnalytics />} />
-<Route path="/hr-candidates" element={<HrTaskGuard><AllCandidateData /></HrTaskGuard>} />
-<Route path="/recent-data" element={<HrTaskGuard><RecentData /></HrTaskGuard>} />
-<Route path="/placed-candidate-list" element={<HrTaskGuard><PlacedData /></HrTaskGuard>} />
-<Route path="/daily-task-report" element={<DailyTaskReport/>  }/>
-<Route path="/daily-hr-task" element={<DailyTaskData/>  }/>
-<Route path="/candidate-form" element={<AdminCandidateForm/>  }/>
-<Route path="/daily-sales-task" element={<DailyTasks/>  }/>
-<Route path="/sales-daily-task-report" element={<SalesDailyTaskReport/>  }/>
-<Route path="/audit-dashboard" element={<AuditDashboard />} />
-<Route path="/ip-whitelist" element={<IpWhitelistPanel />} />
-<Route path="/account-department" element={<AccountDepartment />} />
+          <Route path="/hr-candidates" element={<HrTaskGuard><AllCandidateData /></HrTaskGuard>} />
+          <Route path="/my-sourced-data" element={<HrTaskGuard><MySourcedData /></HrTaskGuard>} />
+          <Route path="/recent-data" element={<HrTaskGuard><RecentData /></HrTaskGuard>} />
+          <Route path="/placed-candidate-list" element={<HrTaskGuard><PlacedData /></HrTaskGuard>} />
+          <Route path="/daily-task-report" element={<DailyTaskReport />} />
+          <Route path="/daily-hr-task" element={<DailyTaskData />} />
+          <Route path="/candidate-form" element={<AdminCandidateForm />} />
+          <Route path="/daily-sales-task" element={<DailyTasks />} />
+          <Route path="/sales-daily-task-report" element={<SalesDailyTaskReport />} />
+          <Route path="/audit-dashboard" element={<AuditDashboard />} />
+          <Route path="/ip-whitelist" element={<IpWhitelistPanel />} />
+          <Route path="/account-department" element={<AccountDepartment />} />
 
           {/* Team Leader Routes */}
           <Route path="/tl-dashboard" element={<TLDashboard />} />
@@ -187,7 +230,7 @@ const App = () => {
           <Route path="/tl-sales/:salesId/:salesName" element={<TLSalesCompanyDetails />} />
 
         </Routes>
-         <ToastContainer />
+        <ToastContainer />
 
       </Router>
 

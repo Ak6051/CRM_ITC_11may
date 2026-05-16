@@ -149,6 +149,7 @@ const JobReport = () => {
   const [selectedSalaries, setSelectedSalaries] = useState([]); // Salary filter states
   const [salaryInput, setSalaryInput] = useState('');
   const [salaryOptions, setSalaryOptions] = useState([]);
+  const [myJobsOnly, setMyJobsOnly] = useState(true); // Default to true for workflow
 
   const [inputText, setInputText] = useState(String(formData.companyName || ''));
   const shownReminders = new Set();
@@ -529,8 +530,16 @@ const DetailItem = ({ label, value }) => (
                        sale.Area.toLowerCase().includes(selectedArea.toLowerCase())
                      ));
     
+    // Filter by "My Assigned Jobs"
+    const userId = sessionStorage.getItem('userId');
+    const myJobsMatch = !myJobsOnly || (sale.assignedTL && (
+      Array.isArray(sale.assignedTL) 
+        ? sale.assignedTL.some(tl => (typeof tl === 'object' ? tl._id === userId : tl === userId))
+        : (typeof sale.assignedTL === 'object' ? sale.assignedTL._id === userId : sale.assignedTL === userId)
+    ));
+
     // Return true only if all conditions are met
-    return companyMatch && assignedMatch && jobTitleMatch && hrMatch && areaMatch;
+    return companyMatch && assignedMatch && jobTitleMatch && hrMatch && areaMatch && myJobsMatch;
   });
 
   // Extract unique areas from sales data
@@ -1383,7 +1392,27 @@ const handleSubmit = async (e) => {
         </>
       ),
     },
-    
+    {
+      field: 'assignedTL',
+      headerName: 'Assigned TL',
+      width: 250,
+      renderCell: (params) => {
+        const assignedTLs = params.row.assignedTL || [];
+        if (!Array.isArray(assignedTLs) || assignedTLs.length === 0) {
+          return <span>Not Assigned</span>;
+        }
+        const names = assignedTLs.map(tl => 
+          typeof tl === 'object' ? `${tl.firstName || ''} ${tl.lastName || ''}`.trim() : tl
+        ).filter(Boolean).join(', ');
+        return (
+          <Tooltip title={names}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {names}
+            </span>
+          </Tooltip>
+        );
+      },
+    },
     {
       field: 'assignedHR',
       headerName: 'Assigned HR',
@@ -2174,6 +2203,21 @@ const handleSubmit = async (e) => {
 
             {/* Action Buttons */}
             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <Button
+                variant={myJobsOnly ? "contained" : "outlined"}
+                onClick={() => setMyJobsOnly(!myJobsOnly)}
+                size="small"
+                sx={{ 
+                  borderRadius: '8px', textTransform: 'none', fontWeight: 600,
+                  bgcolor: myJobsOnly ? '#f6b93b' : 'transparent',
+                  borderColor: '#f6b93b',
+                  color: myJobsOnly ? '#000' : '#f6b93b',
+                  '&:hover': { bgcolor: myJobsOnly ? '#e58e26' : 'rgba(246, 185, 59, 0.1)', borderColor: '#f6b93b' },
+                  px: 2
+                }}
+              >
+                {myJobsOnly ? "Show All Team Jobs" : "Show My Assigned Jobs"}
+              </Button>
               {canDo('tl-job-report:post-new') && (
               <Button
                 variant="contained"

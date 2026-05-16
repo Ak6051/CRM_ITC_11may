@@ -8,7 +8,7 @@
 //   ListItemIcon,
 //   Box,
 //   Typography,
- 
+
 // } from '@mui/material';
 // import HomeIcon from '@mui/icons-material/Home';
 // import SettingsIcon from '@mui/icons-material/Settings';
@@ -63,7 +63,7 @@
 //       });
 //       setHrList(res.data);
 //     };
-  
+
 //     fetchHRs();
 //   }, []);
 
@@ -138,7 +138,7 @@
 //       </Box>
 
 //        <List>
-      
+
 
 //         {/* Dashboard Link */}
 //         <ListItem
@@ -205,7 +205,7 @@
 //           <ListItemText primary="Placement Report" />
 //         </ListItem>
 
-         
+
 //           <ListItem
 //           button
 //           onClick={() => navigate('/can-rep')}
@@ -289,7 +289,7 @@
 //           </ListItemIcon>
 //           <ListItemText primary="Interview Details" />
 //         </ListItem>
-        
+
 //         <ListItem
 //           button
 //           onClick={() => navigate('/assigned-tasks')}
@@ -372,7 +372,7 @@
 //           </ListItemIcon>
 //           <ListItemText primary="Master Sheet" />
 //         </ListItem>
-        
+
 
 // <ListItem
 //   button
@@ -418,12 +418,12 @@
 //       // Get the ID from possible locations
 //       const salesId = sales._id?.$oid || sales._id || sales.id;
 //       const salesName = sales.name || `${sales.firstName || ''} ${sales.lastName || ''}`.trim() || 'unnamed';
-      
+
 //       if (!salesId) {
 //         console.error('Invalid sales user data - missing ID:', sales);
 //         return null; // Skip rendering if no ID
 //       }
-      
+
 //       return (
 //         <ListItem
 //           key={salesId}
@@ -446,9 +446,9 @@
 // </Collapse>
 
 
-        
+
 //       </List>
-      
+
 //     </Drawer>
 //   );
 // };
@@ -559,15 +559,15 @@ const Sidebar = () => {
 
   const menuItems = [
     { text: 'Master Dashboard', icon: <AssessmentOutlined />, route: '/master-dashboard' },
-    { text: 'Job Openings', icon: <HomeOutlined />, route: '/job-report' },
     { text: 'Company Management', icon: <BusinessCenterOutlined />, route: '/company-management' },
-    { text: 'User Management', icon: <PeopleOutline />, route: '/user-management' },
-    { text: 'TL Permissions', icon: <SettingsOutlined />, route: '/admin-settings' },
-    { text: 'Placement Report', icon: <WorkOutline />, route: '/hr-report' },
-    { text: 'All Candidates Details', icon: <GroupsOutlined />, route: '/can-rep' },
-    { text: 'HR Analytics', icon: <TrendingUpOutlined />, route: '/hr-analytics' },
+    { text: 'Job Openings', icon: <HomeOutlined />, route: '/job-report' },
     { text: 'Daily Task Report', icon: <AssessmentOutlined />, route: '/daily-task-report' },
     { text: 'Sales Daily Task Report', icon: <AssignmentIndOutlined />, route: '/sales-daily-task-report' },
+    { text: 'All Candidates Details', icon: <GroupsOutlined />, route: '/can-rep' },
+    { text: 'HR Analytics', icon: <TrendingUpOutlined />, route: '/hr-analytics' },
+    { text: 'Placement Report', icon: <WorkOutline />, route: '/hr-report' },
+    { text: 'User Management', icon: <PeopleOutline />, route: '/user-management' },
+    { text: 'TL Permissions', icon: <SettingsOutlined />, route: '/admin-settings' },
     { text: 'Master Sheet', icon: <AssessmentOutlined />, route: '/master-sheet' },
     { text: 'Audit Dashboard', icon: <ListAltOutlined />, route: '/audit-dashboard' },
     { text: 'IP Whitelist', icon: <SecurityOutlined />, route: '/ip-whitelist' },
@@ -594,49 +594,44 @@ const Sidebar = () => {
         },
       }}
     >
-      {/* Toggle Button */}
+      {/* Logo Section at the Top */}
       <Box
         sx={{
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          justifyContent: sidebarOpen ? 'flex-end' : 'center',
-          px: 1,
-          py: 1.5,
+          py: 1,
+          px: 2,
+          mb: 0.5,
+          width: '100%',
         }}
       >
-        <IconButton onClick={toggleSidebar} sx={{ color: '#FFD700' }}>
-          {sidebarOpen ? <ChevronLeft /> : <Menu />}
-        </IconButton>
-      </Box>
-
-      {/* Logo */}
-      {sidebarOpen && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            py: 3,
-            mx: 2,
-            mb: 2,
-            background: 'rgba(39,40,63,0.75)',
-            borderRadius: 3,
-            boxShadow: '0 6px 16px rgba(0,0,0,0.3)',
+        <img
+          src={settings.logoUrl || 'headerlogo.svg'}
+          alt="Logo"
+          style={{ 
+            width: '130px', 
+            height: 'auto', 
+            maxHeight: '70px',
+            objectFit: 'contain',
+            marginBottom: 4 
+          }}
+        />
+        <Typography
+          variant="h6"
+          sx={{ 
+            fontWeight: 700, 
+            color: '#EEB33B', 
+            fontFamily: '"Poppins", sans-serif', 
+            textAlign: 'center', 
+            fontSize: '0.9rem', 
+            letterSpacing: '0.5px',
+            lineHeight: 1.2
           }}
         >
-          <img
-            src={settings.logoUrl || 'headerlogo.svg'}
-            alt="Logo"
-            style={{ width: '160px', height: '70px', marginBottom: 8, borderRadius: 10 }}
-          />
-          <Typography
-            variant="h6"
-            sx={{ fontWeight: 700, color: '#f6b93b', fontFamily: '"Poppins", "Lora", serif', textAlign: 'center', fontSize: '1.1rem', letterSpacing: '0.5px' }}
-          >
-            {settings.companyName || 'Ideal Talent Connect'}
-          </Typography>
-        </Box>
-      )}
+          {settings.companyName || 'Ideal Talent Connect'}
+        </Typography>
+      </Box>
 
       {/* Menu */}
       <List sx={{ py: 1 }}>
@@ -646,24 +641,25 @@ const Sidebar = () => {
               button
               onClick={() => navigate(item.route)}
               sx={{
-                my: 0.5,
+                my: 0.1,
+                py: 0.4,
                 borderRadius: 2,
                 transition: 'all 0.3s ease',
-                backgroundColor: isActive(item.route) ? 'rgba(255,215,0,0.15)' : 'transparent',
-                boxShadow: isActive(item.route) ? '0 0 12px rgba(255,215,0,0.5)' : 'none',
+                backgroundColor: isActive(item.route) ? 'rgba(238,179,59,0.15)' : 'transparent',
+                boxShadow: isActive(item.route) ? '0 0 12px rgba(238,179,59,0.5)' : 'none',
                 '&:hover': {
-                  backgroundColor: 'rgba(255,215,0,0.25)',
+                  backgroundColor: 'rgba(238,179,59,0.25)',
                   transform: 'translateX(5px)',
-                  boxShadow: '0 0 12px rgba(255,215,0,0.5)',
+                  boxShadow: '0 0 12px rgba(238,179,59,0.5)',
                 },
               }}
             >
               <ListItemIcon
                 sx={{
-                  color: isActive(item.route) ? '#FFD700' : '#fff',
-                  minWidth: 40,
+                  color: isActive(item.route) ? '#EEB33B' : '#fff',
+                  minWidth: 36,
                   transition: 'all 0.3s ease',
-                  filter: isActive(item.route) ? 'drop-shadow(0 0 2px #FFD700)' : 'none',
+                  filter: isActive(item.route) ? 'drop-shadow(0 0 2px #EEB33B)' : 'none',
                 }}
               >
                 {item.icon}
@@ -672,8 +668,8 @@ const Sidebar = () => {
                 <ListItemText
                   primary={item.text}
                   sx={{
-                    '& .MuiTypography-root': { 
-                      fontWeight: 600, 
+                    '& .MuiTypography-root': {
+                      fontWeight: 600,
                       fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
                       fontSize: '0.9rem',
                       letterSpacing: '0.3px',
@@ -690,7 +686,8 @@ const Sidebar = () => {
           button
           onClick={handleHRClick}
           sx={{
-            my: 0.5,
+            my: 0.1,
+            py: 0.4,
             borderRadius: 2,
             transition: 'all 0.3s ease',
             '&:hover': {
@@ -699,7 +696,7 @@ const Sidebar = () => {
             },
           }}
         >
-          <ListItemIcon sx={{ color: '#fff' }}>
+          <ListItemIcon sx={{ color: '#fff', minWidth: 36 }}>
             <PeopleOutline />
           </ListItemIcon>
           {sidebarOpen && <ListItemText primary="All HR's" />}
@@ -717,16 +714,16 @@ const Sidebar = () => {
                   borderRadius: 1.5,
                   transition: 'all 0.3s ease',
                   '&:hover': {
-                    backgroundColor: 'rgba(255,215,0,0.25)',
-                    boxShadow: '0 0 12px rgba(255,215,0,0.5)',
+                    backgroundColor: 'rgba(238,179,59,0.25)',
+                    boxShadow: '0 0 12px rgba(238,179,59,0.5)',
                   },
                 }}
                 onClick={() => navigate(`/hr/${hr._id}`)}
               >
-                <ListItemText primary={`${hr.firstName} ${hr.lastName}`} 
+                <ListItemText primary={`${hr.firstName} ${hr.lastName}`}
                   sx={{
-                    '& .MuiTypography-root': { 
-                      fontWeight: 500, 
+                    '& .MuiTypography-root': {
+                      fontWeight: 500,
                       fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
                       fontSize: '0.85rem',
                     },
@@ -742,7 +739,8 @@ const Sidebar = () => {
           button
           onClick={handleSalesClick}
           sx={{
-            my: 0.5,
+            my: 0.1,
+            py: 0.4,
             borderRadius: 2,
             transition: 'all 0.3s ease',
             '&:hover': {
@@ -751,7 +749,7 @@ const Sidebar = () => {
             },
           }}
         >
-          <ListItemIcon sx={{ color: '#fff' }}>
+          <ListItemIcon sx={{ color: '#fff', minWidth: 36 }}>
             <BusinessCenterOutlined />
           </ListItemIcon>
           {sidebarOpen && <ListItemText primary="Sales" />}
@@ -783,10 +781,10 @@ const Sidebar = () => {
                       navigate(`/sales/${salesId}/${nameSlug}`);
                     }}
                   >
-                    <ListItemText primary={salesName} 
+                    <ListItemText primary={salesName}
                       sx={{
-                        '& .MuiTypography-root': { 
-                          fontWeight: 500, 
+                        '& .MuiTypography-root': {
+                          fontWeight: 500,
                           fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
                           fontSize: '0.85rem',
                         },

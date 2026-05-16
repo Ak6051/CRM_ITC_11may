@@ -85,21 +85,22 @@ export default function UserManagement() {
 
   // ── Reassign state ─────────────────────────────────────────────────────────
   const [reassignDialog, setReassignDialog] = useState({ open: false, user: null });
-  const [reassignForm, setReassignForm] = useState({ firstName: '', lastName: '', password: '' });
+  const [reassignForm, setReassignForm] = useState({ firstName: '', lastName: '', mobileNo: '', address: '', password: '' });
   const [reassignErrors, setReassignErrors] = useState({});
   const [reassignSaving, setReassignSaving] = useState(false);
 
   // ── Tenure History state ───────────────────────────────────────────────────
   const [historyDialog, setHistoryDialog] = useState({ open: false, user: null });
+  const [archivedProfile, setArchivedProfile] = useState({ open: false, data: null });
   const emptyProfile = {
-    fatherHusbandName:'', dateOfBirth:'', maritalStatus:'', nationality:'',
-    alternateNumber:'', currentAddress:'', permanentAddress:'',
-    position:'', department:'', dateOfJoining:'', workLocation:'', reportingManager:'',
-    education: [{ qualification:'', boardUniversity:'', year:'', percentage:'' }],
-    workExperience: [{ companyName:'', designation:'', duration:'', lastCTC:'' }],
-    currentCTC:'', offeredCTC:'', paymentMode:'',
-    bankName:'', accountHolderName:'', accountNumber:'', ifscCode:'', bankBranch:'',
-    emergencyName:'', emergencyRelation:'', emergencyContact:'',
+    fatherHusbandName: '', dateOfBirth: '', maritalStatus: '', nationality: '',
+    alternateNumber: '', currentAddress: '', permanentAddress: '',
+    position: '', department: '', dateOfJoining: '', workLocation: '', reportingManager: '',
+    education: [{ qualification: '', boardUniversity: '', year: '', percentage: '' }],
+    workExperience: [{ companyName: '', designation: '', duration: '', lastCTC: '' }],
+    currentCTC: '', offeredCTC: '', paymentMode: '',
+    bankName: '', accountHolderName: '', accountNumber: '', ifscCode: '', bankBranch: '',
+    emergencyName: '', emergencyRelation: '', emergencyContact: '',
   };
   const [profileForm, setProfileForm] = useState(emptyProfile);
 
@@ -143,9 +144,11 @@ export default function UserManagement() {
   const openAdd = () => { setEditUser(null); setForm(emptyForm); setFormError(''); setFieldErrors({}); setDialogOpen(true); };
   const openEdit = (user) => {
     setEditUser(user);
-    setForm({ firstName: user.firstName, lastName: user.lastName, email: user.email,
+    setForm({
+      firstName: user.firstName, lastName: user.lastName, email: user.email,
       password: '', mobileNo: user.mobileNo, address: user.address,
-      gender: user.gender, role: user.role });
+      gender: user.gender, role: user.role
+    });
     setFormError('');
     setFieldErrors({});
     setDialogOpen(true);
@@ -221,7 +224,7 @@ export default function UserManagement() {
 
   // ── Reassign handlers ──────────────────────────────────────────────────────
   const openReassign = (user) => {
-    setReassignForm({ firstName: '', lastName: '', password: '' });
+    setReassignForm({ firstName: '', lastName: '', mobileNo: '', address: '', password: '' });
     setReassignErrors({});
     setReassignDialog({ open: true, user });
   };
@@ -229,7 +232,11 @@ export default function UserManagement() {
   const handleReassign = async () => {
     const errors = {};
     if (!reassignForm.firstName.trim()) errors.firstName = 'Required';
-    if (!reassignForm.lastName.trim())  errors.lastName  = 'Required';
+    if (!reassignForm.lastName.trim()) errors.lastName = 'Required';
+    if (!reassignForm.mobileNo.trim()) errors.mobileNo = 'Required';
+    else if (!/^[6-9]\d{9}$/.test(reassignForm.mobileNo)) errors.mobileNo = 'Invalid';
+    if (!reassignForm.address.trim()) errors.address = 'Required';
+
     if (Object.keys(errors).length) { setReassignErrors(errors); return; }
 
     setReassignSaving(true);
@@ -257,34 +264,34 @@ export default function UserManagement() {
     setProfileFiles({});
     setProfileForm({
       fatherHusbandName: user.fatherHusbandName || '',
-      dateOfBirth:       fmt(user.dateOfBirth),
-      maritalStatus:     user.maritalStatus     || '',
-      nationality:       user.nationality       || '',
-      alternateNumber:   user.alternateNumber   || '',
-      currentAddress:    user.currentAddress    || '',
-      permanentAddress:  user.permanentAddress  || '',
-      position:          user.position          || '',
-      department:        user.department        || '',
-      dateOfJoining:     fmt(user.dateOfJoining),
-      workLocation:      user.workLocation      || '',
-      reportingManager:  user.reportingManager  || '',
-      education:         user.education?.length
+      dateOfBirth: fmt(user.dateOfBirth),
+      maritalStatus: user.maritalStatus || '',
+      nationality: user.nationality || '',
+      alternateNumber: user.alternateNumber || '',
+      currentAddress: user.currentAddress || '',
+      permanentAddress: user.permanentAddress || '',
+      position: user.position || '',
+      department: user.department || '',
+      dateOfJoining: fmt(user.dateOfJoining),
+      workLocation: user.workLocation || '',
+      reportingManager: user.reportingManager || '',
+      education: user.education?.length
         ? user.education
-        : [{ qualification:'', boardUniversity:'', year:'', percentage:'' }],
-      workExperience:    user.workExperience?.length
+        : [{ qualification: '', boardUniversity: '', year: '', percentage: '' }],
+      workExperience: user.workExperience?.length
         ? user.workExperience
-        : [{ companyName:'', designation:'', duration:'', lastCTC:'' }],
-      currentCTC:        user.currentCTC        || '',
-      offeredCTC:        user.offeredCTC        || '',
-      paymentMode:       user.paymentMode       || '',
-      bankName:          user.bankName          || '',
+        : [{ companyName: '', designation: '', duration: '', lastCTC: '' }],
+      currentCTC: user.currentCTC || '',
+      offeredCTC: user.offeredCTC || '',
+      paymentMode: user.paymentMode || '',
+      bankName: user.bankName || '',
       accountHolderName: user.accountHolderName || '',
-      accountNumber:     user.accountNumber     || '',
-      ifscCode:          user.ifscCode          || '',
-      bankBranch:        user.bankBranch        || '',
-      emergencyName:     user.emergencyName     || '',
+      accountNumber: user.accountNumber || '',
+      ifscCode: user.ifscCode || '',
+      bankBranch: user.bankBranch || '',
+      emergencyName: user.emergencyName || '',
       emergencyRelation: user.emergencyRelation || '',
-      emergencyContact:  user.emergencyContact  || '',
+      emergencyContact: user.emergencyContact || '',
     });
     setProfileDialogOpen(true);
   };
@@ -382,8 +389,10 @@ export default function UserManagement() {
           {!row.isActive && (
             <Tooltip title="Reassign to new person (same email/password)">
               <IconButton size="small" onClick={() => openReassign(row)}
-                sx={{ color: '#059669', bgcolor: '#d1fae5', borderRadius: '6px',
-                  '&:hover': { bgcolor: '#a7f3d0' } }}>
+                sx={{
+                  color: '#059669', bgcolor: '#d1fae5', borderRadius: '6px',
+                  '&:hover': { bgcolor: '#a7f3d0' }
+                }}>
                 <SwapHorizIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -722,6 +731,24 @@ export default function UserManagement() {
                 sx={dialogFieldSx}
               />
             </Box>
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <TextField
+                fullWidth size="small" label="New Mobile No *"
+                value={reassignForm.mobileNo}
+                onChange={e => { setReassignForm(p => ({ ...p, mobileNo: e.target.value.replace(/\D/g, '').slice(0, 10) })); setReassignErrors(p => ({ ...p, mobileNo: '' })); }}
+                error={!!reassignErrors.mobileNo} helperText={reassignErrors.mobileNo}
+                InputProps={{ startAdornment: <InputAdornment position="start"><PhoneIcon sx={{ fontSize: 18, color: '#059669' }} /></InputAdornment> }}
+                sx={dialogFieldSx}
+              />
+              <TextField
+                fullWidth size="small" label="New Address *"
+                value={reassignForm.address}
+                onChange={e => { setReassignForm(p => ({ ...p, address: e.target.value })); setReassignErrors(p => ({ ...p, address: '' })); }}
+                error={!!reassignErrors.address} helperText={reassignErrors.address}
+                InputProps={{ startAdornment: <InputAdornment position="start"><HomeIcon sx={{ fontSize: 18, color: '#059669' }} /></InputAdornment> }}
+                sx={dialogFieldSx}
+              />
+            </Box>
             <TextField
               fullWidth size="small" type="password"
               label="New Password (optional — leave blank to keep same)"
@@ -739,10 +766,12 @@ export default function UserManagement() {
             Cancel
           </Button>
           <Button variant="contained" onClick={handleReassign} disabled={reassignSaving}
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 4,
+            sx={{
+              textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 4,
               background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
               boxShadow: '0 4px 12px rgba(5,150,105,0.35)',
-              '&:hover': { background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)' } }}>
+              '&:hover': { background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)' }
+            }}>
             {reassignSaving ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Reassign Account'}
           </Button>
         </DialogActions>
@@ -769,13 +798,25 @@ export default function UserManagement() {
           {historyDialog.user?.tenureHistory?.length > 0 ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {historyDialog.user.tenureHistory.map((t, i) => (
-                <Box key={i} sx={{ p: 2, bgcolor: '#f5f3ff', borderRadius: 2, border: '1px solid #e9d5ff' }}>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#4f46e5' }}>{t.name}</Typography>
-                  <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                    {new Date(t.startedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    {' → '}
-                    {new Date(t.endedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </Typography>
+                <Box key={i} sx={{ p: 2, bgcolor: '#f5f3ff', borderRadius: 2, border: '1px solid #e9d5ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#4f46e5' }}>{t.name}</Typography>
+                    <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                      {new Date(t.startedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {' → '}
+                      {new Date(t.endedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </Typography>
+                  </Box>
+                  {t.profileSnapshot && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setArchivedProfile({ open: true, data: t.profileSnapshot })}
+                      sx={{ textTransform: 'none', borderRadius: '6px', fontSize: '11px' }}
+                    >
+                      View Profile
+                    </Button>
+                  )}
                 </Box>
               ))}
               {/* Current tenure */}
@@ -797,12 +838,95 @@ export default function UserManagement() {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setHistoryDialog({ open: false, user: null })}
-            variant="contained" sx={{ textTransform: 'none', borderRadius: 2, background: 'linear-gradient(135deg, #7c3aed, #4f46e5)' }}>
+          <Button onClick={() => setHistoryDialog({ open: false, user: null })} variant="contained" sx={{ borderRadius: 2, textTransform: 'none' }}>
             Close
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Archived Profile Snapshot Dialog ── */}
+      <Dialog open={archivedProfile.open} onClose={() => setArchivedProfile({ open: false, data: null })}
+        maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
+        <Box sx={{ background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography sx={{ color: '#fff', fontWeight: 700 }}>Archived Employee Profile</Typography>
+          <IconButton onClick={() => setArchivedProfile({ open: false, data: null })} sx={{ color: '#fff' }}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <DialogContent sx={{ p: 3, bgcolor: '#f8fafc' }}>
+          {archivedProfile.data && (
+            <Grid container spacing={3}>
+              <Grid item xs={12}><Typography variant="subtitle2" color="primary" fontWeight={700}>PERSONAL & CONTACT</Typography><Divider /></Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">Full Name</Typography>
+                <Typography variant="body2" fontWeight={600}>{archivedProfile.data.firstName} {archivedProfile.data.lastName}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">Mobile & Gender</Typography>
+                <Typography variant="body2">{archivedProfile.data.mobileNo} ({archivedProfile.data.gender})</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">Father/Husband Name</Typography>
+                <Typography variant="body2">{archivedProfile.data.fatherHusbandName || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">DOB & Status</Typography>
+                <Typography variant="body2">{archivedProfile.data.dateOfBirth ? new Date(archivedProfile.data.dateOfBirth).toLocaleDateString() : '—'} | {archivedProfile.data.maritalStatus || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12}><Typography variant="subtitle2" color="primary" fontWeight={700} sx={{ mt: 2 }}>EMPLOYMENT</Typography><Divider /></Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Position</Typography>
+                <Typography variant="body2">{archivedProfile.data.position || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Department</Typography>
+                <Typography variant="body2">{archivedProfile.data.department || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Joining Date</Typography>
+                <Typography variant="body2">{archivedProfile.data.dateOfJoining ? new Date(archivedProfile.data.dateOfJoining).toLocaleDateString() : '—'}</Typography>
+              </Grid>
+              <Grid item xs={12}><Typography variant="subtitle2" color="primary" fontWeight={700} sx={{ mt: 2 }}>BANK DETAILS</Typography><Divider /></Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Bank Name</Typography>
+                <Typography variant="body2">{archivedProfile.data.bankName || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">Account Number</Typography>
+                <Typography variant="body2">{archivedProfile.data.accountNumber || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary">IFSC Code</Typography>
+                <Typography variant="body2">{archivedProfile.data.ifscCode || '—'}</Typography>
+              </Grid>
+              {/* Documents */}
+              <Grid item xs={12}><Typography variant="subtitle2" color="primary" fontWeight={700} sx={{ mt: 2 }}>UPLOADED DOCUMENTS</Typography><Divider /></Grid>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+                  {[
+                    { label: 'Aadhaar', url: archivedProfile.data.docAadhaar },
+                    { label: 'PAN', url: archivedProfile.data.docPAN },
+                    { label: 'Resume', url: archivedProfile.data.docResume },
+                    { label: 'Certs', url: archivedProfile.data.docEducationalCerts },
+                    { label: 'Exp Letter', url: archivedProfile.data.docExperienceLetters },
+                    { label: 'Photo', url: archivedProfile.data.docPassportPhoto },
+                  ].map((doc, idx) => doc.url && (
+                    <Button key={idx} size="small" variant="text" startIcon={<VisibilityIcon />} onClick={() => window.open(doc.url, '_blank')}>
+                      {doc.label}
+                    </Button>
+                  ))}
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f1f5f9' }}>
+          <Button onClick={() => setArchivedProfile({ open: false, data: null })} variant="contained" sx={{ bgcolor: '#334155', '&:hover': { bgcolor: '#1e293b' } }}>
+            Back to History
+          </Button>
+        </DialogActions>
+      </Dialog>
+
 
       {/* ── Employee Profile Dialog ── */}
       <Dialog open={profileDialogOpen} onClose={() => setProfileDialogOpen(false)}
@@ -830,7 +954,8 @@ export default function UserManagement() {
         </Box>
 
         {/* Body */}
-        <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 3,
+        <Box sx={{
+          overflowY: 'auto', flexGrow: 1, p: 3,
           '&::-webkit-scrollbar': { width: 6 },
           '&::-webkit-scrollbar-thumb': { background: '#c5cae9', borderRadius: 3 },
         }}>
@@ -854,7 +979,7 @@ export default function UserManagement() {
                 <Grid item xs={12} sm={6} md={4}>
                   <TextField select label="Marital Status" size="small" fullWidth sx={f} value={pf.maritalStatus} onChange={e => set('maritalStatus', e.target.value)}>
                     <MenuItem value=""><em>Select</em></MenuItem>
-                    {['Single','Married'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                    {['Single', 'Married'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
                   </TextField>
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
@@ -866,7 +991,7 @@ export default function UserManagement() {
                 <Grid item xs={12} sm={6} md={4}>
                   <TextField label="Alternate Number" size="small" fullWidth sx={f}
                     value={pf.alternateNumber}
-                    onChange={e => set('alternateNumber', e.target.value.replace(/\D/g,'').slice(0,10))}
+                    onChange={e => set('alternateNumber', e.target.value.replace(/\D/g, '').slice(0, 10))}
                     inputProps={{ maxLength: 10 }} />
                 </Grid>
                 <Grid item xs={12} sm={6} md={4}>
@@ -879,8 +1004,8 @@ export default function UserManagement() {
                 {/* 3. Employment Details */}
                 <Grid item xs={12}><Divider /><Typography sx={{ ...sec, mt: 2 }}>3. Employment Details</Typography></Grid>
                 {[
-                  ['position','Position'], ['department','Department'],
-                  ['workLocation','Work Location'], ['reportingManager','Reporting Manager'],
+                  ['position', 'Position'], ['department', 'Department'],
+                  ['workLocation', 'Work Location'], ['reportingManager', 'Reporting Manager'],
                 ].map(([k, lbl]) => (
                   <Grid item xs={12} sm={6} md={3} key={k}>
                     <TextField label={lbl} size="small" fullWidth sx={f} value={pf[k]} onChange={e => set(k, e.target.value)} />
@@ -895,13 +1020,13 @@ export default function UserManagement() {
                   <Divider />
                   <Box display="flex" alignItems="center" justifyContent="space-between" mt={2} mb={1.5}>
                     <Typography sx={sec}>4. Educational Qualification</Typography>
-                    <Button size="small" variant="outlined" onClick={() => set('education', [...pf.education, { qualification:'', boardUniversity:'', year:'', percentage:'' }])}
+                    <Button size="small" variant="outlined" onClick={() => set('education', [...pf.education, { qualification: '', boardUniversity: '', year: '', percentage: '' }])}
                       sx={{ borderRadius: '8px', fontSize: '0.72rem', textTransform: 'none', borderColor: '#4F46E5', color: '#4F46E5' }}>+ Add Row</Button>
                   </Box>
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#f0f4ff' }}>
-                        {['Qualification','Board/University','Year','Percentage',''].map(h => (
+                        {['Qualification', 'Board/University', 'Year', 'Percentage', ''].map(h => (
                           <TableCell key={h} sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#4F46E5' }}>{h}</TableCell>
                         ))}
                       </TableRow>
@@ -909,7 +1034,7 @@ export default function UserManagement() {
                     <TableBody>
                       {pf.education.map((row, i) => (
                         <TableRow key={i}>
-                          {['qualification','boardUniversity','year','percentage'].map(k => (
+                          {['qualification', 'boardUniversity', 'year', 'percentage'].map(k => (
                             <TableCell key={k}>
                               <TextField size="small" fullWidth sx={f} value={row[k]}
                                 onChange={e => { const ed = [...pf.education]; ed[i][k] = e.target.value; set('education', ed); }} />
@@ -917,7 +1042,7 @@ export default function UserManagement() {
                           ))}
                           <TableCell>
                             {pf.education.length > 1 && (
-                              <IconButton size="small" color="error" onClick={() => set('education', pf.education.filter((_,idx) => idx !== i))}>
+                              <IconButton size="small" color="error" onClick={() => set('education', pf.education.filter((_, idx) => idx !== i))}>
                                 <CloseIcon fontSize="small" />
                               </IconButton>
                             )}
@@ -933,13 +1058,13 @@ export default function UserManagement() {
                   <Divider />
                   <Box display="flex" alignItems="center" justifyContent="space-between" mt={2} mb={1.5}>
                     <Typography sx={sec}>5. Work Experience</Typography>
-                    <Button size="small" variant="outlined" onClick={() => set('workExperience', [...pf.workExperience, { companyName:'', designation:'', duration:'', lastCTC:'' }])}
+                    <Button size="small" variant="outlined" onClick={() => set('workExperience', [...pf.workExperience, { companyName: '', designation: '', duration: '', lastCTC: '' }])}
                       sx={{ borderRadius: '8px', fontSize: '0.72rem', textTransform: 'none', borderColor: '#4F46E5', color: '#4F46E5' }}>+ Add Row</Button>
                   </Box>
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#f0f4ff' }}>
-                        {['Company Name','Designation','Duration','Last CTC',''].map(h => (
+                        {['Company Name', 'Designation', 'Duration', 'Last CTC', ''].map(h => (
                           <TableCell key={h} sx={{ fontWeight: 700, fontSize: '0.75rem', color: '#4F46E5' }}>{h}</TableCell>
                         ))}
                       </TableRow>
@@ -947,7 +1072,7 @@ export default function UserManagement() {
                     <TableBody>
                       {pf.workExperience.map((row, i) => (
                         <TableRow key={i}>
-                          {['companyName','designation','duration','lastCTC'].map(k => (
+                          {['companyName', 'designation', 'duration', 'lastCTC'].map(k => (
                             <TableCell key={k}>
                               <TextField size="small" fullWidth sx={f} value={row[k]}
                                 onChange={e => { const we = [...pf.workExperience]; we[i][k] = e.target.value; set('workExperience', we); }} />
@@ -955,7 +1080,7 @@ export default function UserManagement() {
                           ))}
                           <TableCell>
                             {pf.workExperience.length > 1 && (
-                              <IconButton size="small" color="error" onClick={() => set('workExperience', pf.workExperience.filter((_,idx) => idx !== i))}>
+                              <IconButton size="small" color="error" onClick={() => set('workExperience', pf.workExperience.filter((_, idx) => idx !== i))}>
                                 <CloseIcon fontSize="small" />
                               </IconButton>
                             )}
@@ -977,15 +1102,15 @@ export default function UserManagement() {
                 <Grid item xs={12} sm={4}>
                   <TextField select label="Payment Mode" size="small" fullWidth sx={f} value={pf.paymentMode} onChange={e => set('paymentMode', e.target.value)}>
                     <MenuItem value=""><em>Select</em></MenuItem>
-                    {['Bank Transfer','Cash'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+                    {['Bank Transfer', 'Cash'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
                   </TextField>
                 </Grid>
 
                 {/* 7. Bank Details */}
                 <Grid item xs={12}><Divider /><Typography sx={{ ...sec, mt: 2 }}>7. Bank Details</Typography></Grid>
                 {[
-                  ['bankName','Bank Name'], ['accountHolderName','Account Holder Name'],
-                  ['accountNumber','Account Number'], ['ifscCode','IFSC Code'], ['bankBranch','Branch'],
+                  ['bankName', 'Bank Name'], ['accountHolderName', 'Account Holder Name'],
+                  ['accountNumber', 'Account Number'], ['ifscCode', 'IFSC Code'], ['bankBranch', 'Branch'],
                 ].map(([k, lbl]) => (
                   <Grid item xs={12} sm={6} md={4} key={k}>
                     <TextField label={lbl} size="small" fullWidth sx={f} value={pf[k]} onChange={e => set(k, e.target.value)} />
@@ -998,12 +1123,12 @@ export default function UserManagement() {
                   <Typography sx={{ ...sec, mt: 2 }}>8. Documents Submitted</Typography>
                   <Box sx={{ bgcolor: '#f8f9ff', borderRadius: '10px', border: '1px solid #e8eaf6', p: 2 }}>
                     {[
-                      ['docAadhaar','Aadhaar Card'],
-                      ['docPAN','PAN Card'],
-                      ['docResume','Resume'],
-                      ['docEducationalCerts','Educational Certificates'],
-                      ['docExperienceLetters','Experience Letters'],
-                      ['docPassportPhoto','Passport Size Photos'],
+                      ['docAadhaar', 'Aadhaar Card'],
+                      ['docPAN', 'PAN Card'],
+                      ['docResume', 'Resume'],
+                      ['docEducationalCerts', 'Educational Certificates'],
+                      ['docExperienceLetters', 'Experience Letters'],
+                      ['docPassportPhoto', 'Passport Size Photos'],
                     ].map(([field, label]) => (
                       <DocUpload key={field} field={field} label={label} existingUrl={profileUser?.[field]} />
                     ))}
@@ -1021,7 +1146,7 @@ export default function UserManagement() {
                 <Grid item xs={12} sm={4}>
                   <TextField label="Contact Number" size="small" fullWidth sx={f}
                     value={pf.emergencyContact}
-                    onChange={e => set('emergencyContact', e.target.value.replace(/\D/g,'').slice(0,10))}
+                    onChange={e => set('emergencyContact', e.target.value.replace(/\D/g, '').slice(0, 10))}
                     inputProps={{ maxLength: 10 }} />
                 </Grid>
 
@@ -1037,10 +1162,12 @@ export default function UserManagement() {
             Cancel
           </Button>
           <Button variant="contained" onClick={handleProfileSave} disabled={profileSaving}
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 4, minWidth: 130,
+            sx={{
+              textTransform: 'none', fontWeight: 700, borderRadius: 2, px: 4, minWidth: 130,
               background: 'linear-gradient(135deg, #4F46E5, #7C3AED)',
               boxShadow: '0 4px 14px rgba(79,70,229,0.4)',
-              '&:hover': { background: 'linear-gradient(135deg, #4338CA, #6D28D9)' } }}>
+              '&:hover': { background: 'linear-gradient(135deg, #4338CA, #6D28D9)' }
+            }}>
             {profileSaving ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Save Profile'}
           </Button>
         </Box>

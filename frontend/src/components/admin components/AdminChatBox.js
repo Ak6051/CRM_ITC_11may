@@ -1,31 +1,29 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Box, Modal, Tabs, Tab, Typography, TextField, 
-  List, ListItem, ListItemAvatar, ListItemText, 
-  Avatar, Badge, IconButton, Divider, CircularProgress
+import {
+  Box, Modal, Typography, TextField, List, ListItem,
+  ListItemAvatar, ListItemText, Avatar, Badge, IconButton,
+  Divider, CircularProgress, Tabs, Tab, Paper
 } from '@mui/material';
-import { Search as SearchIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { 
+  Search as SearchIcon, 
+  MoreVert as MoreVertIcon,
+  Chat as ChatIcon,
+  DonutLarge as StatusIcon
+} from '@mui/icons-material';
 import axios from 'axios';
-import { io } from 'socket.io-client';
 import { API_BASE_URL } from '../../config/api.config';
 import ChatInterface from './ChatInterface';
+import { 
+  listenForMessages, 
+  sendMessage, 
+  listenForUserStatus, 
+  updateUserStatus,
+  clearUnreadCount,
+  listenForNotifications
+} from '../../services/chatService';
 
-const style = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: '80%',
-  height: '80vh',
-  bgcolor: 'background.paper',
-  boxShadow: 24,
-  borderRadius: 2,
-  display: 'flex',
-  overflow: 'hidden',
-};
-
-const AdminChatBox = ({ open, handleClose, socket }) => {
-  const [activeTab, setActiveTab] = useState('hr');
+const AdminChatBox = ({ open, handleClose }) => {
+  const [activeTab, setActiveTab] = useState('hr'); // 'hr', 'sales'
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [hrUsers, setHrUsers] = useState([]);
@@ -33,94 +31,39 @@ const AdminChatBox = ({ open, handleClose, socket }) => {
   const [messages, setMessages] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [userStatuses, setUserStatuses] = useState({});
+  const [notifications, setNotifications] = useState({});
   
   const currentUserId = sessionStorage.getItem('userId');
 
-  // Fetch users and messages
+  // Fetch users only
   useEffect(() => {
-    if (!open || !currentUserId) return;
+    if (!open) return;
     
-    const fetchUsersAndMessages = async () => {
+    const fetchUsers = async () => {
       setError('');
       setLoading(true);
-      
       const token = sessionStorage.getItem('token');
-      if (!token) {
-        setError('Authentication required');
-        setLoading(false);
-        return;
-      }
-      
-      const config = {
-        headers: { Authorization: `Bearer ${token}` }
-      };
+      if (!token) { setError('Authentication required'); setLoading(false); return; }
       
       try {
-        // First fetch users
-        const usersRes = await axios.get(`${API_BASE_URL}/chat/all`, config);
-        
-        // Process users from the API response
-        const hrUsersData = (usersRes.data.hrs || []).map(user => ({
-          ...user,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-          role: 'HR'
-        }));
-        
-        const salesUsersData = (usersRes.data.sales || []).map(user => ({
-          ...user,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-          role: 'Sales'
-        }));
-        
-        setHrUsers(hrUsersData);
-        setSalesUsers(salesUsersData);
-        
-        // Create a map of all users for easy lookup
-        const allUsersMap = {};
-        [...hrUsersData, ...salesUsersData].forEach(user => {
-          allUsersMap[user._id] = user;
+        const response = await axios.get(`${API_BASE_URL}/chat/all`, {
+          headers: { Authorization: `Bearer ${token}` }
         });
         
-        console.log('Processed users:', {
-          hrUsers: hrUsersData,
-          salesUsers: salesUsersData,
-          allUsersMap
-        });
+        const processUsers = (users, role) => {
+          if (!Array.isArray(users)) return [];
+          return users.map(user => ({
+            _id: user._id || user.id,
+            name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Unknown User',
+            email: user.email || '',
+            role: user.role || role || 'user',
+            ...user
+          }));
+        };
         
-        // Initialize messages object
-        const initialMessages = {};
-        const userIds = Object.keys(allUsersMap);
-        
-        // Load messages for each user in parallel
-        await Promise.all(userIds.map(async (userId) => {
-          try {
-            const response = await axios.get(
-              `${API_BASE_URL}/chat/messages/${currentUserId}/${userId}`,
-              config
-            );
-            
-            if (response.data && Array.isArray(response.data)) {
-              initialMessages[userId] = response.data.map(msg => ({
-                ...msg,
-                timestamp: new Date(msg.timestamp)
-              }));
-            } else {
-              initialMessages[userId] = [];
-            }
-          } catch (err) {
-            console.error(`Error loading messages for user ${userId}:`, err);
-            initialMessages[userId] = [];
-          }
-        }));
-        
-        // Ensure all users have an entry in messages, even if empty
-        userIds.forEach(userId => {
-          if (!initialMessages[userId]) {
-            initialMessages[userId] = [];
-          }
-        });
-        
-        setMessages(initialMessages);
+        setHrUsers(processUsers(response.data.hrs, 'hr'));
+        setSalesUsers(processUsers(response.data.sales, 'sales'));
       } catch (err) {
         console.error('Error fetching chat data:', err);
         setError('Failed to load chat data');
@@ -129,231 +72,128 @@ const AdminChatBox = ({ open, handleClose, socket }) => {
       }
     };
     
-    fetchUsersAndMessages();
-  }, [open, currentUserId]);
+    fetchUsers();
+  }, [open]);
 
-  // Set up socket listener for new messages
+  // Real-time notifications and statuses
   useEffect(() => {
-    if (!socket || !open) return;
-    
-    const handleNewMessage = (newMessage) => {
-      setMessages(prev => {
-        // Create a new message object with proper formatting
-        const formattedMessage = {
-          ...newMessage,
-          timestamp: new Date(newMessage.timestamp)
-        };
-        
-        // Add to existing messages or create new array
-        const existingMessages = prev[newMessage.senderId] || [];
-        
-        // Check if message already exists to avoid duplicates
-        const messageExists = existingMessages.some(
-          msg => msg._id === newMessage._id || 
-                 (msg.senderId === newMessage.senderId && 
-                  msg.message === newMessage.message && 
-                  Math.abs(new Date(msg.timestamp) - new Date(newMessage.timestamp)) < 1000)
-        );
-        
-        if (messageExists) return prev;
-        
-        return {
-          ...prev,
-          [newMessage.senderId]: [...existingMessages, formattedMessage]
-        };
-      });
-    };
-    
-    socket.on('getMessage', handleNewMessage);
-    return () => {
-      socket.off('getMessage', handleNewMessage);
-    };
-  }, [socket, open]);
+    if (!open || !currentUserId) return;
 
-  // Handle receiving new messages
+    const unsubNotifications = listenForNotifications(currentUserId, (notifs) => {
+      setNotifications(notifs);
+    });
+
+    const unsubStatuses = [];
+    [...hrUsers, ...salesUsers].forEach(user => {
+      unsubStatuses.push(listenForUserStatus(user._id, (statusData) => {
+        setUserStatuses(prev => ({ ...prev, [user._id]: statusData }));
+      }));
+    });
+
+    return () => {
+      unsubNotifications();
+      unsubStatuses.forEach(unsub => unsub());
+    };
+  }, [open, currentUserId, hrUsers, salesUsers]);
+
+  // Real-time messages for selected user
   useEffect(() => {
-    if (!socket || !open) return;
-    
-    const handleNewMessage = (newMessage) => {
-      setMessages(prev => {
-        // Create a new message object with proper formatting
-        const formattedMessage = {
-          ...newMessage,
-          timestamp: new Date(newMessage.timestamp)
-        };
-        
-        // Add to existing messages or create new array
-        const existingMessages = prev[newMessage.senderId] || [];
-        
-        // Check if message already exists to avoid duplicates
-        const messageExists = existingMessages.some(
-          msg => msg._id === newMessage._id || 
-                 (msg.senderId === newMessage.senderId && 
-                  msg.message === newMessage.message && 
-                  Math.abs(new Date(msg.timestamp) - new Date(newMessage.timestamp)) < 1000)
-        );
-        
-        if (messageExists) return prev;
-        
-        return {
-          ...prev,
-          [newMessage.senderId]: [...existingMessages, formattedMessage]
-        };
-      });
-    };
-    
-    socket.on('getMessage', handleNewMessage);
-    return () => {
-      socket.off('getMessage', handleNewMessage);
-    };
-  }, [socket, open]);
+    if (!selectedUser || !currentUserId) return;
 
-  // Handle sending a message
+    const unsubscribe = listenForMessages(currentUserId, selectedUser._id, (newMessages) => {
+      setMessages(prev => ({ ...prev, [selectedUser._id]: newMessages }));
+      clearUnreadCount(currentUserId, selectedUser._id);
+    });
+
+    return () => unsubscribe();
+  }, [selectedUser, currentUserId]);
+
   const handleSendMessage = useCallback(async (message) => {
     if (!selectedUser || !currentUserId) return;
-    
-    const token = sessionStorage.getItem('token');
-    if (!token) {
-      console.error('No authentication token found');
-      return;
-    }
-    
-    const authAxios = axios.create({
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    // Ensure role is in the correct case (HR/Sales)
-    const role = selectedUser.role === 'hr' ? 'HR' : 
-               selectedUser.role === 'sales' ? 'Sales' : 
-               selectedUser.role; // fallback
+    const userName = sessionStorage.getItem('userName') || 'Admin';
+    await sendMessage(currentUserId, selectedUser._id, message, userName);
+  }, [selectedUser, currentUserId]);
 
-    try {
-      // Create a temporary ID for the message (will be replaced by server ID)
-      const tempMessageId = `temp-${Date.now()}`;
-      const newMessage = {
-        _id: tempMessageId,
-        senderId: currentUserId,
-        receiverId: selectedUser._id,
-        role: role,
-        message: message,
-        timestamp: new Date(),
-        isRead: false,
-        isSending: true // Flag to show sending state
-      };
-
-      // Add message to local state immediately for instant feedback
-      setMessages(prev => ({
-        ...prev,
-        [selectedUser._id]: [...(prev[selectedUser._id] || []), newMessage]
-      }));
-
-      try {
-        // Send to server
-        const response = await axios.post(
-          `${API_BASE_URL}/chat/send`,
-          newMessage,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        );
-
-        // Update message with server response
-        setMessages(prev => {
-          const updatedMessages = { ...prev };
-          const messageIndex = updatedMessages[selectedUser._id]?.findIndex(m => m._id === tempMessageId);
-          
-          if (messageIndex > -1) {
-            updatedMessages[selectedUser._id][messageIndex] = {
-              ...response.data,
-              timestamp: new Date(response.data.timestamp)
-            };
-          }
-          
-          return updatedMessages;
-        });
-      } catch (error) {
-        console.error('Error sending message:', error);
-        // Update message to show error state
-        setMessages(prev => {
-          const updatedMessages = { ...prev };
-          const messageIndex = updatedMessages[selectedUser._id]?.findIndex(m => m._id === tempMessageId);
-          
-          if (messageIndex > -1) {
-            updatedMessages[selectedUser._id][messageIndex] = {
-              ...updatedMessages[selectedUser._id][messageIndex],
-              isError: true,
-              isSending: false
-            };
-          }
-          
-          return updatedMessages;
-        });
-        throw error;
-      }
-    } catch (err) {
-      console.error('Error sending message:', err);
-      // Show error to user
-      setError('Failed to send message. Please try again.');
-    }
-  }, [selectedUser, socket, currentUserId]);
-
-  // Filter users based on search query
-  const filteredUsers = useMemo(() => {
-    const users = activeTab === 'hr' ? hrUsers : salesUsers;
-    if (!searchQuery) return users;
-    
-    const query = searchQuery.toLowerCase();
-    return users.filter(user => 
-      user.name.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query)
-    );
-  }, [activeTab, hrUsers, salesUsers, searchQuery]);
-  
-  // Get unread counts for each user
   const unreadCounts = useMemo(() => {
     const counts = {};
-    Object.entries(messages).forEach(([userId, msgs]) => {
-      counts[userId] = msgs.filter(
-        msg => !msg.isRead && msg.senderId === userId
-      ).length;
+    Object.entries(notifications).forEach(([userId, data]) => {
+      counts[userId] = data.count || 0;
     });
     return counts;
-  }, [messages]);
+  }, [notifications]);
+
+  const filteredUsers = useMemo(() => {
+    let users = activeTab === 'hr' ? hrUsers : salesUsers;
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      users = users.filter(user => 
+        user.name.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query)
+      );
+    }
+
+    return [...users].sort((a, b) => {
+      // 1. Sort by unread messages first (WhatsApp style)
+      const unreadA = unreadCounts[a._id] || 0;
+      const unreadB = unreadCounts[b._id] || 0;
+      if (unreadB !== unreadA) return unreadB - unreadA;
+
+      // 2. Sort by online status next
+      const statusA = userStatuses[a._id]?.status === 'online' ? 1 : 0;
+      const statusB = userStatuses[b._id]?.status === 'online' ? 1 : 0;
+      if (statusB !== statusA) return statusB - statusA;
+
+      return 0;
+    });
+  }, [activeTab, hrUsers, salesUsers, searchQuery, userStatuses, unreadCounts]);
+  
+  const handleUserSelect = (user) => {
+    setSelectedUser(user);
+    clearUnreadCount(currentUserId, user._id);
+  };
 
   return (
-    <Modal open={open} onClose={handleClose}>
-      <Box sx={style}>
-        {/* Left sidebar */}
+    <Modal 
+      open={open} 
+      onClose={handleClose}
+      sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Paper elevation={24} sx={{
+        width: '90%',
+        maxWidth: '1400px',
+        height: '90vh',
+        display: 'flex',
+        overflow: 'hidden',
+        borderRadius: 0, // WhatsApp Web style is often squared
+        bgcolor: '#f0f2f5'
+      }}>
+        {/* Left Sidebar (WhatsApp Style) */}
         <Box sx={{
-          width: { xs: '100%', sm: '40%' }, 
-          borderRight: '1px solid #e0e0e0',
+          width: { xs: '100%', sm: '30%', md: '350px' }, 
+          borderRight: '1px solid rgba(0,0,0,0.1)',
+          display: (selectedUser && window.innerWidth < 600) ? 'none' : 'flex',
           flexDirection: 'column',
-          height: '100%',
-          bgcolor: '#f5f5f5',
-          ...(selectedUser ? { display: { xs: 'none', sm: 'flex' } } : { display: 'flex' })
+          bgcolor: 'white'
         }}>
-          {/* Header */}
+          {/* Sidebar Header */}
           <Box sx={{ 
-            p: 2, 
+            p: '10px 16px', 
             bgcolor: '#f0f2f5',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid #e0e0e0'
+            justifyContent: 'space-between'
           }}>
-            <Typography variant="subtitle1" fontWeight="bold">
-              {activeTab === 'hr' ? 'HR Team' : 'Sales Team'}
-            </Typography>
+            <Avatar sx={{ width: 40, height: 40 }} src="/path-to-admin-avatar.png" />
+            <Box>
+              <IconButton size="small" sx={{ color: '#54656f' }}><StatusIcon /></IconButton>
+              <IconButton size="small" sx={{ color: '#54656f' }}><ChatIcon /></IconButton>
+              <IconButton size="small" sx={{ color: '#54656f' }}><MoreVertIcon /></IconButton>
+            </Box>
           </Box>
           
-          {/* Search */}
-          <Box sx={{ p: 2, bgcolor: 'white' }}>
+          {/* Search Bar */}
+          <Box sx={{ p: '7px 12px', bgcolor: 'white' }}>
             <TextField
               fullWidth
               size="small"
@@ -361,25 +201,22 @@ const AdminChatBox = ({ open, handleClose, socket }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
-                startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
-                sx: { borderRadius: 2, bgcolor: '#f0f2f5' }
+                startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: '#54656f' }} />,
+                sx: { borderRadius: '8px', bgcolor: '#f0f2f5', height: '35px', '& fieldset': { border: 'none' } }
               }}
-              variant="outlined"
             />
           </Box>
           
-          {/* Tabs */}
-          <Box sx={{ display: 'flex', borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}>
+          {/* Custom Tabs */}
+          <Box sx={{ display: 'flex', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
             <Box 
               onClick={() => setActiveTab('hr')}
               sx={{
-                flex: 1,
-                textAlign: 'center',
-                p: 1.5,
-                cursor: 'pointer',
-                borderBottom: activeTab === 'hr' ? '2px solid #008069' : 'none',
-                color: activeTab === 'hr' ? '#008069' : 'inherit',
-                fontWeight: activeTab === 'hr' ? 'bold' : 'normal'
+                flex: 1, textAlign: 'center', p: 1.5, cursor: 'pointer',
+                borderBottom: activeTab === 'hr' ? '3px solid #00a884' : 'none',
+                color: activeTab === 'hr' ? '#00a884' : '#54656f',
+                fontWeight: activeTab === 'hr' ? 'bold' : 'normal',
+                fontSize: '14px', textTransform: 'uppercase'
               }}
             >
               HR Team
@@ -387,62 +224,90 @@ const AdminChatBox = ({ open, handleClose, socket }) => {
             <Box 
               onClick={() => setActiveTab('sales')}
               sx={{
-                flex: 1,
-                textAlign: 'center',
-                p: 1.5,
-                cursor: 'pointer',
-                borderBottom: activeTab === 'sales' ? '2px solid #008069' : 'none',
-                color: activeTab === 'sales' ? '#008069' : 'inherit',
-                fontWeight: activeTab === 'sales' ? 'bold' : 'normal'
+                flex: 1, textAlign: 'center', p: 1.5, cursor: 'pointer',
+                borderBottom: activeTab === 'sales' ? '3px solid #00a884' : 'none',
+                color: activeTab === 'sales' ? '#00a884' : '#54656f',
+                fontWeight: activeTab === 'sales' ? 'bold' : 'normal',
+                fontSize: '14px', textTransform: 'uppercase'
               }}
             >
               Sales Team
             </Box>
           </Box>
           
-          {/* User list */}
+          {/* User List */}
           <Box sx={{ flex: 1, overflowY: 'auto' }}>
             {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                <CircularProgress size={24} />
-              </Box>
-            ) : error ? (
-              <Typography color="error" sx={{ p: 2, textAlign: 'center' }}>
-                {error}
-              </Typography>
-            ) : filteredUsers.length === 0 ? (
-              <Typography sx={{ p: 2, textAlign: 'center', color: 'text.secondary' }}>
-                No users found
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress size={30} sx={{ color: '#00a884' }} /></Box>
             ) : (
               <List disablePadding>
                 {filteredUsers.map((user) => (
                   <React.Fragment key={user._id}>
                     <ListItem 
                       button 
-                      onClick={() => setSelectedUser(user)}
+                      onClick={() => handleUserSelect(user)}
                       selected={selectedUser?._id === user._id}
                       sx={{
-                        '&:hover': { bgcolor: '#f5f5f5' },
-                        '&.Mui-selected': { bgcolor: '#e5f3ff' }
+                        py: 1.5,
+                        px: 2,
+                        '&:hover': { bgcolor: '#f5f6f6' },
+                        '&.Mui-selected': { bgcolor: '#f0f2f5' }
                       }}
                     >
-                      <ListItemAvatar>
+                      <ListItemAvatar sx={{ minWidth: 56 }}>
                         <Badge 
-                          badgeContent={unreadCounts[user._id] || 0} 
-                          color="error"
-                          invisible={!unreadCounts[user._id]}
+                          overlap="circular"
+                          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                          variant="dot"
+                          sx={{
+                            '& .MuiBadge-badge': {
+                              backgroundColor: userStatuses[user._id]?.status === 'online' ? '#44b700' : '#bdbdbd',
+                              color: userStatuses[user._id]?.status === 'online' ? '#44b700' : '#bdbdbd',
+                              boxShadow: `0 0 0 2px white`,
+                            }
+                          }}
                         >
-                          <Avatar>{user.name.charAt(0).toUpperCase()}</Avatar>
+                          <Avatar sx={{ width: 49, height: 49 }}>{user.name.charAt(0).toUpperCase()}</Avatar>
                         </Badge>
                       </ListItemAvatar>
                       <ListItemText 
-                        primary={user.name}
-                        secondary={user.email}
-                        primaryTypographyProps={{ fontWeight: 'medium' }}
+                        primary={
+                          <Box component="div" sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography component="div" variant="body1" sx={{ color: '#111b21', fontWeight: unreadCounts[user._id] ? 700 : 400 }}>
+                              {user.name}
+                            </Typography>
+                            <Typography component="div" variant="caption" sx={{ color: '#667781' }}>
+                              {userStatuses[user._id]?.status === 'online' ? 'now' : ''}
+                            </Typography>
+                          </Box>
+                        }
+                        secondary={
+                          <Box component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+                            <Typography component="div" variant="body2" noWrap sx={{ color: '#667781', fontSize: '13px', maxWidth: '80%' }}>
+                              {user.role?.toUpperCase()}
+                            </Typography>
+                            {unreadCounts[user._id] > 0 && (
+                              <Box sx={{ 
+                                bgcolor: '#25d366', 
+                                color: 'white', 
+                                borderRadius: '50%', 
+                                minWidth: '20px', 
+                                height: '20px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                px: 0.5
+                              }}>
+                                {unreadCounts[user._id]}
+                              </Box>
+                            )}
+                          </Box>
+                        }
                       />
                     </ListItem>
-                    <Divider component="li" />
+                    <Divider variant="inset" component="li" sx={{ ml: '75px', borderColor: 'rgba(0,0,0,0.05)' }} />
                   </React.Fragment>
                 ))}
               </List>
@@ -450,44 +315,38 @@ const AdminChatBox = ({ open, handleClose, socket }) => {
           </Box>
         </Box>
         
-        {/* Right chat area */}
+        {/* Right Chat Area */}
         <Box sx={{
           flex: 1, 
+          display: (selectedUser || window.innerWidth >= 600) ? 'flex' : 'none',
           flexDirection: 'column',
-          height: '100%',
-          ...(selectedUser ? { display: 'flex' } : { display: { xs: 'none', sm: 'flex' } })
+          bgcolor: '#efeae2'
         }}>
           {selectedUser ? (
             <ChatInterface
               users={filteredUsers}
               selectedUser={selectedUser}
-              onSelectUser={setSelectedUser}
+              userStatus={userStatuses[selectedUser._id]}
               messages={messages[selectedUser._id] || []}
               onSendMessage={handleSendMessage}
               currentUserId={currentUserId}
             />
           ) : (
             <Box sx={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              height: '100%',
-              bgcolor: '#f8f9fa',
-              color: 'text.secondary',
-              textAlign: 'center',
-              p: 3
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+              height: '100%', bgcolor: '#f8f9fa', borderBottom: '6px solid #25d366' 
             }}>
-              <Typography variant="h6" gutterBottom>
-                WhatsApp Web
-              </Typography>
-              <Typography variant="body2">
-                Select a chat to start messaging
+              <Avatar sx={{ width: 100, height: 100, mb: 3, bgcolor: '#e9edef' }}>
+                <ChatIcon sx={{ fontSize: 50, color: '#8696a0' }} />
+              </Avatar>
+              <Typography variant="h5" color="#41525d" fontWeight="light">WhatsApp Web</Typography>
+              <Typography variant="body2" sx={{ color: '#667781', mt: 1, textAlign: 'center', maxWidth: '300px' }}>
+                Send and receive messages without keeping your phone online.
               </Typography>
             </Box>
           )}
         </Box>
-      </Box>
+      </Paper>
     </Modal>
   );
 };

@@ -26,7 +26,11 @@ import {
   Menu,
   ChevronLeft,
   LockOutlined,
+  ChatBubbleOutlineOutlined
 } from '@mui/icons-material';
+import { Badge } from '@mui/material';
+import { listenForNotifications } from '../../services/chatService';
+import HrChatBox from '../../pages/hr pages/HrChatBox';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/api.config';
@@ -40,6 +44,9 @@ const Sidebar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settings] = useState({ logoUrl: '', companyName: '' });
   const [hasTaskToday, setHasTaskToday] = useState(true); // optimistic default
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
+  const currentUserId = sessionStorage.getItem('userId');
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -77,15 +84,29 @@ const Sidebar = () => {
     return () => window.removeEventListener('hr-task-created', handleTaskCreated);
   }, []);
 
+  // Listen for real-time notifications
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const unsubscribe = listenForNotifications(currentUserId, (notifications) => {
+      const totalUnread = Object.values(notifications).reduce((acc, curr) => acc + (curr.count || 0), 0);
+      setUnreadCount(totalUnread);
+    });
+
+    return () => unsubscribe();
+  }, [currentUserId]);
+
   const menuItems = [
     { text: 'Master Dashboard',        icon: <AssessmentOutlined />,   route: '/hr-master-dashboard' },
     { text: 'Assigned Data',           icon: <DashboardOutlined />,    route: '/Hr-dashboard' },
     { text: 'Sourced Data',            icon: <AddchartOutlined />,     route: '/candidate-list' },
     { text: 'All Candidates Details',  icon: <GroupOutlined />,        route: '/hr-candidates' },
+    { text: 'My Sourced Data',         icon: <PersonAddOutlined />,    route: '/my-sourced-data' },
     { text: 'Job Post Report',         icon: <AssessmentOutlined />,   route: '/hr-job-post-report' },
     { text: 'Placed Data',             icon: <VerifiedOutlined />,     route: '/placed-candidate-list' },
     { text: 'Recent Data',             icon: <DescriptionOutlined />,  route: '/recent-data' },
     { text: 'Daily Task Data',         icon: <CalendarTodayOutlined />, route: '/daily-hr-task', alwaysEnabled: true },
+    { text: 'Live Chat',               icon: <ChatBubbleOutlineOutlined />, route: 'chat', alwaysEnabled: true, isAction: true },
   ];
 
   const isActive = (route) => location.pathname === route;
@@ -189,7 +210,15 @@ const Sidebar = () => {
               <ListItem
                 button
                 disabled={!isEnabled}
-                onClick={() => isEnabled && navigate(item.route)}
+                 onClick={() => {
+                  if (isEnabled) {
+                    if (item.isAction && item.route === 'chat') {
+                      setChatOpen(true);
+                    } else {
+                      navigate(item.route);
+                    }
+                  }
+                }}
                 sx={{
                   my: 0.5,
                   mx: 1,
@@ -218,7 +247,15 @@ const Sidebar = () => {
                     filter: active ? 'drop-shadow(0 0 2px #FFD700)' : 'none',
                   }}
                 >
-                  {!isEnabled ? <LockOutlined sx={{ fontSize: 18, color: '#888' }} /> : item.icon}
+                  {!isEnabled ? (
+                    <LockOutlined sx={{ fontSize: 18, color: '#888' }} />
+                  ) : item.text === 'Live Chat' ? (
+                    <Badge badgeContent={unreadCount} color="error" overlap="circular">
+                      {item.icon}
+                    </Badge>
+                  ) : (
+                    item.icon
+                  )}
                 </ListItemIcon>
                 {sidebarOpen && (
                   <ListItemText
@@ -239,6 +276,7 @@ const Sidebar = () => {
           );
         })}
       </List>
+      <HrChatBox open={chatOpen} handleClose={() => setChatOpen(false)} senderId={currentUserId} />
     </Drawer>
   );
 };

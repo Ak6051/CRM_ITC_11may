@@ -65,6 +65,11 @@ const CandidateForm = ({ userId, onSuccess }) => {
   const [loadingPositions, setLoadingPositions] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   
+  // Job assignment states
+  const [assignedJobs, setAssignedJobs] = useState([]);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [assignedJobsLoading, setAssignedJobsLoading] = useState(false);
+  
   // Predefined experience options (no API call needed)
   const experienceOptions = [
     'Fresher',
@@ -195,6 +200,27 @@ useEffect(() => {
   return () => clearTimeout(delayDebounce);
 }, [searchTerm]);
 
+// Fetch HR's assigned jobs on mount
+useEffect(() => {
+  const fetchHRJobs = async () => {
+    try {
+      setAssignedJobsLoading(true);
+      const token = sessionStorage.getItem("token");
+      // This endpoint returns jobs assigned to the logged-in HR
+      const res = await axios.get(`${API_BASE_URL}/assignhr`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const jobList = res.data?.data || res.data || [];
+      setAssignedJobs(Array.isArray(jobList) ? jobList : []);
+    } catch (err) {
+      console.error("Error fetching assigned jobs:", err);
+    } finally {
+      setAssignedJobsLoading(false);
+    }
+  };
+  fetchHRJobs();
+}, []);
+
 const handlePositionChange = (event, newValue) => {
   setFormData(prev => ({
     ...prev, 
@@ -292,12 +318,29 @@ const handleSubmit = async (e) => {
       
       if (resumeFile) data.append("resumeUpload", resumeFile);
   
-      await axios.post(`${API_BASE_URL}/candidate/create-all`, data, {
+      const response = await axios.post(`${API_BASE_URL}/candidate/create-all`, data, {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`,
         },
       });
+      
+      const newCandidate = response.data.job || response.data.candidate;
+      
+      // ── Handle Auto-Assignment if a Job is selected ────────────────────────
+      if (selectedJob && newCandidate && (newCandidate._id || newCandidate.id)) {
+        try {
+          const candidateId = newCandidate._id || newCandidate.id;
+          await axios.post(
+            `${API_BASE_URL}/applications/assign`,
+            { candidateIds: [candidateId], jobId: selectedJob._id },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        } catch (assignErr) {
+          console.error("Assignment failed after candidate creation:", assignErr);
+          toast.warning("Candidate created, but failed to assign to the selected position.");
+        }
+      }
   
       toast.dismiss(loadingToast);
       toast.success("Candidate submitted successfully!", {
@@ -333,6 +376,7 @@ const handleSubmit = async (e) => {
         createdBy: userId || "",
       });
       setResumeFile(null);
+      setSelectedJob(null);
     } catch (error) {
       toast.dismiss(loadingToast);
   
@@ -554,7 +598,7 @@ const handleSubmit = async (e) => {
       "remark"
     ];
 
-    // Sample rows — one real-looking example + one showing all allowed values
+    // Sample row — one real-looking example
     const sampleRows = [
       {
         name:             "Rahul Sharma",
@@ -574,45 +618,46 @@ const handleSubmit = async (e) => {
         industry:         "IT",
         remark:           "Good communication skills",
       },
-      {
-        name:             "Priya Patel",
-        phoneNumber:      "9123456780",
-        email:            "priya.patel@email.com",
-        positionName:     "HR Manager",
-        qualification:    "MBA",
-        experience:       "5 Years",
-        currentLocation:  "Mumbai",
-        preferredLocation:"Mumbai",
-        currentPosition:  "HR Executive",
-        currentCTC:       35000,
-        expectedCTC:      45000,
-        noticePeriod:     "45 Days",
-        reasonforLeaving: "Salary Growth",
-        currentCompany:   "ABC Corp",
-        industry:         "Manufacturing",
-        remark:           "Team player",
-      },
     ];
 
     // Build worksheet with headers + sample rows
     const worksheet = XLSX.utils.json_to_sheet(sampleRows, { header: headers });
 
     // ── Column widths ──────────────────────────────────────────────────────
-    worksheet['!cols'] = headers.map(h => ({
-      wch: Math.max(h.length + 4, 18),
-    }));
+    const colWidths = [
+      { wch: 20 }, // name
+      { wch: 15 }, // phoneNumber
+      { wch: 25 }, // email
+      { wch: 20 }, // positionName
+      { wch: 15 }, // qualification
+      { wch: 15 }, // experience
+      { wch: 18 }, // currentLocation
+      { wch: 18 }, // preferredLocation
+      { wch: 20 }, // currentPosition
+      { wch: 12 }, // currentCTC
+      { wch: 12 }, // expectedCTC
+      { wch: 15 }, // noticePeriod
+      { wch: 25 }, // reasonforLeaving
+      { wch: 25 }, // currentCompany
+      { wch: 15 }, // industry
+      { wch: 30 }, // remark
+    ];
+    worksheet['!cols'] = colWidths;
 
-    // ── CTC format note ────────────────────────────────────────────────────
+    // ── Add instructions at the bottom ──
+    const lastRow = sampleRows.length + 2;
     XLSX.utils.sheet_add_aoa(worksheet, [
-      ["⚠ currentCTC & expectedCTC: enter monthly amount in ₹ (e.g. 20000 = ₹20,000/month = 2.40 LPA). It will be auto-converted on import."],
-    ], { origin: { r: sampleRows.length + 2, c: 0 } });
-
-    // ── Allowed values notes ───────────────────────────────────────────────
-    XLSX.utils.sheet_add_aoa(worksheet, [
-      ["Allowed experience values: Fresher | 0-6 Months | 6 Months | 1 Year | 1 Year 6 Months | 2 Years | 3 Years | 3-5 Years | 5 Years | 5-7 Years | 7-10 Years | 10+ Years | 15+ Years"],
-      ["Allowed noticePeriod values: Immediate | 1 Week | 15 Days | 30 Days | 45 Days | 60 Days | 90 Days"],
-      ["Required columns: name, phoneNumber, email, positionName, qualification, experience, currentLocation, currentPosition, currentCTC, noticePeriod"],
-    ], { origin: { r: sampleRows.length + 3, c: 0 } });
+      [""], // empty row
+      ["📢 INSTRUCTIONS & RULES:"],
+      ["1. Do NOT change the header names in the first row."],
+      ["2. currentCTC & expectedCTC: Enter ONLY monthly amount in numbers (e.g. 20000). System will auto-convert to LPA."],
+      ["3. phoneNumber: Must be a 10-digit number."],
+      ["4. Required Columns: name, phoneNumber, email, positionName, qualification, experience, currentLocation, currentPosition, currentCTC, noticePeriod"],
+      [""],
+      ["VALID VALUES FOR DROPDOWNS:"],
+      ["Experience:", "Fresher | 0-6 Months | 6 Months | 1 Year | 1 Year 6 Months | 2 Years | 3 Years | 3-5 Years | 5 Years | 5-7 Years | 7-10 Years | 10+ Years | 15+ Years"],
+      ["Notice Period:", "Immediate | 1 Week | 15 Days | 30 Days | 45 Days | 60 Days | 90 Days"]
+    ], { origin: { r: lastRow, c: 0 } });
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "CandidatesTemplate");
@@ -863,6 +908,37 @@ const handleSubmit = async (e) => {
             </Typography>
           </Grid>
         )}
+
+        {/* ── Job Assignment Dropdown (New for Dialog Mode) ── */}
+        <Grid item xs={12} sm={6} md={6}>
+          <Autocomplete
+            options={assignedJobs}
+            getOptionLabel={(option) => `${option.jobTitle} @ ${option.companyName} (${option.jobLocation || 'No Location'})`}
+            value={selectedJob}
+            onChange={(event, newValue) => setSelectedJob(newValue)}
+            loading={assignedJobsLoading}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Assign directly to Position (Optional)"
+                placeholder="Select an assigned job position..."
+                variant="outlined"
+                InputProps={{
+                  ...params.InputProps,
+                  style: { height: 44 },
+                  endAdornment: (
+                    <>
+                      {assignedJobsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                      {params.InputProps.endAdornment}
+                    </>
+                  ),
+                }}
+                helperText="Selecting a position here will automatically assign the candidate to that job opening."
+              />
+            )}
+            noOptionsText={assignedJobsLoading ? "Loading..." : "No assigned jobs found"}
+          />
+        </Grid>
 
         <Grid item xs={12}>
           <Box
@@ -1176,7 +1252,38 @@ const handleSubmit = async (e) => {
                     );
                   })}
 
-                <Grid item xs={12}>
+                {/* ── Job Assignment Dropdown (New) ── */}
+                <Grid item xs={12} sm={6} md={6}>
+                  <Autocomplete
+                    options={assignedJobs}
+                    getOptionLabel={(option) => `${option.jobTitle} @ ${option.companyName} (${option.jobLocation || 'No Location'})`}
+                    value={selectedJob}
+                    onChange={(event, newValue) => setSelectedJob(newValue)}
+                    loading={assignedJobsLoading}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Assign directly to Position (Optional)"
+                        placeholder="Select an assigned job position..."
+                        variant="outlined"
+                        InputProps={{
+                          ...params.InputProps,
+                          style: { height: 50 },
+                          endAdornment: (
+                            <>
+                              {assignedJobsLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                        helperText="Selecting a position here will automatically assign the candidate to that job opening."
+                      />
+                    )}
+                    noOptionsText={assignedJobsLoading ? "Loading..." : "No assigned jobs found"}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6} md={6}>
                   <Button
                     variant="outlined"
                     component="label"

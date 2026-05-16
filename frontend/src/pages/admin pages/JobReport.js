@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
@@ -32,6 +32,7 @@ import {
   IconButton,
   Popover,
   Badge,
+  FormHelperText,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -53,6 +54,7 @@ import {
   deleteSale,
   updateSale,
   fetchHRUsers,
+  fetchTLUsers,
   isTokenValid
 } from '../../utils/JobReportService';
 import * as XLSX from 'xlsx';
@@ -76,59 +78,61 @@ const JobReport = () => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [transport, setTransport] = useState('N/A');
-  
+
   const navigate = useNavigate();
   const [sales, setSales] = useState([]);
   const originalSales = useRef([]); // To store the original unfiltered data
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     // company (from CompanyCreate)
-    companyName:          '',
-    companyId:            '',
-    branchId:             '',
-    branchName:           '',
+    companyName: '',
+    companyId: '',
+    branchId: '',
+    branchName: '',
     // job fields (in display order)
-    jobTitle:             '',
-    jobLocation:          '',
+    jobTitle: '',
+    jobLocation: '',
     numberOfRequirements: '',
-    jobTiming:            '',
-    education:            '',
-    gender:               '',
-    salary:               '',
-    experience:           '',
-    requiredSkills:       '',
-    keyResponsibility:    '',
-    benefits:             '',
-    response:             '',
-    descriptionFile:      null,
-    weekOff:              '',
+    jobTiming: '',
+    education: '',
+    gender: '',
+    salary: '',
+    experience: '',
+    requiredSkills: '',
+    keyResponsibility: '',
+    benefits: '',
+    response: '',
+    descriptionFile: null,
+    weekOff: '',
     // legacy fields kept for old data compatibility
-    industries:     '',
+    industries: '',
     companyAddress: '',
-    Area:           '',
-    contactName:    '',
-    email:          '',
-    phoneNumber:    '',
-    websiteURL:     '',
-    remarks:        '',
-    agreementSigned:null,
-    gstUpload:      null,
-    assignedHR:     [],
+    Area: '',
+    contactName: '',
+    email: '',
+    phoneNumber: '',
+    websiteURL: '',
+    remarks: '',
+    agreementSigned: null,
+    gstUpload: null,
+    assignedHR: [],
+    assignedTL: [],
   });
   const [emailError, setEmailError] = useState(false);
   const [emailHelperText, setEmailHelperText] = useState('');
-  
+
   // Error states for required fields
   const [errors, setErrors] = useState({
-    companyName:          false,
-    jobTitle:             false,
-    jobLocation:          false,
+    companyName: false,
+    jobTitle: false,
+    jobLocation: false,
     numberOfRequirements: false,
-    experience:           false,
-    education:            false,
-    requiredSkills:       false,
+    experience: false,
+    education: false,
+    requiredSkills: false,
   });
   const [hrUsers, setHrUsers] = useState([]); // State to hold HR users
+  const [tlUsers, setTlUsers] = useState([]); // State to hold TL users
   const [open, setOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
@@ -184,7 +188,7 @@ const JobReport = () => {
   const filterPopoverOpen = Boolean(filterAnchorEl);
   const [activeFilterPanel, setActiveFilterPanel] = useState(null); // which filter is expanded on right
   const [filterSearch, setFilterSearch] = useState(''); // search within right panel dropdown
-  
+
   // Search states for horizontal filter dropdowns
   const [hrSearchTerm, setHrSearchTerm] = useState('');
   const [companySearchTerm, setCompanySearchTerm] = useState('');
@@ -217,21 +221,21 @@ const JobReport = () => {
     setInputText(String(formData.companyName || ''));
   }, [formData.companyName]);
 
-// Reusable component for displaying key-value pairs in the card
-const DetailItem = ({ label, value }) => (
-  <>
-    <Grid item xs={6}>
-      <Typography variant="caption" color="text.secondary">
-        {label}:
-      </Typography>
-    </Grid>
-    <Grid item xs={6}>
-      <Typography variant="body2" noWrap>
-        {value || 'N/A'}
-      </Typography>
-    </Grid>
-  </>
-);
+  // Reusable component for displaying key-value pairs in the card
+  const DetailItem = ({ label, value }) => (
+    <>
+      <Grid item xs={6}>
+        <Typography variant="caption" color="text.secondary">
+          {label}:
+        </Typography>
+      </Grid>
+      <Grid item xs={6}>
+        <Typography variant="body2" noWrap>
+          {value || 'N/A'}
+        </Typography>
+      </Grid>
+    </>
+  );
 
 
   const resetJobTitle = () => {
@@ -279,7 +283,7 @@ const DetailItem = ({ label, value }) => (
         token,
       }
     });
-    
+
 
     socketInstance.on('connect', () => {
       console.log('ðŸŸ¢ Socket connected');
@@ -331,11 +335,11 @@ const DetailItem = ({ label, value }) => (
     };
   }, []);
 
-  
-  
 
 
-  
+
+
+
   const handleFindCandidates = async (jobId, jobTitle) => {
     try {
       const res = await axios.get(`${API_BASE_URL}/matching/jobs/${jobId}/matching-candidates`);
@@ -394,7 +398,7 @@ const DetailItem = ({ label, value }) => (
     setHoldDialog({ open: false, jobId: null, jobTitle: '' });
     setHoldReasonInput('');
   };
-  
+
 
   const normalizedCandidates = matchedCandidates
     .filter(row => {
@@ -405,24 +409,24 @@ const DetailItem = ({ label, value }) => (
       return pos === job || pos.includes(job) || job.includes(pos);
     })
     .map((row, i) => ({
-    id: i + 1,
-    name: row.name || row.candidateName || 'N/A',
-    phoneNumber: row.phoneNumber || row.candidatePhone || 'N/A',
-    // candidateEmail: row.candidateEmail || 'N/A',
-    qualification: row.qualification || 'N/A',
-    positionName: row.positionName || 'N/A',
-    experience: row.experience || 'N/A',
-    currentLocation: row.currentLocation || 'N/A',
-    currentPosition: row.currentPosition || 'N/A',
-    currentCTC: row.currentCTC || 'N/A',
-    expectedCTC: row.expectedCTC || 'N/A',
-    noticePeriod: row.noticePeriod || 'N/A',
-    reasonforLeaving: row.reasonforLeaving || 'N/A',
-    currentCompany: row.currentCompany || 'N/A',
-    remark: row.remark || 'N/A',
-    resume: row.resumeUpload || row.resumeLink || '',
-  }));
-  
+      id: i + 1,
+      name: row.name || row.candidateName || 'N/A',
+      phoneNumber: row.phoneNumber || row.candidatePhone || 'N/A',
+      // candidateEmail: row.candidateEmail || 'N/A',
+      qualification: row.qualification || 'N/A',
+      positionName: row.positionName || 'N/A',
+      experience: row.experience || 'N/A',
+      currentLocation: row.currentLocation || 'N/A',
+      currentPosition: row.currentPosition || 'N/A',
+      currentCTC: row.currentCTC || 'N/A',
+      expectedCTC: row.expectedCTC || 'N/A',
+      noticePeriod: row.noticePeriod || 'N/A',
+      reasonforLeaving: row.reasonforLeaving || 'N/A',
+      currentCompany: row.currentCompany || 'N/A',
+      remark: row.remark || 'N/A',
+      resume: row.resumeUpload || row.resumeLink || '',
+    }));
+
 
 
   useEffect(() => {
@@ -456,8 +460,8 @@ const DetailItem = ({ label, value }) => (
       try {
         const res = await axios.get(`${API_BASE_URL}/allType/jobTitle-names`);
         // Sort job titles in ascending order (A to Z)
-        const sortedJobTitles = [...res.data].sort((a, b) => 
-          a.localeCompare(b, undefined, {sensitivity: 'base'})
+        const sortedJobTitles = [...res.data].sort((a, b) =>
+          a.localeCompare(b, undefined, { sensitivity: 'base' })
         );
         setJobTitleNames(sortedJobTitles);
       } catch (err) {
@@ -465,7 +469,7 @@ const DetailItem = ({ label, value }) => (
       }
     };
 
-    
+
     const fetchHrUsersList = async () => {
       try {
         const response = await fetchHRUsers();
@@ -475,8 +479,18 @@ const DetailItem = ({ label, value }) => (
       }
     };
 
+    const fetchTlUsersList = async () => {
+      try {
+        const response = await fetchTLUsers();
+        setTlUsers(response.data);
+      } catch (error) {
+        console.error('Error fetching TL users:', error);
+      }
+    };
+
     fetchJobTitleNames();
     fetchHrUsersList();
+    fetchTlUsersList();
   }, []);
 
   useEffect(() => {
@@ -532,26 +546,26 @@ const DetailItem = ({ label, value }) => (
 
     const filtered = originalSales.current.filter((sale) => {
       if (!sale.createdAt) return false;
-      
+
       // Convert sale date to dayjs object in the same timezone
       const saleDate = dayjs(sale.createdAt);
-      
+
       // Check if sale date is between start and end dates (inclusive)
       return (
         (saleDate.isAfter(start) || saleDate.isSame(start, 'day')) &&
         (saleDate.isBefore(end) || saleDate.isSame(end, 'day'))
       );
     });
-    
+
     setSales(filtered);
   };
 
   // Count by status / assignment
-  const assignedCount   = sales.filter(sale => Array.isArray(sale.assignedHR) ? sale.assignedHR.length > 0 : !!sale.assignedHR).length;
+  const assignedCount = sales.filter(sale => Array.isArray(sale.assignedHR) ? sale.assignedHR.length > 0 : !!sale.assignedHR).length;
   const unassignedCount = sales.filter(sale => Array.isArray(sale.assignedHR) ? sale.assignedHR.length === 0 : !sale.assignedHR).length;
-  const openCount       = sales.filter(sale => !sale.jobStatus || sale.jobStatus === 'Open').length;
-  const closedCount     = sales.filter(sale => sale.jobStatus === 'Closed').length;
-  const onHoldCount     = sales.filter(sale => sale.jobStatus === 'OnHold').length;
+  const openCount = sales.filter(sale => !sale.jobStatus || sale.jobStatus === 'Open').length;
+  const closedCount = sales.filter(sale => sale.jobStatus === 'Closed').length;
+  const onHoldCount = sales.filter(sale => sale.jobStatus === 'OnHold').length;
 
   const activeFilterCount = [
     selectedCompanies.length > 0,
@@ -575,91 +589,91 @@ const DetailItem = ({ label, value }) => (
 
   const filteredSales = sales.filter(sale => {
     // Filter by company if any companies are selected
-    const companyMatch = selectedCompanies.length === 0 || 
-                        selectedCompanies.some(selectedCompany => {
-                          if (!selectedCompany) return false;
-                          
-                          // Handle different formats of selectedCompany
-                          let selectedCompanyName;
-                          if (typeof selectedCompany === 'string') {
-                            // If it's a string, extract company name (handle both "Company Name" and "Company Name (ID: 123)" formats)
-                            selectedCompanyName = selectedCompany.includes(' (ID: ') 
-                              ? selectedCompany.split(' (ID: ')[0] 
-                              : selectedCompany;
-                          } else if (typeof selectedCompany === 'object' && selectedCompany.companyName) {
-                            // If it's an object with companyName property
-                            selectedCompanyName = selectedCompany.companyName;
-                          } else {
-                            return false;
-                          }
-                          
-                          // Handle different formats of sale.companyName
-                          let saleCompanyName;
-                          if (typeof sale.companyName === 'string') {
-                            saleCompanyName = sale.companyName.includes(' (ID: ') 
-                              ? sale.companyName.split(' (ID: ')[0] 
-                              : sale.companyName;
-                          } else {
-                            saleCompanyName = sale.companyName || '';
-                          }
-                          
-                          // Use flexible matching to handle spelling variations and case differences
-                          const normalizeString = (str) => {
-                            return str.toLowerCase()
-                                      .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-                                      .replace(/\s+/g, ' ') // Normalize whitespace
-                                      .trim();
-                          };
-                          
-                          const normalizedSelected = normalizeString(selectedCompanyName);
-                          const normalizedSale = normalizeString(saleCompanyName);
-                          
-                          // Debug logging - remove after fixing
-                          if (selectedCompanyName.toLowerCase().includes('candor') || saleCompanyName.toLowerCase().includes('candor')) {
-                            console.log('DEBUG - Company Filter Comparison:', {
-                              selectedCompany: selectedCompanyName,
-                              saleCompany: saleCompanyName,
-                              normalizedSelected,
-                              normalizedSale,
-                              exactMatch: normalizedSelected === normalizedSale,
-                              selectedContainsSale: normalizedSelected.includes(normalizedSale),
-                              saleContainsSelected: normalizedSale.includes(normalizedSelected)
-                            });
-                          }
-                          
-                          // Check if one string contains the other (flexible matching)
-                          return normalizedSelected === normalizedSale || 
-                                 normalizedSelected.includes(normalizedSale) || 
-                                 normalizedSale.includes(normalizedSelected);
-                        });
-    
+    const companyMatch = selectedCompanies.length === 0 ||
+      selectedCompanies.some(selectedCompany => {
+        if (!selectedCompany) return false;
+
+        // Handle different formats of selectedCompany
+        let selectedCompanyName;
+        if (typeof selectedCompany === 'string') {
+          // If it's a string, extract company name (handle both "Company Name" and "Company Name (ID: 123)" formats)
+          selectedCompanyName = selectedCompany.includes(' (ID: ')
+            ? selectedCompany.split(' (ID: ')[0]
+            : selectedCompany;
+        } else if (typeof selectedCompany === 'object' && selectedCompany.companyName) {
+          // If it's an object with companyName property
+          selectedCompanyName = selectedCompany.companyName;
+        } else {
+          return false;
+        }
+
+        // Handle different formats of sale.companyName
+        let saleCompanyName;
+        if (typeof sale.companyName === 'string') {
+          saleCompanyName = sale.companyName.includes(' (ID: ')
+            ? sale.companyName.split(' (ID: ')[0]
+            : sale.companyName;
+        } else {
+          saleCompanyName = sale.companyName || '';
+        }
+
+        // Use flexible matching to handle spelling variations and case differences
+        const normalizeString = (str) => {
+          return str.toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .trim();
+        };
+
+        const normalizedSelected = normalizeString(selectedCompanyName);
+        const normalizedSale = normalizeString(saleCompanyName);
+
+        // Debug logging - remove after fixing
+        if (selectedCompanyName.toLowerCase().includes('candor') || saleCompanyName.toLowerCase().includes('candor')) {
+          console.log('DEBUG - Company Filter Comparison:', {
+            selectedCompany: selectedCompanyName,
+            saleCompany: saleCompanyName,
+            normalizedSelected,
+            normalizedSale,
+            exactMatch: normalizedSelected === normalizedSale,
+            selectedContainsSale: normalizedSelected.includes(normalizedSale),
+            saleContainsSelected: normalizedSale.includes(normalizedSelected)
+          });
+        }
+
+        // Check if one string contains the other (flexible matching)
+        return normalizedSelected === normalizedSale ||
+          normalizedSelected.includes(normalizedSale) ||
+          normalizedSale.includes(normalizedSelected);
+      });
+
     // Filter by assignment / status tab
     const assignedMatch =
-      assignmentFilter === 'all'        ? true :
-      assignmentFilter === 'assigned'   ? (Array.isArray(sale.assignedHR) ? sale.assignedHR.length > 0 : !!sale.assignedHR) :
-      assignmentFilter === 'unassigned' ? (Array.isArray(sale.assignedHR) ? sale.assignedHR.length === 0 : !sale.assignedHR) :
-      assignmentFilter === 'open'       ? (!sale.jobStatus || sale.jobStatus === 'Open') :
-      assignmentFilter === 'closed'     ? (sale.jobStatus === 'Closed') :
-      assignmentFilter === 'onhold'     ? (sale.jobStatus === 'OnHold') :
-      true;
-    
+      assignmentFilter === 'all' ? true :
+        assignmentFilter === 'assigned' ? (Array.isArray(sale.assignedHR) ? sale.assignedHR.length > 0 : !!sale.assignedHR) :
+          assignmentFilter === 'unassigned' ? (Array.isArray(sale.assignedHR) ? sale.assignedHR.length === 0 : !sale.assignedHR) :
+            assignmentFilter === 'open' ? (!sale.jobStatus || sale.jobStatus === 'Open') :
+              assignmentFilter === 'closed' ? (sale.jobStatus === 'Closed') :
+                assignmentFilter === 'onhold' ? (sale.jobStatus === 'OnHold') :
+                  true;
+
     // Filter by job title if any job titles are selected
-    const jobTitleMatch = selectedJobTitle.length === 0 || 
-                         selectedJobTitle.includes(sale.jobTitle);
-    
+    const jobTitleMatch = selectedJobTitle.length === 0 ||
+      selectedJobTitle.includes(sale.jobTitle);
+
     // Filter by HR if any HR is selected
-    const hrMatch = !hrFilter || 
-                   (sale.assignedHR && 
-                    (Array.isArray(sale.assignedHR)
-                      ? sale.assignedHR.some(hr => hr._id === hrFilter)
-                      : sale.assignedHR._id === hrFilter));
-    
+    const hrMatch = !hrFilter ||
+      (sale.assignedHR &&
+        (Array.isArray(sale.assignedHR)
+          ? sale.assignedHR.some(hr => hr._id === hrFilter)
+          : sale.assignedHR._id === hrFilter));
+
     // Filter by area if any areas are selected
-    const areaMatch = areaFilter.length === 0 || 
-                     (sale.Area && areaFilter.some(selectedArea => 
-                       sale.Area.toLowerCase().includes(selectedArea.toLowerCase())
-                     ));
-    
+    const areaMatch = areaFilter.length === 0 ||
+      (sale.Area && areaFilter.some(selectedArea =>
+        sale.Area.toLowerCase().includes(selectedArea.toLowerCase())
+      ));
+
     const jobLocationMatch = !filterJobLocation || (sale.jobLocation && sale.jobLocation.toLowerCase().includes(filterJobLocation.toLowerCase()));
     const noOfReqMatch = !filterNoOfReq || (sale.numberOfRequirements && String(sale.numberOfRequirements).includes(filterNoOfReq));
     const jobTimingMatch = !filterJobTiming || (sale.jobTiming && sale.jobTiming.toLowerCase().includes(filterJobTiming.toLowerCase()));
@@ -682,7 +696,7 @@ const DetailItem = ({ label, value }) => (
     setAreaOptions(uniqueAreas);
   }, [sales]);
 
-// ... (rest of the code remains the same)
+  // ... (rest of the code remains the same)
 
   const handleRowClick = async (params) => {
     const jobId = params.row._id; // Assuming _id is present in your row
@@ -712,7 +726,7 @@ const DetailItem = ({ label, value }) => (
   useEffect(() => {
     fetchAllCompanies();
   }, []);
-  
+
 
   const handleFileUploadForDescription = (e) => {
     const file = e.target.files[0];
@@ -843,7 +857,7 @@ const DetailItem = ({ label, value }) => (
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-  
+
     const reader = new FileReader();
     reader.onload = (evt) => {
       const bstr = evt.target.result;
@@ -899,10 +913,10 @@ const DetailItem = ({ label, value }) => (
       setUploadedFileName(file.name);
       setImportModalOpen(true);
     };
-  
+
     reader.readAsBinaryString(file);
   };
-  
+
   const handleConfirmImport = async () => {
     // Show loading toast with progress
     const toastId = toast.loading('Preparing import...', {
@@ -930,7 +944,7 @@ const DetailItem = ({ label, value }) => (
 
     try {
       const token = sessionStorage.getItem('token');
-      
+
       // Update progress to show upload is starting
       toast.update(toastId, {
         render: 'Uploading data to server... 50%',
@@ -1018,7 +1032,7 @@ const DetailItem = ({ label, value }) => (
 
   const handleHRChange = (e) => {
     const { value } = e.target;
-    
+
     // If 'none' is selected in the array, clear all HR assignments
     if (Array.isArray(value) && value.includes('none')) {
       setFormData(prev => ({
@@ -1027,115 +1041,162 @@ const DetailItem = ({ label, value }) => (
       }));
       return;
     }
-    
+
     // If it's an array, filter out 'none' and any falsy values
-    const newValue = Array.isArray(value) 
+    const newValue = Array.isArray(value)
       ? value.filter(v => v && v !== 'none')
       : [value].filter(v => v && v !== 'none');
-    
+
     setFormData(prev => ({
       ...prev,
       assignedHR: newValue
     }));
   };
 
- 
-  
+  const handleTLChange = (e) => {
+    const { value } = e.target;
 
-
-
-const emptyFormData = {
-  companyName: '', companyId: '', branchId: '', branchName: '',
-  jobTitle: '', jobLocation: '', numberOfRequirements: '', jobTiming: '',
-  education: '', gender: '', salary: '', experience: '',
-  requiredSkills: '', keyResponsibility: '', benefits: '', response: '',
-  descriptionFile: null, weekOff: '',
-  // legacy
-  industries: '', companyAddress: '', Area: '', contactName: '',
-  email: '', phoneNumber: '', websiteURL: '', remarks: '',
-  agreementSigned: null, gstUpload: null, assignedHR: [],
-};
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  // Validate required fields
-  const newErrors = {
-    companyName:          !formData.companyName?.trim(),
-    jobTitle:             !formData.jobTitle?.trim(),
-    jobLocation:          !formData.jobLocation?.trim(),
-    numberOfRequirements: !formData.numberOfRequirements,
-    experience:           !formData.experience?.trim(),
-    education:            !formData.education?.trim(),
-    requiredSkills:       !formData.requiredSkills?.trim(),
-  };
-  setErrors(newErrors);
-  if (Object.values(newErrors).some(Boolean)) {
-    toast.error('Please fill in all required fields');
-    return;
-  }
-
-  setLoading(true);
-  setSuccessMessage('');
-
-  try {
-    const form = new FormData();
-
-    // Convert monthly salary to annual LPA if user entered a monthly amount
-    const salaryToStore = salaryMonthly
-      ? `${((Number(salaryMonthly) * 12) / 100000).toFixed(2)} LPA`
-      : formData.salary;
-
-    // Combine jobTimingStart + jobTimingEnd into jobTiming string
-    const combinedJobTiming = jobTimingStart && jobTimingEnd
-      ? `${jobTimingStart} - ${jobTimingEnd}`
-      : jobTimingStart || jobTimingEnd || formData.jobTiming || '';
-
-    // Append all scalar fields
-    Object.entries(formData).forEach(([key, value]) => {
-      if (['descriptionFile', 'agreementSigned', 'gstUpload', 'createdBy'].includes(key)) return;
-      if (key === 'salary') {
-        if (salaryToStore) form.append('salary', salaryToStore);
-      } else if (key === 'jobTiming') {
-        if (combinedJobTiming) form.append('jobTiming', combinedJobTiming);
-      } else if (key === 'assignedHR') {
-        form.append('assignedHR', JSON.stringify(Array.isArray(value) ? value : []));
-      } else if (value !== null && value !== undefined && value !== '') {
-        form.append(key, value);
-      }
-    });
-
-    // Always send companyId explicitly
-    if (formData.companyId) form.set('companyId', formData.companyId);
-
-    // Branch fields
-    if (formData.branchId)   form.set('branchId',   formData.branchId);
-    if (formData.branchName) form.set('branchName', formData.branchName);
-
-    // File fields
-    if (formData.descriptionFile instanceof File) form.append('descriptionFile', formData.descriptionFile);
-    if (formData.agreementSigned instanceof File)  form.append('agreementSigned',  formData.agreementSigned);
-    if (formData.gstUpload instanceof File)        form.append('gstUpload',        formData.gstUpload);
-
-    if (editMode) {
-      await updateSale(selectedId, form, true);
-      setSuccessMessage('Update Successful!');
-    } else {
-      await createSale(form, true);
-      setSuccessMessage('Create Successful!');
+    // If 'none' is selected in the array, clear all TL assignments
+    if (Array.isArray(value) && value.includes('none')) {
+      setFormData(prev => ({
+        ...prev,
+        assignedTL: []
+      }));
+      return;
     }
 
-    setFormData(emptyFormData);
-    setSelectedBranch(null);
-    getSales();
-    setTimeout(() => { setOpen(false); setSuccessMessage(''); setSalaryMonthly(''); setJobTimingStart(''); setJobTimingEnd(''); }, 1500);
-  } catch (error) {
-    console.error('Error saving sale:', error);
-    toast.error('Failed to save job opening');
-  } finally {
-    setLoading(false);
-  }
-};
+    // If it's an array, filter out 'none' and any falsy values
+    const newValue = Array.isArray(value)
+      ? value.filter(v => v && v !== 'none')
+      : [value].filter(v => v && v !== 'none');
+
+    setFormData(prev => ({
+      ...prev,
+      assignedTL: newValue
+    }));
+  };
+
+
+
+
+
+
+  const emptyFormData = {
+    companyName: '', companyId: '', branchId: '', branchName: '',
+    jobTitle: '', jobLocation: '', numberOfRequirements: '', jobTiming: '',
+    education: '', gender: '', salary: '', experience: '',
+    requiredSkills: '', keyResponsibility: '', benefits: '', response: '',
+    descriptionFile: null, weekOff: '',
+    // legacy
+    industries: '', companyAddress: '', Area: '', contactName: '',
+    email: '', phoneNumber: '', websiteURL: '', remarks: '',
+    agreementSigned: null, gstUpload: null, assignedHR: [], assignedTL: [],
+  };
+
+  // Predefined experience options for the job opening form
+  const experienceOptions = [
+    'Fresher', '0-6 Months', '6 Months', '1 Year', '1 Year 3 Months',
+    '1 Year 6 Months', '2 Years', '2 Years 3 Months', '2 Years 6 Months',
+    '3 Years', '3-5 Years', '5 Years', '5-7 Years', '7-10 Years',
+    '10+ Years', '15+ Years',
+  ];
+
+  // Convert "9:00 AM" / "1:30 PM" → "09:00" / "13:30" for <input type="time">
+  const to24h = (timeStr) => {
+    if (!timeStr) return '';
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!match) return '';
+    let [, h, m, period] = match;
+    h = parseInt(h);
+    if (period) {
+      if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (period.toUpperCase() === 'AM' && h === 12) h = 0;
+    }
+    return `${String(h).padStart(2, '0')}:${m}`;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Validate required fields
+    const newErrors = {
+      companyName: !formData.companyName?.trim(),
+      jobTitle: !formData.jobTitle?.trim(),
+      jobLocation: !formData.jobLocation?.trim(),
+      numberOfRequirements: !formData.numberOfRequirements,
+      experience: !formData.experience?.trim(),
+      education: !formData.education?.trim(),
+      requiredSkills: !formData.requiredSkills?.trim(),
+    };
+    setErrors(newErrors);
+    if (Object.values(newErrors).some(Boolean)) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setLoading(true);
+    setSuccessMessage('');
+
+    try {
+      const form = new FormData();
+
+      // Convert monthly salary to annual LPA if user entered a monthly amount
+      const salaryToStore = salaryMonthly
+        ? `${((Number(salaryMonthly) * 12) / 100000).toFixed(2)} LPA`
+        : formData.salary;
+
+      // Combine jobTimingStart + jobTimingEnd into jobTiming string
+      const combinedJobTiming = jobTimingStart && jobTimingEnd
+        ? `${jobTimingStart} - ${jobTimingEnd}`
+        : jobTimingStart || jobTimingEnd || formData.jobTiming || '';
+
+      // Append all scalar fields
+      Object.entries(formData).forEach(([key, value]) => {
+        if (['descriptionFile', 'agreementSigned', 'gstUpload', 'createdBy'].includes(key)) return;
+        if (key === 'salary') {
+          if (salaryToStore) form.append('salary', salaryToStore);
+        } else if (key === 'jobTiming') {
+          if (combinedJobTiming) form.append('jobTiming', combinedJobTiming);
+        } else if (key === 'assignedHR') {
+          form.append('assignedHR', JSON.stringify(Array.isArray(value) ? value : []));
+        } else if (key === 'assignedTL') {
+          form.append('assignedTL', JSON.stringify(Array.isArray(value) ? value : []));
+        } else if (value !== null && value !== undefined && value !== '') {
+          form.append(key, value);
+        }
+      });
+
+      // Always send companyId explicitly
+      if (formData.companyId) form.set('companyId', formData.companyId);
+
+      // Branch fields
+      if (formData.branchId) form.set('branchId', formData.branchId);
+      if (formData.branchName) form.set('branchName', formData.branchName);
+
+      // File fields
+      if (formData.descriptionFile instanceof File) form.append('descriptionFile', formData.descriptionFile);
+      if (formData.agreementSigned instanceof File) form.append('agreementSigned', formData.agreementSigned);
+      if (formData.gstUpload instanceof File) form.append('gstUpload', formData.gstUpload);
+
+      if (editMode) {
+        await updateSale(selectedId, form, true);
+        setSuccessMessage('Update Successful!');
+      } else {
+        await createSale(form, true);
+        setSuccessMessage('Create Successful!');
+      }
+
+      setFormData(emptyFormData);
+      setSelectedBranch(null);
+      getSales();
+      setTimeout(() => { setOpen(false); setSuccessMessage(''); setSalaryMonthly(''); setJobTimingStart(''); setJobTimingEnd(''); }, 1500);
+    } catch (error) {
+      console.error('Error saving sale:', error);
+      toast.error('Failed to save job opening');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
@@ -1172,27 +1233,52 @@ const handleSubmit = async (e) => {
       }
     }
 
+    let formattedAssignedTL = [];
+    if (sale.assignedTL) {
+      if (Array.isArray(sale.assignedTL)) {
+        formattedAssignedTL = sale.assignedTL.map(tl => typeof tl === 'object' ? tl._id || tl : tl).filter(Boolean);
+      } else if (typeof sale.assignedTL === 'object' && sale.assignedTL._id) {
+        formattedAssignedTL = [sale.assignedTL._id];
+      } else if (typeof sale.assignedTL === 'string') {
+        formattedAssignedTL = [sale.assignedTL];
+      }
+    }
+
+    // ── If the company from this old job doesn't exist in companyOptions (CompanyCreate),
+    //    inject a temporary entry so the Autocomplete can display it ──
+    if (sale.companyId && sale.companyName) {
+      const exists = companyOptions.some(c => c.companyId === sale.companyId);
+      if (!exists) {
+        setCompanyOptions(prev => [
+          ...prev,
+          { companyName: sale.companyName, companyId: sale.companyId, branches: [], _isLegacy: true },
+        ]);
+      }
+    }
+
     setFormData({
       ...emptyFormData,
       ...sale,
-      companyId:            sale.companyId            || '',
-      branchId:             sale.branchId             || '',
-      branchName:           sale.branchName           || '',
-      jobTitle:             sale.jobTitle             || '',
-      jobLocation:          sale.jobLocation          || '',
+      companyId: sale.companyId || '',
+      companyName: sale.companyName || '',
+      branchId: sale.branchId || '',
+      branchName: sale.branchName || '',
+      jobTitle: sale.jobTitle || '',
+      jobLocation: sale.jobLocation || '',
       numberOfRequirements: sale.numberOfRequirements || '',
-      jobTiming:            sale.jobTiming            || '',
-      education:            sale.education            || '',
-      gender:               sale.gender               || '',
-      salary:               sale.salary               || '',
-      experience:           sale.experience           || '',
-      requiredSkills:       sale.requiredSkills       || '',
-      keyResponsibility:    sale.keyResponsibility    || '',
-      benefits:             sale.benefits             || '',
-      response:             sale.response             || '',
-      descriptionFile:      null,   // file re-upload only if needed
-      weekOff:              sale.weekOff              || '',
-      assignedHR:           formattedAssignedHR,
+      jobTiming: sale.jobTiming || '',
+      education: sale.education || '',
+      gender: sale.gender || '',
+      salary: sale.salary || '',
+      experience: sale.experience || '',
+      requiredSkills: sale.requiredSkills || '',
+      keyResponsibility: sale.keyResponsibility || '',
+      benefits: sale.benefits || '',
+      response: sale.response || '',
+      descriptionFile: null,   // file re-upload only if needed
+      weekOff: sale.weekOff || '',
+      assignedHR: formattedAssignedHR,
+      assignedTL: formattedAssignedTL,
     });
 
     // Restore branch selection if branch exists
@@ -1220,6 +1306,17 @@ const handleSubmit = async (e) => {
     }
   };
 
+
+  const handleAddNew = () => {
+    setFormData(emptyFormData);
+    setSelectedBranch(null);
+    setEditMode(false);
+    setSelectedId(null);
+    setJobTimingStart('');
+    setJobTimingEnd('');
+    setSalaryMonthly('');
+    setOpen(true);
+  };
 
   const handleClose = () => {
     setFormData(emptyFormData);
@@ -1260,7 +1357,7 @@ const handleSubmit = async (e) => {
   //         'Content-Type': 'application/json'
   //       }
   //     });
-      
+
   //     console.log('API Response status:', response.status);
   //     if (!response.ok) {
   //       throw new Error(`HTTP error! status: ${response.status}`);
@@ -1336,11 +1433,11 @@ const handleSubmit = async (e) => {
   //     const worksheet = XLSX.utils.json_to_sheet(formattedData);
   //     const workbook = XLSX.utils.book_new();
   //     XLSX.utils.book_append_sheet(workbook, worksheet, 'JobData');
-      
+
   //     // Generate filename with current date
   //     const date = new Date().toISOString().split('T')[0];
   //     const filename = `JobOpeningsExport_${date}.xlsx`;
-      
+
   //     console.log('Exporting file:', filename);
   //     XLSX.writeFile(workbook, filename);
   //     console.log('Export completed successfully');
@@ -1353,14 +1450,14 @@ const handleSubmit = async (e) => {
   const handleExportData = async () => {
     console.log("Export button clicked ");
     let apiData = null;
-  
+
     try {
       const token = sessionStorage.getItem('token');
       if (!token) {
         alert('Authentication token not found. Please login again.');
         return;
       }
-  
+
       const response = await fetch(`${API_BASE_URL}/allType/export-data`, {
         method: 'GET',
         headers: {
@@ -1368,13 +1465,13 @@ const handleSubmit = async (e) => {
           'Content-Type': 'application/json'
         }
       });
-  
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       apiData = await response.json();
-  
+
       if (!Array.isArray(apiData) || apiData.length === 0) {
         throw new Error('No data received from server or invalid data format');
       }
@@ -1383,31 +1480,39 @@ const handleSubmit = async (e) => {
       alert(`Failed to export data: ${error.message}`);
       return;
     }
-  
+
     try {
       const sortedData = [...apiData].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  
+
       // Dynamically generate header and data using column definitions
       const exportableColumns = columns.filter(col =>
         !['actions', 'remove', 'descriptionFile', 'agreementSigned'].includes(col.field)
       );
-  
+
       const formattedData = sortedData.map(row => {
         const formattedRow = {};
-  
+
         exportableColumns.forEach(col => {
           const field = col.field;
           let value = row[field];
-  
+
           // Handle special formatting per column
           if (field === 'assignedHR') {
             value = Array.isArray(value)
               ? value.map(hr => typeof hr === 'object'
-                  ? `${hr.firstName || ''} ${hr.lastName || ''}`.trim()
-                  : hr).join(', ')
+                ? `${hr.firstName || ''} ${hr.lastName || ''}`.trim()
+                : hr).join(', ')
               : 'Not Assigned';
           }
-  
+
+          if (field === 'assignedTL') {
+            value = Array.isArray(value)
+              ? value.map(tl => typeof tl === 'object'
+                ? `${tl.firstName || ''} ${tl.lastName || ''}`.trim()
+                : tl).join(', ')
+              : 'Not Assigned';
+          }
+
           if (field === 'createdBy') {
             value = value
               ? typeof value === 'object'
@@ -1415,28 +1520,28 @@ const handleSubmit = async (e) => {
                 : String(value)
               : 'N/A';
           }
-  
+
           if (field === 'createdAt') {
             value = value ? new Date(value).toLocaleString() : 'N/A';
           }
-  
+
           formattedRow[col.headerName] = value ?? '';
         });
-  
+
         return formattedRow;
       });
-  
+
       if (formattedData.length === 0) {
         throw new Error('No data available to export');
       }
-  
+
       const worksheet = XLSX.utils.json_to_sheet(formattedData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'JobData');
-  
+
       const date = new Date().toISOString().split('T')[0];
       const filename = `JobOpeningsExport_${date}.xlsx`;
-  
+
       XLSX.writeFile(workbook, filename);
       console.log('Export completed successfully');
     } catch (error) {
@@ -1468,17 +1573,17 @@ const handleSubmit = async (e) => {
     'remarks',
     // excluded: assignedHR, agreementSigned, descriptionFile, companyId, gstUpload
   ];
-  
+
 
   const handleDownloadJobTemplate = () => {
     const worksheetData = [jobTemplateHeaders]; // Header row only
     const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'JobTemplate');
-  
+
     XLSX.writeFile(workbook, 'job_import_template.xlsx');
   };
-  
+
 
   const columns = [
 
@@ -1537,7 +1642,7 @@ const handleSubmit = async (e) => {
       },
     },
 
-    
+
     // ── Column 3: Created At ──────────────────────────────────────────────────
     {
       field: 'createdAt',
@@ -1589,7 +1694,36 @@ const handleSubmit = async (e) => {
         );
       },
     },
-    
+    {
+      field: 'assignedTL',
+      headerName: 'Assigned TL',
+      width: 120,
+      renderCell: (params) => {
+        const assignedTLs = params.row.assignedTL || [];
+        if (!Array.isArray(assignedTLs) || assignedTLs.length === 0) {
+          return <span style={{ color: '#bbb', fontSize: '0.78rem' }}>Not Assigned</span>;
+        }
+        const tlNames = assignedTLs
+          .map(tl => {
+            if (typeof tl === 'string') {
+              const tlUser = tlUsers.find(t => t._id === tl);
+              return tlUser ? `${tlUser.firstName || ''} ${tlUser.lastName || ''}`.trim() : null;
+            }
+            return tl ? `${tl.firstName || ''} ${tl.lastName || ''}`.trim() : null;
+          })
+          .filter(Boolean);
+        return tlNames.length > 0 ? (
+          <Tooltip title={tlNames.join(', ')} arrow>
+            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>
+              {tlNames.join(', ')}
+            </span>
+          </Tooltip>
+        ) : (
+          <span style={{ color: '#bbb', fontSize: '0.78rem' }}>Not Assigned</span>
+        );
+      },
+    },
+
     // ── Column 5: Company / Branch ────────────────────────────────────────────
     {
       field: 'companyName',
@@ -1649,12 +1783,12 @@ const handleSubmit = async (e) => {
     {
       field: 'numberOfRequirements',
       headerName: 'Req.',
-      width: 60,
+      width: 80,
       renderCell: (params) => {
-        const total     = Number(params.value) || 0;
+        const total = Number(params.value) || 0;
         const fulfilled = Number(params.row.fulfilledCount) || 0;
-        const isFull    = total > 0 && fulfilled >= total;
-        const status    = params.row.jobStatus || 'Open';
+        const isFull = total > 0 && fulfilled >= total;
+        const status = params.row.jobStatus || 'Open';
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%', flexWrap: 'nowrap' }}>
             <Tooltip title={`${fulfilled} fulfilled / ${total} required`} arrow>
@@ -1664,8 +1798,8 @@ const handleSubmit = async (e) => {
                 sx={{
                   fontWeight: 700, fontSize: '0.68rem', flexShrink: 0,
                   bgcolor: isFull ? '#d1fae5' : '#e8eaf6',
-                  color:   isFull ? '#065f46' : '#3f51b5',
-                  border:  isFull ? '1px solid #6ee7b7' : '1px solid #c5cae9',
+                  color: isFull ? '#065f46' : '#3f51b5',
+                  border: isFull ? '1px solid #6ee7b7' : '1px solid #c5cae9',
                 }}
               />
             </Tooltip>
@@ -1692,7 +1826,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 8: Gender ──────────────────────────────────────────────────────
-    { field: 'gender', headerName: 'Gender', width: 80,
+    {
+      field: 'gender', headerName: 'Gender', width: 80,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1701,7 +1836,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 9: Salary ──────────────────────────────────────────────────────
-    { field: 'salary', headerName: 'Salary', width: 85,
+    {
+      field: 'salary', headerName: 'Salary', width: 85,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1710,7 +1846,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 10: Job Timing ─────────────────────────────────────────────────
-    { field: 'jobTiming', headerName: 'Job Timing', width: 110,
+    {
+      field: 'jobTiming', headerName: 'Job Timing', width: 110,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1719,7 +1856,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 11: Education ──────────────────────────────────────────────────
-    { field: 'education', headerName: 'Education', width: 110,
+    {
+      field: 'education', headerName: 'Education', width: 110,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1728,7 +1866,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 12: Experience ─────────────────────────────────────────────────
-    { field: 'experience', headerName: 'Exp.', width: 75,
+    {
+      field: 'experience', headerName: 'Exp.', width: 75,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1737,7 +1876,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 13: Week Off ───────────────────────────────────────────────────
-    { field: 'weekOff', headerName: 'Week Off', width: 80,
+    {
+      field: 'weekOff', headerName: 'Week Off', width: 80,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1746,7 +1886,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 14: Job Location ───────────────────────────────────────────────
-    { field: 'jobLocation', headerName: 'Location', width: 110,
+    {
+      field: 'jobLocation', headerName: 'Location', width: 110,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1764,10 +1905,10 @@ const handleSubmit = async (e) => {
         if (!createdAt) return <span style={{ color: '#bbb' }}>—</span>;
         const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
         let bg, color, label;
-        if (days < 30)      { bg = '#dcfce7'; color = '#15803d'; label = `${days}d`; }
+        if (days < 30) { bg = '#dcfce7'; color = '#15803d'; label = `${days}d`; }
         else if (days < 60) { bg = '#fef9c3'; color = '#a16207'; label = `${days}d ⚠️`; }
         else if (days < 90) { bg = '#ffedd5'; color = '#c2410c'; label = `${days}d 🔴`; }
-        else                { bg = '#fee2e2'; color = '#991b1b'; label = `${days}d 🚨`; }
+        else { bg = '#fee2e2'; color = '#991b1b'; label = `${days}d 🚨`; }
         return (
           <Tooltip title={`Job open for ${days} day${days !== 1 ? 's' : ''}`} arrow>
             <Chip label={label} size="small" sx={{ bgcolor: bg, color, fontWeight: 700, fontSize: '0.68rem', border: `1px solid ${bg}` }} />
@@ -1777,7 +1918,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 16: Response ───────────────────────────────────────────────────
-    { field: 'response', headerName: 'Response', width: 110,
+    {
+      field: 'response', headerName: 'Response', width: 110,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1786,7 +1928,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 17: Benefits ───────────────────────────────────────────────────
-    { field: 'benefits', headerName: 'Benefits', width: 110,
+    {
+      field: 'benefits', headerName: 'Benefits', width: 110,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1795,7 +1938,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 18: Key Responsibility ─────────────────────────────────────────
-    { field: 'keyResponsibility', headerName: 'Key Resp.', width: 130,
+    {
+      field: 'keyResponsibility', headerName: 'Key Resp.', width: 130,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1804,7 +1948,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 19: Required Skills ────────────────────────────────────────────
-    { field: 'requiredSkills', headerName: 'Skills', width: 130,
+    {
+      field: 'requiredSkills', headerName: 'Skills', width: 130,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1813,7 +1958,8 @@ const handleSubmit = async (e) => {
     },
 
     // ── Column 20: Remarks ────────────────────────────────────────────────────
-    { field: 'remarks', headerName: 'Remarks', width: 120,
+    {
+      field: 'remarks', headerName: 'Remarks', width: 120,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1939,12 +2085,12 @@ const handleSubmit = async (e) => {
               </Box>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {[
-                  { label: 'All',        count: sales.length,   color: '#fff',     bg: 'rgba(255,255,255,0.18)', key: 'all'        },
-                  { label: 'Assigned',   count: assignedCount,  color: '#d1fae5',  bg: 'rgba(16,185,129,0.22)', key: 'assigned'   },
-                  { label: 'Unassigned', count: unassignedCount,color: '#fef3c7',  bg: 'rgba(245,158,11,0.22)', key: 'unassigned' },
-                  { label: 'Open',       count: openCount,      color: '#bfdbfe',  bg: 'rgba(59,130,246,0.22)', key: 'open'       },
-                  { label: 'Closed',     count: closedCount,    color: '#fecaca',  bg: 'rgba(239,68,68,0.22)',  key: 'closed'     },
-                  { label: 'On Hold',    count: onHoldCount,    color: '#fed7aa',  bg: 'rgba(249,115,22,0.22)', key: 'onhold'     },
+                  { label: 'All', count: sales.length, color: '#fff', bg: 'rgba(255,255,255,0.18)', key: 'all' },
+                  { label: 'Assigned', count: assignedCount, color: '#d1fae5', bg: 'rgba(16,185,129,0.22)', key: 'assigned' },
+                  { label: 'Unassigned', count: unassignedCount, color: '#fef3c7', bg: 'rgba(245,158,11,0.22)', key: 'unassigned' },
+                  { label: 'Open', count: openCount, color: '#bfdbfe', bg: 'rgba(59,130,246,0.22)', key: 'open' },
+                  { label: 'Closed', count: closedCount, color: '#fecaca', bg: 'rgba(239,68,68,0.22)', key: 'closed' },
+                  { label: 'On Hold', count: onHoldCount, color: '#fed7aa', bg: 'rgba(249,115,22,0.22)', key: 'onhold' },
                 ].map(({ label, count, color, bg, key }) => {
                   const active = assignmentFilter === key;
                   return (
@@ -1965,7 +2111,7 @@ const handleSubmit = async (e) => {
 
             {/* ── Action buttons row ── */}
             <Box sx={{ px: 3, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
-              <Button variant="contained" onClick={() => setOpen(true)} size="small"
+              <Button variant="contained" onClick={handleAddNew} size="small"
                 sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)', color: '#fff', boxShadow: '0 2px 8px rgba(63,81,181,0.3)', '&:hover': { background: 'linear-gradient(135deg, #303f9f, #3f51b5)' }, px: 2, height: 34, whiteSpace: 'nowrap' }}
               >+ Post New Opening</Button>
               <Button variant="contained" onClick={handleExportData} size="small"
@@ -2294,101 +2440,101 @@ const handleSubmit = async (e) => {
                 '& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 4 },
                 '& .MuiToolbar-root': { color: '#3f51b5' },
                 // ── Aging row highlights ──
-                '& .age-caution':  { bgcolor: '#fefce8 !important', '&:hover': { bgcolor: '#fef9c3 !important' } },
-                '& .age-warning':  { bgcolor: '#fff7ed !important', '&:hover': { bgcolor: '#ffedd5 !important' } },
+                '& .age-caution': { bgcolor: '#fefce8 !important', '&:hover': { bgcolor: '#fef9c3 !important' } },
+                '& .age-warning': { bgcolor: '#fff7ed !important', '&:hover': { bgcolor: '#ffedd5 !important' } },
                 '& .age-critical': { bgcolor: '#fff1f2 !important', '&:hover': { bgcolor: '#fee2e2 !important' } },
               }}
             />
           </Box>
 
           <Modal open={openJobModal} onClose={() => setOpenJobModal(false)}>
-  <Box sx={{
-    bgcolor: '#fff', boxShadow: '0 8px 40px rgba(63,81,181,0.2)',
-    borderRadius: '16px', maxWidth: '95vw', maxHeight: '90vh',
-    mx: 'auto', mt: 6, p: { xs: 2, sm: 3 },
-    display: 'flex', flexDirection: 'column', overflow: 'hidden',
-  }}>
-    {/* Modal Header */}
-    <Box sx={{
-      background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
-      borderRadius: '12px', p: 2.5, mb: 2.5,
-    }}>
-      <Typography variant="h6" fontWeight={700} color="#fff">
-        {jobDetails?.job?.companyName}
-      </Typography>
-      <Typography variant="body2" color="rgba(255,255,255,0.8)" mt={0.3}>
-        {jobDetails?.job?.jobTitle}
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mt: 1.5, flexWrap: 'wrap' }}>
-        <Chip size="small" label={`HR: ${jobDetails?.job?.assignedHR?.length > 0 ? jobDetails.job.assignedHR.map(hr => `${hr.firstName} ${hr.lastName}`).join(', ') : 'Not Assigned'}`}
-          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
-        <Chip size="small" label={`Total Candidates: ${jobDetails?.candidates?.length || 0}`}
-          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
-      </Box>
-    </Box>
-
-    {/* Search */}
-    <Box sx={{ mb: 2, width: 300 }}>
-      <TextField fullWidth variant="outlined" size="small" placeholder="Search candidates..."
-        value={candidateFilter} onChange={(e) => setCandidateFilter(e.target.value)}
-        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: '#3f51b5' }, '&.Mui-focused fieldset': { borderColor: '#3f51b5' } } }}
-        InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: '#9fa8da' }} /></InputAdornment> }}
-      />
-    </Box>
-
-    {/* Candidate Cards */}
-    <Box sx={{ overflowY: 'auto', flex: 1 }}>
-      <Grid container spacing={2} sx={{ p: 0.5 }}>
-        {jobDetails?.candidates?.filter(c => c.candidateName?.toLowerCase().includes(candidateFilter.toLowerCase())).map((c) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={c._id}>
-            <Card sx={{
-              height: '100%', display: 'flex', flexDirection: 'column',
-              border: '1px solid #e8eaf6', borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(63,81,181,0.08)',
-              transition: 'all 0.2s', '&:hover': { boxShadow: '0 6px 20px rgba(63,81,181,0.18)', transform: 'translateY(-2px)' },
+            <Box sx={{
+              bgcolor: '#fff', boxShadow: '0 8px 40px rgba(63,81,181,0.2)',
+              borderRadius: '16px', maxWidth: '95vw', maxHeight: '90vh',
+              mx: 'auto', mt: 6, p: { xs: 2, sm: 3 },
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
             }}>
-              <Box sx={{ background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', p: '12px 16px', borderRadius: '12px 12px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle2" fontWeight={700} color="#3f51b5" noWrap sx={{ maxWidth: '65%' }}>
-                  {c.candidateName || 'N/A'}
+              {/* Modal Header */}
+              <Box sx={{
+                background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
+                borderRadius: '12px', p: 2.5, mb: 2.5,
+              }}>
+                <Typography variant="h6" fontWeight={700} color="#fff">
+                  {jobDetails?.job?.companyName}
                 </Typography>
-                <Chip label={c.lineupStatus || 'N/A'} size="small"
-                  sx={{ bgcolor: c.lineupStatus === 'Selected' ? '#d1fae5' : '#f3f4fd', color: c.lineupStatus === 'Selected' ? '#065f46' : '#3f51b5', fontWeight: 600, fontSize: '0.7rem' }} />
+                <Typography variant="body2" color="rgba(255,255,255,0.8)" mt={0.3}>
+                  {jobDetails?.job?.jobTitle}
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, mt: 1.5, flexWrap: 'wrap' }}>
+                  <Chip size="small" label={`HR: ${jobDetails?.job?.assignedHR?.length > 0 ? jobDetails.job.assignedHR.map(hr => `${hr.firstName} ${hr.lastName}`).join(', ') : 'Not Assigned'}`}
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
+                  <Chip size="small" label={`Total Candidates: ${jobDetails?.candidates?.length || 0}`}
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 600, fontSize: '0.75rem' }} />
+                </Box>
               </Box>
-              <CardContent sx={{ p: '12px 16px', flex: 1 }}>
-                <Grid container spacing={0.5}>
-                  <DetailItem label="Position" value={c.positionName} />
-                  <DetailItem label="Experience" value={c.experience || 'N/A'} />
-                  <DetailItem label="Location" value={c.currentLocation} />
-                  <DetailItem label="Current CTC" value={c.currentCTC} />
-                  <DetailItem label="Expected CTC" value={c.expectedCTC} />
-                  <DetailItem label="Notice Period" value={c.noticePeriod} />
-                  <DetailItem label="Company" value={c.currentCompany} />
-                  <DetailItem label="Email" value={c.candidateEmail} />
-                  <DetailItem label="Mobile" value={c.candidatePhone} />
-                  {c.interviewDate && <DetailItem label="Interview" value={new Date(c.interviewDate).toLocaleDateString()} />}
-                  <Grid item xs={12} sx={{ mt: 1 }}>
-                    <Button fullWidth variant="outlined" size="small"
-                      onClick={() => c.resumeLink && c.resumeLink !== 'No Resume' && window.open(c.resumeLink, '_blank')}
-                      disabled={!c.resumeLink || c.resumeLink === 'No Resume'}
-                      sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: '#c5cae9', color: '#3f51b5', '&:hover': { bgcolor: '#e8eaf6', borderColor: '#3f51b5' } }}
-                    >
-                      View Resume
-                    </Button>
-                  </Grid>
+
+              {/* Search */}
+              <Box sx={{ mb: 2, width: 300 }}>
+                <TextField fullWidth variant="outlined" size="small" placeholder="Search candidates..."
+                  value={candidateFilter} onChange={(e) => setCandidateFilter(e.target.value)}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: '#3f51b5' }, '&.Mui-focused fieldset': { borderColor: '#3f51b5' } } }}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: '#9fa8da' }} /></InputAdornment> }}
+                />
+              </Box>
+
+              {/* Candidate Cards */}
+              <Box sx={{ overflowY: 'auto', flex: 1 }}>
+                <Grid container spacing={2} sx={{ p: 0.5 }}>
+                  {jobDetails?.candidates?.filter(c => c.candidateName?.toLowerCase().includes(candidateFilter.toLowerCase())).map((c) => (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={c._id}>
+                      <Card sx={{
+                        height: '100%', display: 'flex', flexDirection: 'column',
+                        border: '1px solid #e8eaf6', borderRadius: '12px',
+                        boxShadow: '0 2px 8px rgba(63,81,181,0.08)',
+                        transition: 'all 0.2s', '&:hover': { boxShadow: '0 6px 20px rgba(63,81,181,0.18)', transform: 'translateY(-2px)' },
+                      }}>
+                        <Box sx={{ background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', p: '12px 16px', borderRadius: '12px 12px 0 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="subtitle2" fontWeight={700} color="#3f51b5" noWrap sx={{ maxWidth: '65%' }}>
+                            {c.candidateName || 'N/A'}
+                          </Typography>
+                          <Chip label={c.lineupStatus || 'N/A'} size="small"
+                            sx={{ bgcolor: c.lineupStatus === 'Selected' ? '#d1fae5' : '#f3f4fd', color: c.lineupStatus === 'Selected' ? '#065f46' : '#3f51b5', fontWeight: 600, fontSize: '0.7rem' }} />
+                        </Box>
+                        <CardContent sx={{ p: '12px 16px', flex: 1 }}>
+                          <Grid container spacing={0.5}>
+                            <DetailItem label="Position" value={c.positionName} />
+                            <DetailItem label="Experience" value={c.experience || 'N/A'} />
+                            <DetailItem label="Location" value={c.currentLocation} />
+                            <DetailItem label="Current CTC" value={c.currentCTC} />
+                            <DetailItem label="Expected CTC" value={c.expectedCTC} />
+                            <DetailItem label="Notice Period" value={c.noticePeriod} />
+                            <DetailItem label="Company" value={c.currentCompany} />
+                            <DetailItem label="Email" value={c.candidateEmail} />
+                            <DetailItem label="Mobile" value={c.candidatePhone} />
+                            {c.interviewDate && <DetailItem label="Interview" value={new Date(c.interviewDate).toLocaleDateString()} />}
+                            <Grid item xs={12} sx={{ mt: 1 }}>
+                              <Button fullWidth variant="outlined" size="small"
+                                onClick={() => c.resumeLink && c.resumeLink !== 'No Resume' && window.open(c.resumeLink, '_blank')}
+                                disabled={!c.resumeLink || c.resumeLink === 'No Resume'}
+                                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: '#c5cae9', color: '#3f51b5', '&:hover': { bgcolor: '#e8eaf6', borderColor: '#3f51b5' } }}
+                              >
+                                View Resume
+                              </Button>
+                            </Grid>
+                          </Grid>
+                        </CardContent>
+                        <Box sx={{ px: 2, py: 1, bgcolor: '#f5f6ff', borderTop: '1px solid #e8eaf6', borderRadius: '0 0 12px 12px' }}>
+                          <Typography variant="caption" color="#7986cb">
+                            Added: {c.createdAt ? new Date(c.createdAt).toLocaleString() : 'N/A'}
+                          </Typography>
+                        </Box>
+                      </Card>
+                    </Grid>
+                  ))}
                 </Grid>
-              </CardContent>
-              <Box sx={{ px: 2, py: 1, bgcolor: '#f5f6ff', borderTop: '1px solid #e8eaf6', borderRadius: '0 0 12px 12px' }}>
-                <Typography variant="caption" color="#7986cb">
-                  Added: {c.createdAt ? new Date(c.createdAt).toLocaleString() : 'N/A'}
-                </Typography>
               </Box>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-    </Box>
-  </Box>
-</Modal>
+            </Box>
+          </Modal>
 
 
 
@@ -2407,7 +2553,8 @@ const handleSubmit = async (e) => {
                 </Typography>
               </Box>
 
-              <Grid container spacing={3} sx={{ flexGrow: 1, overflowY: 'auto', p: 3,
+              <Grid container spacing={3} sx={{
+                flexGrow: 1, overflowY: 'auto', p: 3,
                 '&::-webkit-scrollbar': { width: 6 },
                 '&::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 3 },
               }}>
@@ -2420,14 +2567,14 @@ const handleSubmit = async (e) => {
                     getOptionLabel={(option) =>
                       option ? `${option.companyName}${option.companyId ? ` (ID: ${option.companyId})` : ''}` : ''
                     }
-                    value={companyOptions.find(c => c.companyId === formData.companyId) || null}
+                    value={companyOptions.find(c => c.companyId === formData.companyId) || (formData.companyName ? { companyName: formData.companyName, companyId: formData.companyId } : null)}
                     onChange={(e, value) => {
                       if (value) {
                         setInputText(value.companyName);
                         setFormData(prev => ({
                           ...prev,
                           companyName: value.companyName,
-                          companyId:   value.companyId,
+                          companyId: value.companyId,
                         }));
                         setSelectedBranch(null);
                         if (errors.companyName) setErrors(p => ({ ...p, companyName: false }));
@@ -2482,8 +2629,8 @@ const handleSubmit = async (e) => {
                             label="Select Branch"
                             helperText={
                               !formData.companyId ? 'Select a company first'
-                              : !hasBranches ? 'No branches for this company'
-                              : 'Optional — select a branch'
+                                : !hasBranches ? 'No branches for this company'
+                                  : 'Optional — select a branch'
                             }
                             sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: !hasBranches ? '#f5f5f5' : undefined } }}
                           />
@@ -2548,7 +2695,7 @@ const handleSubmit = async (e) => {
                           <TextField
                             label="Start Time"
                             type="time"
-                            value={jobTimingStart ? (() => { const [h,m] = jobTimingStart.split(':'); const hh = parseInt(h); return `${String(hh > 12 ? hh - 12 : hh || 12).padStart(2,'0')}:${m}`; })() : ''}
+                            value={to24h(jobTimingStart)}
                             onChange={(e) => {
                               const val = e.target.value; // "HH:MM" 24h
                               if (!val) { setJobTimingStart(''); return; }
@@ -2567,7 +2714,7 @@ const handleSubmit = async (e) => {
                           <TextField
                             label="End Time"
                             type="time"
-                            value={jobTimingEnd ? (() => { const [h,m] = jobTimingEnd.split(':'); const hh = parseInt(h); return `${String(hh > 12 ? hh - 12 : hh || 12).padStart(2,'0')}:${m}`; })() : ''}
+                            value={to24h(jobTimingEnd)}
                             onChange={(e) => {
                               const val = e.target.value;
                               if (!val) { setJobTimingEnd(''); return; }
@@ -2636,21 +2783,28 @@ const handleSubmit = async (e) => {
                           salaryMonthly
                             ? `= ₹${((Number(salaryMonthly) * 12) / 100000).toFixed(2)} LPA (Annual)`
                             : formData.salary
-                            ? `Current: ${formData.salary}`
-                            : 'Enter monthly amount in ₹'
+                              ? `Current: ${formData.salary}`
+                              : 'Enter monthly amount in ₹'
                         }
                       />
                     </Grid>
                     <Grid item xs={6}>
-                      <TextField
-                        label="Experience *"
-                        name="experience"
-                        value={formData.experience}
-                        onChange={(e) => { handleChange(e); if (errors.experience) setErrors(p => ({ ...p, experience: false })); }}
-                        fullWidth error={errors.experience}
-                        helperText={errors.experience ? 'Required' : ''}
-                        required
-                      />
+                      <FormControl fullWidth error={errors.experience} required>
+                        <InputLabel>Experience *</InputLabel>
+                        <Select
+                          value={formData.experience}
+                          label="Experience *"
+                          onChange={(e) => {
+                            setFormData(prev => ({ ...prev, experience: e.target.value }));
+                            if (errors.experience) setErrors(p => ({ ...p, experience: false }));
+                          }}
+                        >
+                          {experienceOptions.map(opt => (
+                            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                          ))}
+                        </Select>
+                        {errors.experience && <FormHelperText>Required</FormHelperText>}
+                      </FormControl>
                     </Grid>
                   </Grid>
 
@@ -2659,7 +2813,7 @@ const handleSubmit = async (e) => {
                 {/* Right Column */}
                 <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
- {/* Week Off */}
+                  {/* Week Off */}
                   <Autocomplete
                     freeSolo
                     options={[
@@ -2712,7 +2866,7 @@ const handleSubmit = async (e) => {
                   {/* Response */}
                   <TextField label="Response" name="response" value={formData.response} onChange={handleChange} fullWidth />
 
-                 
+
 
                   {/* Job Description PDF */}
                   <Box>
@@ -2755,44 +2909,85 @@ const handleSubmit = async (e) => {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff', gap: 2,
               }}>
-                <FormControl sx={{ minWidth: 300 }}>
-                  <InputLabel id="hr-select-label">Assign HR</InputLabel>
-                  <Select
-                    labelId="hr-select-label"
-                    name="assignedHR"
-                    value={formData.assignedHR || []}
-                    onChange={handleHRChange}
-                    label="Assign HR"
-                    multiple
-                    renderValue={(selected) => {
-                      if (!selected || selected.length === 0) return 'Not Assigned';
-                      return selected
-                        .map(id => {
-                          const hr = hrUsers.find(hr => hr._id === id);
-                          return hr ? `${hr.firstName} ${hr.lastName}` : '';
-                        })
-                        .filter(Boolean)
-                        .join(', ');
-                    }}
-                  >
-                    <MenuItem value="none">
-                      <Checkbox 
-                        checked={!formData.assignedHR || formData.assignedHR.length === 0} 
-                        indeterminate={false}
-                      />
-                      <ListItemText primary="Not Assigned" />
-                    </MenuItem>
-                    {hrUsers.map((hr) => (
-                      <MenuItem key={hr._id} value={hr._id}>
-                        <Checkbox 
-                          checked={formData.assignedHR?.includes(hr._id)} 
+                <Box sx={{ display: 'flex', gap: 2, flex: 1 }}>
+                  <FormControl sx={{ minWidth: 250 }}>
+                    <InputLabel id="hr-select-label">Assign HR</InputLabel>
+                    <Select
+                      labelId="hr-select-label"
+                      name="assignedHR"
+                      value={formData.assignedHR || []}
+                      onChange={handleHRChange}
+                      label="Assign HR"
+                      multiple
+                      renderValue={(selected) => {
+                        if (!selected || selected.length === 0) return 'Not Assigned';
+                        return selected
+                          .map(id => {
+                            const hr = hrUsers.find(hr => hr._id === id);
+                            return hr ? `${hr.firstName} ${hr.lastName}` : '';
+                          })
+                          .filter(Boolean)
+                          .join(', ');
+                      }}
+                    >
+                      <MenuItem value="none">
+                        <Checkbox
+                          checked={!formData.assignedHR || formData.assignedHR.length === 0}
                           indeterminate={false}
                         />
-                        <ListItemText primary={`${hr.firstName} ${hr.lastName}`} />
+                        <ListItemText primary="Not Assigned" />
                       </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                      {hrUsers.map((hr) => (
+                        <MenuItem key={hr._id} value={hr._id}>
+                          <Checkbox
+                            checked={formData.assignedHR?.includes(hr._id)}
+                            indeterminate={false}
+                          />
+                          <ListItemText primary={`${hr.firstName} ${hr.lastName}`} />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl sx={{ minWidth: 250 }}>
+                    <InputLabel id="tl-select-label">Assign TL</InputLabel>
+                    <Select
+                      labelId="tl-select-label"
+                      name="assignedTL"
+                      value={formData.assignedTL || []}
+                      onChange={handleTLChange}
+                      label="Assign TL"
+                      multiple
+                      renderValue={(selected) => {
+                        if (!selected || selected.length === 0) return 'Not Assigned';
+                        return selected
+                          .map(id => {
+                            const tl = tlUsers.find(tl => tl._id === id);
+                            return tl ? `${tl.firstName} ${tl.lastName}` : '';
+                          })
+                          .filter(Boolean)
+                          .join(', ');
+                      }}
+                    >
+                      <MenuItem value="none">
+                        <Checkbox
+                          checked={!formData.assignedTL || formData.assignedTL.length === 0}
+                          indeterminate={false}
+                        />
+                        <ListItemText primary="Not Assigned" />
+                      </MenuItem>
+                      {tlUsers.map((tl) => (
+                        <MenuItem key={tl._id} value={tl._id}>
+                          <Checkbox
+                            checked={formData.assignedTL?.includes(tl._id)}
+                            indeterminate={false}
+                          />
+                          <ListItemText primary={`${tl.firstName} ${tl.lastName}`} />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
 
                 {loading && <LinearProgress sx={{ my: 2 }} />}
 
@@ -2876,12 +3071,12 @@ const handleSubmit = async (e) => {
                   {normalizedCandidates.filter(c => {
                     const nm = (v) => String(v || '').toLowerCase();
                     return (
-                      (!mcFilterName           || nm(c.name).includes(nm(mcFilterName))) &&
-                      (!mcFilterExperience     || nm(c.experience).includes(nm(mcFilterExperience))) &&
-                      (!mcFilterLocation       || nm(c.currentLocation).includes(nm(mcFilterLocation))) &&
-                      (!mcFilterPosition       || nm(c.positionName).includes(nm(mcFilterPosition))) &&
-                      (!mcFilterExpectedCTC    || nm(c.expectedCTC).includes(nm(mcFilterExpectedCTC))) &&
-                      (!mcFilterNoticePeriod   || nm(c.noticePeriod).includes(nm(mcFilterNoticePeriod))) &&
+                      (!mcFilterName || nm(c.name).includes(nm(mcFilterName))) &&
+                      (!mcFilterExperience || nm(c.experience).includes(nm(mcFilterExperience))) &&
+                      (!mcFilterLocation || nm(c.currentLocation).includes(nm(mcFilterLocation))) &&
+                      (!mcFilterPosition || nm(c.positionName).includes(nm(mcFilterPosition))) &&
+                      (!mcFilterExpectedCTC || nm(c.expectedCTC).includes(nm(mcFilterExpectedCTC))) &&
+                      (!mcFilterNoticePeriod || nm(c.noticePeriod).includes(nm(mcFilterNoticePeriod))) &&
                       (!mcFilterCurrentCompany || nm(c.currentCompany).includes(nm(mcFilterCurrentCompany)))
                     );
                   }).length} of {normalizedCandidates.length} candidates
@@ -2945,12 +3140,12 @@ const handleSubmit = async (e) => {
                   rows={normalizedCandidates.filter(c => {
                     const nm = (v) => String(v || '').toLowerCase();
                     return (
-                      (!mcFilterName           || nm(c.name).includes(nm(mcFilterName))) &&
-                      (!mcFilterExperience     || nm(c.experience).includes(nm(mcFilterExperience))) &&
-                      (!mcFilterLocation       || nm(c.currentLocation).includes(nm(mcFilterLocation))) &&
-                      (!mcFilterPosition       || nm(c.positionName).includes(nm(mcFilterPosition))) &&
-                      (!mcFilterExpectedCTC    || nm(c.expectedCTC).includes(nm(mcFilterExpectedCTC))) &&
-                      (!mcFilterNoticePeriod   || nm(c.noticePeriod).includes(nm(mcFilterNoticePeriod))) &&
+                      (!mcFilterName || nm(c.name).includes(nm(mcFilterName))) &&
+                      (!mcFilterExperience || nm(c.experience).includes(nm(mcFilterExperience))) &&
+                      (!mcFilterLocation || nm(c.currentLocation).includes(nm(mcFilterLocation))) &&
+                      (!mcFilterPosition || nm(c.positionName).includes(nm(mcFilterPosition))) &&
+                      (!mcFilterExpectedCTC || nm(c.expectedCTC).includes(nm(mcFilterExpectedCTC))) &&
+                      (!mcFilterNoticePeriod || nm(c.noticePeriod).includes(nm(mcFilterNoticePeriod))) &&
                       (!mcFilterCurrentCompany || nm(c.currentCompany).includes(nm(mcFilterCurrentCompany)))
                     );
                   })}
@@ -3129,20 +3324,20 @@ const handleSubmit = async (e) => {
           const isCompany = detailPanel.view === 'company';
 
           // ── Data to display ──────────────────────────────────────────────
-          const title      = isCompany ? row.companyName       : row.br_branchName;
-          const subtitle   = isCompany ? `Company ID: ${row.companyId}` : `Branch of ${row.companyName}`;
-          const address    = isCompany ? row.co_companyAddress  : row.br_branchAddress;
-          const area       = isCompany ? row.co_area            : row.br_area;
-          const city       = isCompany ? row.co_city            : row.br_city;
-          const contact    = isCompany ? row.co_contactPerson   : row.br_contactPerson;
-          const phone      = isCompany ? row.co_contactNumber2  : row.br_contactNumber;
-          const email      = isCompany ? row.co_email           : row.br_email;
-          const website    = isCompany ? row.co_websiteUrl      : null;
-          const gps        = isCompany ? row.co_gpsLocation     : row.br_gpsLocation;
-          const industries = isCompany ? row.co_industries      : null;
-          const gst        = isCompany ? row.co_gstUpload       : null;
-          const agreement  = isCompany ? row.co_agreementUpload : null;
-          const token      = isCompany ? row.co_tokenAmount     : null;
+          const title = isCompany ? row.companyName : row.br_branchName;
+          const subtitle = isCompany ? `Company ID: ${row.companyId}` : `Branch of ${row.companyName}`;
+          const address = isCompany ? row.co_companyAddress : row.br_branchAddress;
+          const area = isCompany ? row.co_area : row.br_area;
+          const city = isCompany ? row.co_city : row.br_city;
+          const contact = isCompany ? row.co_contactPerson : row.br_contactPerson;
+          const phone = isCompany ? row.co_contactNumber2 : row.br_contactNumber;
+          const email = isCompany ? row.co_email : row.br_email;
+          const website = isCompany ? row.co_websiteUrl : null;
+          const gps = isCompany ? row.co_gpsLocation : row.br_gpsLocation;
+          const industries = isCompany ? row.co_industries : null;
+          const gst = isCompany ? row.co_gstUpload : null;
+          const agreement = isCompany ? row.co_agreementUpload : null;
+          const token = isCompany ? row.co_tokenAmount : null;
 
           const DetailRow = ({ icon, label, value, link }) => {
             if (!value && value !== 0) return null;
@@ -3229,14 +3424,14 @@ const handleSubmit = async (e) => {
 
               {/* Body */}
               <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2 }}>
-                <DetailRow icon="🏭" label="Industries"   value={industries} />
-                <DetailRow icon="📍" label="Address"      value={address} />
-                <DetailRow icon="🏙️" label="City"         value={city} />
-                <DetailRow icon="📌" label="Area"         value={area} />
-                <DetailRow icon="👤" label="Contact"      value={contact} />
-                <DetailRow icon="📞" label="Phone"        value={phone} />
-                <DetailRow icon="✉️" label="Email"        value={email} />
-                <DetailRow icon="🌐" label="Website"      value={website} link={website} />
+                <DetailRow icon="🏭" label="Industries" value={industries} />
+                <DetailRow icon="📍" label="Address" value={address} />
+                <DetailRow icon="🏙️" label="City" value={city} />
+                <DetailRow icon="📌" label="Area" value={area} />
+                <DetailRow icon="👤" label="Contact" value={contact} />
+                <DetailRow icon="📞" label="Phone" value={phone} />
+                <DetailRow icon="✉️" label="Email" value={email} />
+                <DetailRow icon="🌐" label="Website" value={website} link={website} />
                 {gps && (
                   <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
                     <Typography sx={{ fontSize: '1rem', minWidth: 22, mt: 0.1 }}>🗺️</Typography>

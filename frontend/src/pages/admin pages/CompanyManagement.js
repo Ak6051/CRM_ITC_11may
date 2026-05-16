@@ -20,6 +20,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 import Navbar from '../../components/admin components/AdminNavbar';
 import Sidebar from '../../components/admin components/AdminSidebar';
@@ -28,11 +29,14 @@ import { API_BASE_URL } from '../../config/api.config';
 // ─── helpers ────────────────────────────────────────────────────────────────
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
-    borderRadius: '10px',
-    '& fieldset': { borderColor: '#e2e5f1' },
+    borderRadius: '12px',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    '& fieldset': { borderColor: '#e2e8f0', transition: 'all 0.2s' },
     '&:hover fieldset': { borderColor: '#3f51b5' },
-    '&.Mui-focused fieldset': { borderColor: '#3f51b5', borderWidth: '2px' },
+    '&.Mui-focused fieldset': { borderColor: '#3f51b5', borderWidth: '2px', boxShadow: '0 0 0 4px rgba(63, 81, 181, 0.1)' },
+    '& .MuiInputBase-input': { fontSize: '0.92rem', fontWeight: 500 },
   },
+  '& .MuiInputLabel-root': { fontSize: '0.88rem', fontWeight: 600, color: '#64748b' },
   '& .MuiInputLabel-root.Mui-focused': { color: '#3f51b5' },
 };
 
@@ -62,23 +66,23 @@ const emptyBranch = {
 const emptyBranchFiles = { gstUpload: null, agreementUpload: null, otherDocumentUpload: null, tokenUpload: null };
 
 // ─── validators ──────────────────────────────────────────────────────────────
-const isValidEmail  = (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
-const isValidUrl    = (v) => !v || /^(https?:\/\/|www\.)[^\s]+$/.test(v.trim());
-const isValidPhone  = (v) => !v || /^[0-9]{10}$/.test(v.trim());
+const isValidEmail = (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+const isValidUrl = (v) => !v || /^(https?:\/\/|www\.)[^\s]+$/.test(v.trim());
+const isValidPhone = (v) => !v || /^[0-9]{10}$/.test(v.trim());
 
 const validateCompanyForm = (form, companies, editCompanyId) => {
   const errs = {};
-  if (!form.companyName.trim())           errs.companyName    = 'Company name is required';
-  if (!isValidPhone(form.contactNumber))  errs.contactNumber  = 'Enter a valid 10-digit phone number';
+  if (!form.companyName.trim()) errs.companyName = 'Company name is required';
+  if (!isValidPhone(form.contactNumber)) errs.contactNumber = 'Enter a valid 10-digit phone number';
   if (!isValidPhone(form.contactNumber2)) errs.contactNumber2 = 'Enter a valid 10-digit phone number';
-  if (!isValidEmail(form.email))          errs.email          = 'Enter a valid email address';
-  if (!isValidUrl(form.websiteUrl))       errs.websiteUrl     = 'Enter a valid URL (start with http/https or www)';
-  if (!isValidUrl(form.gpsLocation))      errs.gpsLocation    = 'Enter a valid GPS link (start with http/https or www)';
+  if (!isValidEmail(form.email)) errs.email = 'Enter a valid email address';
+  if (!isValidUrl(form.websiteUrl)) errs.websiteUrl = 'Enter a valid URL (start with http/https or www)';
+  if (!isValidUrl(form.gpsLocation)) errs.gpsLocation = 'Enter a valid GPS link (start with http/https or www)';
   if (form.tokenAmount !== '' && isNaN(Number(form.tokenAmount)))
-                                          errs.tokenAmount    = 'Token amount must be a number';
+    errs.tokenAmount = 'Token amount must be a number';
   // Agreement upload required for new company (not edit)
   if (!editCompanyId && !form._agreementFile)
-                                          errs.agreementUpload = 'Signed agreement document is required';
+    errs.agreementUpload = 'Signed agreement document is required';
   // Duplicate company name check
   if (form.companyName.trim() && companies) {
     const dup = companies.find(c =>
@@ -92,11 +96,11 @@ const validateCompanyForm = (form, companies, editCompanyId) => {
 
 const validateBranchForm = (form) => {
   const errs = {};
-  if (!form.branchName.trim())            errs.branchName     = 'Branch name is required';
-  if (!isValidPhone(form.contactNumber))  errs.contactNumber  = 'Enter a valid 10-digit phone number';
+  if (!form.branchName.trim()) errs.branchName = 'Branch name is required';
+  if (!isValidPhone(form.contactNumber)) errs.contactNumber = 'Enter a valid 10-digit phone number';
   if (!isValidPhone(form.contactNumber2)) errs.contactNumber2 = 'Enter a valid 10-digit phone number';
-  if (!isValidEmail(form.email))          errs.email          = 'Enter a valid email address';
-  if (!isValidUrl(form.gpsLocation))      errs.gpsLocation    = 'Enter a valid GPS link (start with http/https or www)';
+  if (!isValidEmail(form.email)) errs.email = 'Enter a valid email address';
+  if (!isValidUrl(form.gpsLocation)) errs.gpsLocation = 'Enter a valid GPS link (start with http/https or www)';
   return errs;
 };
 
@@ -156,6 +160,7 @@ export default function CompanyManagement() {
   const [rejectDialog, setRejectDialog] = useState({ open: false, request: null });
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState('');
+  const [requestsDialogOpen, setRequestsDialogOpen] = useState(false);
 
   // ── branch state ───────────────────────────────────────────────────────────
   const [branchDialogOpen, setBranchDialogOpen] = useState(false);
@@ -170,6 +175,62 @@ export default function CompanyManagement() {
   const [branchViewCompany, setBranchViewCompany] = useState(null);
   const [branchDetailOpen, setBranchDetailOpen] = useState(false);
   const [branchDetailData, setBranchDetailData] = useState(null);
+
+  // ── Excel Import State ─────────────────────────────────────────────────────
+  const [selectedExcelFile, setSelectedExcelFile] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  // ── Filters State ──────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState({
+    companyName: '',
+    industries: '',
+    area: '',
+    city: '',
+    state: '',
+    country: '',
+    contactPerson: '',
+    contactNumber: '',
+  });
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      companyName: '',
+      industries: '',
+      area: '',
+      city: '',
+      state: '',
+      country: '',
+      contactPerson: '',
+      contactNumber: '',
+    });
+  };
+
+  const filteredCompanies = companies.filter(c => {
+    const match = (val, search) => !search || String(val || '').toLowerCase().includes(search.toLowerCase());
+    
+    // For phone numbers, we normalize by removing all non-digit characters for the comparison
+    const matchPhone = (val, search) => {
+      if (!search) return true;
+      const normalizedVal = String(val || '').replace(/\D/g, '');
+      const normalizedSearch = String(search || '').replace(/\D/g, '');
+      return normalizedVal.includes(normalizedSearch);
+    };
+
+    return match(c.companyName, filters.companyName) &&
+           match(c.industries, filters.industries) &&
+           match(c.area, filters.area) &&
+           match(c.city, filters.city) &&
+           match(c.state, filters.state) &&
+           match(c.country, filters.country) &&
+           match(c.contactPerson, filters.contactPerson) &&
+           matchPhone(c.contactNumber, filters.contactNumber);
+  });
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
@@ -222,30 +283,30 @@ export default function CompanyManagement() {
     setApproveRequest(request);
     setEditCompany(null); // treat as new company
     setForm({
-      companyName:    request.companyName    || '',
-      industries:     request.industries     || '',
+      companyName: request.companyName || '',
+      industries: request.industries || '',
       companyAddress: request.companyAddress || '',
-      area:           request.area           || '',
-      city:           request.city           || '',
-      state:          request.state          || '',
-      country:        request.country        || '',
-      pincode:        request.pincode        || '',
-      contactPerson:  request.contactPerson  || '',
+      area: request.area || '',
+      city: request.city || '',
+      state: request.state || '',
+      country: request.country || '',
+      pincode: request.pincode || '',
+      contactPerson: request.contactPerson || '',
       contactPersonDesignation: request.contactPersonDesignation || '',
-      contactNumber:  request.contactNumber  || '',
-      email:          request.email          || '',
+      contactNumber: request.contactNumber || '',
+      email: request.email || '',
       contactPerson2: request.contactPerson2 || '',
       contactPerson2Designation: request.contactPerson2Designation || '',
       contactNumber2: request.contactNumber2 || '',
-      email2:         request.email2         || '',
-      websiteUrl:     request.websiteUrl     || '',
-      gpsLocation:    request.gpsLocation    || '',
-      agreementStartDate: request.agreementStartDate ? request.agreementStartDate.slice(0,10) : '',
-      agreementEndDate:   request.agreementEndDate   ? request.agreementEndDate.slice(0,10)   : '',
-      invoiceNumber:  request.invoiceNumber  || '',
-      paymentMode:    request.paymentMode    || '',
-      paymentRemark:  request.paymentRemark  || '',
-      tokenAmount:    request.tokenAmount != null ? String(request.tokenAmount) : '',
+      email2: request.email2 || '',
+      websiteUrl: request.websiteUrl || '',
+      gpsLocation: request.gpsLocation || '',
+      agreementStartDate: request.agreementStartDate ? request.agreementStartDate.slice(0, 10) : '',
+      agreementEndDate: request.agreementEndDate ? request.agreementEndDate.slice(0, 10) : '',
+      invoiceNumber: request.invoiceNumber || '',
+      paymentMode: request.paymentMode || '',
+      paymentRemark: request.paymentRemark || '',
+      tokenAmount: request.tokenAmount != null ? String(request.tokenAmount) : '',
     });
     setFiles({ gstUpload: null, agreementUpload: null, tokenUpload: null, otherDocumentUpload: null });
     setFormErrors({});
@@ -281,30 +342,30 @@ export default function CompanyManagement() {
   const openEdit = (company) => {
     setEditCompany(company);
     setForm({
-      companyName:    company.companyName    || '',
-      industries:     company.industries     || '',
+      companyName: company.companyName || '',
+      industries: company.industries || '',
       companyAddress: company.companyAddress || '',
-      area:           company.area           || '',
-      city:           company.city           || '',
-      state:          company.state          || '',
-      country:        company.country        || '',
-      pincode:        company.pincode        || '',
-      contactPerson:  company.contactPerson  || '',
+      area: company.area || '',
+      city: company.city || '',
+      state: company.state || '',
+      country: company.country || '',
+      pincode: company.pincode || '',
+      contactPerson: company.contactPerson || '',
       contactPersonDesignation: company.contactPersonDesignation || '',
-      contactNumber:  company.contactNumber  || '',
-      email:          company.email          || '',
+      contactNumber: company.contactNumber || '',
+      email: company.email || '',
       contactPerson2: company.contactPerson2 || '',
       contactPerson2Designation: company.contactPerson2Designation || '',
       contactNumber2: company.contactNumber2 || '',
-      email2:         company.email2         || '',
-      websiteUrl:     company.websiteUrl     || '',
-      gpsLocation:    company.gpsLocation    || '',
-      agreementStartDate: company.agreementStartDate ? company.agreementStartDate.slice(0,10) : '',
-      agreementEndDate:   company.agreementEndDate   ? company.agreementEndDate.slice(0,10)   : '',
-      invoiceNumber:  company.invoiceNumber  || '',
-      paymentMode:    company.paymentMode    || '',
-      paymentRemark:  company.paymentRemark  || '',
-      tokenAmount:    company.tokenAmount != null ? String(company.tokenAmount) : '',
+      email2: company.email2 || '',
+      websiteUrl: company.websiteUrl || '',
+      gpsLocation: company.gpsLocation || '',
+      agreementStartDate: company.agreementStartDate ? company.agreementStartDate.slice(0, 10) : '',
+      agreementEndDate: company.agreementEndDate ? company.agreementEndDate.slice(0, 10) : '',
+      invoiceNumber: company.invoiceNumber || '',
+      paymentMode: company.paymentMode || '',
+      paymentRemark: company.paymentRemark || '',
+      tokenAmount: company.tokenAmount != null ? String(company.tokenAmount) : '',
     });
     setFiles(emptyFiles);
     setDialogOpen(true);
@@ -406,29 +467,29 @@ export default function CompanyManagement() {
     setBranchTargetCompany(company);
     setEditBranch(branch);
     setBranchForm({
-      branchName:    branch.branchName    || '',
+      branchName: branch.branchName || '',
       branchAddress: branch.branchAddress || '',
-      area:          branch.area          || '',
-      city:          branch.city          || '',
-      state:         branch.state         || '',
-      country:       branch.country       || '',
-      pincode:       branch.pincode       || '',
+      area: branch.area || '',
+      city: branch.city || '',
+      state: branch.state || '',
+      country: branch.country || '',
+      pincode: branch.pincode || '',
       contactPerson: branch.contactPerson || '',
       contactPersonDesignation: branch.contactPersonDesignation || '',
-      contactNumber:  branch.contactNumber  || '',
-      email:         branch.email         || '',
+      contactNumber: branch.contactNumber || '',
+      email: branch.email || '',
       contactPerson2: branch.contactPerson2 || '',
       contactPerson2Designation: branch.contactPerson2Designation || '',
       contactNumber2: branch.contactNumber2 || '',
-      email2:         branch.email2         || '',
-      websiteUrl:    branch.websiteUrl    || '',
-      gpsLocation:   branch.gpsLocation   || '',
-      agreementStartDate: branch.agreementStartDate ? branch.agreementStartDate.slice(0,10) : '',
-      agreementEndDate:   branch.agreementEndDate   ? branch.agreementEndDate.slice(0,10)   : '',
+      email2: branch.email2 || '',
+      websiteUrl: branch.websiteUrl || '',
+      gpsLocation: branch.gpsLocation || '',
+      agreementStartDate: branch.agreementStartDate ? branch.agreementStartDate.slice(0, 10) : '',
+      agreementEndDate: branch.agreementEndDate ? branch.agreementEndDate.slice(0, 10) : '',
       invoiceNumber: branch.invoiceNumber || '',
-      paymentMode:   branch.paymentMode   || '',
+      paymentMode: branch.paymentMode || '',
       paymentRemark: branch.paymentRemark || '',
-      tokenAmount:   branch.tokenAmount != null ? String(branch.tokenAmount) : '',
+      tokenAmount: branch.tokenAmount != null ? String(branch.tokenAmount) : '',
     });
     setBranchFiles(emptyBranchFiles);
     setBranchDialogOpen(true);
@@ -499,6 +560,111 @@ export default function CompanyManagement() {
     }
   };
 
+  // ── Excel Handlers ─────────────────────────────────────────────────────────
+  const handleExcelUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedExcelFile(file);
+    setShowConfirmDialog(true);
+    e.target.value = ''; // Reset input
+  };
+
+  const confirmExcelUpload = () => {
+    if (!selectedExcelFile) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        toast.error('Excel file is empty');
+        setShowConfirmDialog(false);
+        return;
+      }
+
+      setImporting(true);
+      const loadingToastId = toast.loading('Importing companies...');
+
+      try {
+        const res = await axios.post(
+          `${API_BASE_URL}/companies/bulk-import`,
+          { companies: jsonData },
+          { headers }
+        );
+
+        const { insertedCount, duplicateCount, skippedNames } = res.data;
+        toast.update(loadingToastId, {
+          render: `✅ Import complete! ${insertedCount} imported, ${duplicateCount} skipped.`,
+          type: 'success',
+          isLoading: false,
+          autoClose: 5000,
+        });
+
+        if (skippedNames?.length > 0) {
+          console.log('Skipped companies:', skippedNames);
+        }
+
+        fetchCompanies();
+      } catch (err) {
+        toast.update(loadingToastId, {
+          render: `❌ Import failed: ${err.response?.data?.message || err.message}`,
+          type: 'error',
+          isLoading: false,
+          autoClose: 5000,
+        });
+      } finally {
+        setImporting(false);
+        setShowConfirmDialog(false);
+        setSelectedExcelFile(null);
+      }
+    };
+    reader.readAsArrayBuffer(selectedExcelFile);
+  };
+
+  const handleTemplateDownload = () => {
+    const headers = [
+      'companyName', 'industries', 'companyAddress', 'area', 'city',
+      'state', 'country', 'pincode',
+      'contactPerson', 'contactPersonDesignation', 'contactNumber', 'email',
+      'contactPerson2', 'contactPerson2Designation', 'contactNumber2', 'email2',
+      'websiteUrl', 'gpsLocation',
+      'agreementStartDate', 'agreementEndDate',
+      'invoiceNumber', 'paymentMode', 'paymentRemark', 'tokenAmount'
+    ];
+
+    const sampleData = [
+      {
+        companyName: 'Example Corp',
+        industries: 'IT, Software',
+        companyAddress: '123 Business Park',
+        area: 'Tech Zone',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        country: 'India',
+        pincode: '400001',
+        contactPerson: 'John Doe',
+        contactPersonDesignation: 'CEO',
+        contactNumber: '9876543210',
+        email: 'john@example.com',
+        websiteUrl: 'https://example.com',
+        gpsLocation: 'https://maps.google.com/?q=19.076,72.877',
+        agreementStartDate: '2024-01-01',
+        agreementEndDate: '2025-01-01',
+        paymentMode: 'Bank',
+        tokenAmount: 5000
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleData, { header: headers });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Companies');
+    XLSX.writeFile(workbook, 'Company_Import_Template.xlsx');
+  };
+
   // ── columns ────────────────────────────────────────────────────────────────
   const copyCompanyData = (row) => {
     const lines = [
@@ -525,7 +691,7 @@ export default function CompanyManagement() {
   };
 
   const columns = [
-    
+
     {
       field: 'actions', headerName: 'Actions', width: 200, sortable: false,
       renderCell: (p) => (
@@ -557,10 +723,18 @@ export default function CompanyManagement() {
         </Box>
       ),
     },
-    
-    { field: 'companyId',      headerName: 'ID',             width: 80 },
-    { field: 'companyName',    headerName: 'Company Name',   flex: 1.4, minWidth: 160 },
-      { field: 'branches', headerName: 'Branches', width: 120,
+
+    {
+      field: 'agreementUpload', headerName: 'Agreement', width: 100,
+      renderCell: (p) => p.value
+        ? <Tooltip title="View Agreement"><IconButton size="small" onClick={() => window.open(p.value, '_blank')}><VisibilityIcon fontSize="small" sx={{ color: '#388e3c' }} /></IconButton></Tooltip>
+        : '—',
+    },
+
+    { field: 'companyId', headerName: 'ID', width: 80 },
+    { field: 'companyName', headerName: 'Company Name', flex: 1.4, minWidth: 160 },
+    {
+      field: 'branches', headerName: 'Branches', width: 120,
       renderCell: (p) => {
         const count = p.value?.length || 0;
         return (
@@ -582,80 +756,92 @@ export default function CompanyManagement() {
         );
       },
     },
-    { field: 'industries',     headerName: 'Industries',     flex: 1,   minWidth: 130 },
-    { field: 'companyAddress', headerName: 'Address',        flex: 1.2, minWidth: 150 },
-    { field: 'area',           headerName: 'Area',           flex: 0.8, minWidth: 100 },
-    { field: 'city',           headerName: 'City',           flex: 0.8, minWidth: 100 },
-    { field: 'state',          headerName: 'State',          flex: 0.8, minWidth: 100 },
-    { field: 'country',        headerName: 'Country',        flex: 0.8, minWidth: 100 },
-    { field: 'pincode',        headerName: 'Pincode',        width: 90 },
-    { field: 'contactPerson',  headerName: 'Contact Person', flex: 1,   minWidth: 130 },
+    { field: 'industries', headerName: 'Industries', flex: 1, minWidth: 130 },
+    { field: 'companyAddress', headerName: 'Address', flex: 1.2, minWidth: 150 },
+    { field: 'area', headerName: 'Area', flex: 0.8, minWidth: 100 },
+    { field: 'city', headerName: 'City', flex: 0.8, minWidth: 100 },
+    { field: 'state', headerName: 'State', flex: 0.8, minWidth: 100 },
+    { field: 'country', headerName: 'Country', flex: 0.8, minWidth: 100 },
+    { field: 'pincode', headerName: 'Pincode', width: 90 },
+    { field: 'contactPerson', headerName: 'Contact Person', flex: 1, minWidth: 130 },
     { field: 'contactPersonDesignation', headerName: 'Designation', flex: 1, minWidth: 130 },
-    { field: 'contactNumber',  headerName: 'Contact No.',    flex: 1,   minWidth: 130 },
-    { field: 'email',          headerName: 'Email',          flex: 1.2, minWidth: 160 },
+    { 
+      field: 'contactNumber', headerName: 'Contact No.', flex: 1, minWidth: 130,
+      renderCell: (p) => p.value ? String(p.value).replace(/\s/g, '') : '—'
+    },
+    { field: 'email', headerName: 'Email', flex: 1.2, minWidth: 160 },
     { field: 'contactPerson2', headerName: 'Contact Person 2', flex: 1, minWidth: 140 },
     { field: 'contactPerson2Designation', headerName: 'Designation 2', flex: 1, minWidth: 130 },
-    { field: 'contactNumber2', headerName: 'Contact No. 2',  flex: 1,   minWidth: 130 },
-    { field: 'email2',         headerName: 'Email 2',        flex: 1.2, minWidth: 160 },
-    { field: 'websiteUrl',     headerName: 'Website',        flex: 1,   minWidth: 130,
+    { 
+      field: 'contactNumber2', headerName: 'Contact No. 2', flex: 1, minWidth: 130,
+      renderCell: (p) => p.value ? String(p.value).replace(/\s/g, '') : '—'
+    },
+    { field: 'email2', headerName: 'Email 2', flex: 1.2, minWidth: 160 },
+    {
+      field: 'websiteUrl', headerName: 'Website', flex: 1, minWidth: 130,
       renderCell: (p) => p.value
         ? <a href={p.value.startsWith('http') ? p.value : `https://${p.value}`} target="_blank" rel="noreferrer"
-            style={{ color: '#3f51b5', fontSize: '0.82rem' }}>{p.value}</a>
+          style={{ color: '#3f51b5', fontSize: '0.82rem' }}>{p.value}</a>
         : '—',
     },
-    { field: 'gpsLocation',    headerName: 'GPS',            width: 80,
+    {
+      field: 'gpsLocation', headerName: 'GPS', width: 80,
       renderCell: (p) => p.value
         ? <Tooltip title="Open GPS"><IconButton size="small" onClick={() => window.open(p.value, '_blank')}><LocationOnIcon fontSize="small" sx={{ color: '#3f51b5' }} /></IconButton></Tooltip>
         : '—',
     },
-    { field: 'gstUpload',      headerName: 'GST',            width: 80,
+    {
+      field: 'gstUpload', headerName: 'GST', width: 80,
       renderCell: (p) => p.value
         ? <Tooltip title="View GST"><IconButton size="small" onClick={() => window.open(p.value, '_blank')}><VisibilityIcon fontSize="small" sx={{ color: '#3f51b5' }} /></IconButton></Tooltip>
         : '—',
     },
-    { field: 'agreementUpload', headerName: 'Agreement',     width: 100,
-      renderCell: (p) => p.value
-        ? <Tooltip title="View Agreement"><IconButton size="small" onClick={() => window.open(p.value, '_blank')}><VisibilityIcon fontSize="small" sx={{ color: '#388e3c' }} /></IconButton></Tooltip>
-        : '—',
-    },
-    { field: 'otherDocumentUpload', headerName: 'Other Doc', width: 90,
+
+    {
+      field: 'otherDocumentUpload', headerName: 'Other Doc', width: 90,
       renderCell: (p) => p.value
         ? <Tooltip title="View Other Document"><IconButton size="small" onClick={() => window.open(p.value, '_blank')}><VisibilityIcon fontSize="small" sx={{ color: '#7c3aed' }} /></IconButton></Tooltip>
         : '—',
     },
-     { field: 'invoiceNumber', headerName: 'Invoice No.', width: 130 },
-   { field: 'tokenAmount',    headerName: 'Token ₹',        width: 100,
+    { field: 'invoiceNumber', headerName: 'Invoice No.', width: 130 },
+    {
+      field: 'tokenAmount', headerName: 'Token ₹', width: 100,
       renderCell: (p) => p.value != null ? `₹${p.value}` : '—',
     },
-     { field: 'paymentMode',   headerName: 'Pay Mode',    width: 110,
+    {
+      field: 'paymentMode', headerName: 'Pay Mode', width: 110,
       renderCell: (p) => {
         if (!p.value) return '—';
         const map = { Cash: '💵 Cash', Bank: '🏦 Bank', Other: '📋 Other' };
         return map[p.value] || p.value;
       },
     },
-    { field: 'paymentRemark', headerName: 'Pay Remark', width: 140,
+    {
+      field: 'paymentRemark', headerName: 'Pay Remark', width: 140,
       renderCell: (p) => p.value || '—',
     },
-    
-    { field: 'tokenUpload',    headerName: 'Token Doc',      width: 100,
+
+    {
+      field: 'tokenUpload', headerName: 'Token Doc', width: 100,
       renderCell: (p) => p.value
         ? <Tooltip title="View Token Doc"><IconButton size="small" onClick={() => window.open(p.value, '_blank')}><VisibilityIcon fontSize="small" sx={{ color: '#f57c00' }} /></IconButton></Tooltip>
         : '—',
     },
-    { field: 'createdAt', headerName: 'Created At', width: 150,
+    {
+      field: 'createdAt', headerName: 'Created At', width: 150,
       renderCell: (p) => p.value
         ? new Date(p.value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
         : '—',
     },
-    { field: 'createdBy', headerName: 'Created By', width: 150,
+    {
+      field: 'createdBy', headerName: 'Created By', width: 150,
       renderCell: (p) => {
         const u = p.value;
         if (!u) return '—';
         return `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || '—';
       },
     },
-   
+
   ];
 
   // ── render ─────────────────────────────────────────────────────────────────
@@ -697,6 +883,22 @@ export default function CompanyManagement() {
                 <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, color: '#FFD700', lineHeight: 1 }}>{companies.length}</Typography>
                 <Typography sx={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.7)', fontWeight: 600, mt: 0.2 }}>Companies</Typography>
               </Box>
+
+              <Tooltip title="Download Excel Template">
+                <Button variant="outlined" onClick={handleTemplateDownload}
+                  sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff', fontWeight: 600, borderRadius: '10px', px: 2, '&:hover': { borderColor: '#FFD700', bgcolor: 'rgba(255,215,0,0.05)' } }}>
+                  Template
+                </Button>
+              </Tooltip>
+
+              <input type="file" accept=".xlsx, .xls" id="excel-upload" style={{ display: 'none' }} onChange={handleExcelUpload} />
+              <label htmlFor="excel-upload">
+                <Button variant="contained" component="span" startIcon={<CloudUploadIcon />}
+                  sx={{ bgcolor: '#4caf50', color: '#fff', fontWeight: 700, borderRadius: '10px', px: 2.5, '&:hover': { bgcolor: '#43a047' }, boxShadow: '0 4px 12px rgba(76,175,80,0.35)' }}>
+                  Import Excel
+                </Button>
+              </label>
+
               <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}
                 sx={{ bgcolor: '#FFD700', color: '#1e1e2f', fontWeight: 700, borderRadius: '10px', px: 2.5, '&:hover': { bgcolor: '#f6b93b' }, boxShadow: '0 4px 12px rgba(255,215,0,0.35)' }}>
                 New Company
@@ -705,9 +907,7 @@ export default function CompanyManagement() {
               <Button
                 variant="contained"
                 startIcon={<NotificationsActiveIcon />}
-                onClick={() => {
-                  document.getElementById('pending-requests-banner')?.scrollIntoView({ behavior: 'smooth' });
-                }}
+                onClick={() => setRequestsDialogOpen(true)}
                 sx={{
                   bgcolor: pendingRequests.length > 0 ? '#ff9800' : 'rgba(255,255,255,0.15)',
                   color: '#fff',
@@ -720,8 +920,8 @@ export default function CompanyManagement() {
                   ...(pendingRequests.length > 0 && {
                     animation: 'pulse 2s infinite',
                     '@keyframes pulse': {
-                      '0%':   { boxShadow: '0 4px 12px rgba(255,152,0,0.4)' },
-                      '50%':  { boxShadow: '0 4px 24px rgba(255,152,0,0.9)' },
+                      '0%': { boxShadow: '0 4px 12px rgba(255,152,0,0.4)' },
+                      '50%': { boxShadow: '0 4px 24px rgba(255,152,0,0.9)' },
                       '100%': { boxShadow: '0 4px 12px rgba(255,152,0,0.4)' },
                     },
                   }),
@@ -730,29 +930,113 @@ export default function CompanyManagement() {
                 {requestsLoading
                   ? 'Loading...'
                   : pendingRequests.length > 0
-                  ? `${pendingRequests.length} Pending Request${pendingRequests.length > 1 ? 's' : ''}`
-                  : 'No Pending Requests'}
+                    ? `${pendingRequests.length} Pending Request${pendingRequests.length > 1 ? 's' : ''}`
+                    : 'No Pending Requests'}
               </Button>
             </Box>
           </Box>
 
-          {/* ── Pending Requests Banner ── */}
-          {pendingRequests.length > 0 && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: '#fff8e1', border: '1px solid #ffe082', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-              <NotificationsActiveIcon sx={{ color: '#f57c00', mt: 0.3, flexShrink: 0 }} />
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="subtitle2" fontWeight={700} color="#e65100" mb={1}>
-                  {pendingRequests.length} Company Request{pendingRequests.length > 1 ? 's' : ''} Awaiting Approval
+          {/* ── Filters Section ── */}
+          <Paper sx={{ 
+            p: 2.5, mb: 3, borderRadius: '16px', 
+            boxShadow: '0 4px 20px rgba(0,0,0,0.05)', 
+            border: '1px solid #e8eaf6',
+            background: '#fff'
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Box display="flex" alignItems="center" gap={1}>
+                <Box sx={{ width: 4, height: 16, bgcolor: '#3f51b5', borderRadius: 2 }} />
+                <Typography variant="subtitle2" fontWeight={800} color="#3f51b5" textTransform="uppercase" letterSpacing="0.05em">
+                  Quick Search & Filters
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              </Box>
+              <Button 
+                size="small" 
+                onClick={clearFilters}
+                startIcon={<CloseIcon fontSize="small" />}
+                sx={{ 
+                  color: '#64748b', fontWeight: 600, textTransform: 'none', 
+                  '&:hover': { color: '#ef4444', bgcolor: '#fff1f2' },
+                  borderRadius: '8px'
+                }}
+              >
+                Clear Filters
+              </Button>
+            </Box>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField label="Company Name" name="companyName" value={filters.companyName} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by name..." />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField label="Industries" name="industries" value={filters.industries} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by industry..." />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField label="Contact Person" name="contactPerson" value={filters.contactPerson} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by person..." />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField 
+                  label="Mobile Number" 
+                  name="contactNumber" 
+                  value={filters.contactNumber} 
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    handleFilterChange({ target: { name: 'contactNumber', value: v } });
+                  }} 
+                  fullWidth 
+                  size="small" 
+                  sx={fieldSx} 
+                  placeholder="Search by mobile..." 
+                  inputProps={{ maxLength: 10 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField label="Area" name="area" value={filters.area} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by area..." />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField label="City" name="city" value={filters.city} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by city..." />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField label="State" name="state" value={filters.state} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by state..." />
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <TextField label="Country" name="country" value={filters.country} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by country..." />
+              </Grid>
+            </Grid>
+          </Paper>
+
+          {/* ── Pending Requests Dialog ── */}
+          <Dialog
+            open={requestsDialogOpen}
+            onClose={() => setRequestsDialogOpen(false)}
+            maxWidth="md"
+            fullWidth
+            PaperProps={{ sx: { borderRadius: 3 } }}
+          >
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fff8e1', borderBottom: '1px solid #ffe082' }}>
+              <Box display="flex" alignItems="center" gap={1}>
+                <NotificationsActiveIcon sx={{ color: '#f57c00' }} />
+                <Typography variant="subtitle1" fontWeight={700} color="#e65100">
+                  {pendingRequests.length} Company Request{pendingRequests.length !== 1 ? 's' : ''} Awaiting Approval
+                </Typography>
+              </Box>
+              <IconButton onClick={() => setRequestsDialogOpen(false)} size="small">
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent sx={{ p: 3, bgcolor: '#fbfbfb', minHeight: '200px' }}>
+              {pendingRequests.length === 0 ? (
+                <Typography color="text.secondary" textAlign="center" mt={4}>No pending requests at the moment.</Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   {pendingRequests.map(req => (
                     <Box key={req._id} sx={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      p: 1.5, bgcolor: '#fff', borderRadius: '8px', border: '1px solid #ffe082',
+                      p: 2, bgcolor: '#fff', borderRadius: '10px', border: '1px solid #e0e0e0',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
                     }}>
                       <Box>
-                        <Typography variant="body2" fontWeight={700} color="#1e293b">{req.companyName}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="body1" fontWeight={700} color="#1e293b">{req.companyName}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                           {req.industries && `${req.industries} · `}
                           {req.city && `${req.city} · `}
                           Requested by <strong>{req.requestedBy?.firstName} {req.requestedBy?.lastName}</strong>
@@ -761,14 +1045,14 @@ export default function CompanyManagement() {
                       <Box display="flex" gap={1}>
                         <Tooltip title="Review & Approve">
                           <Button size="small" variant="contained" startIcon={<CheckCircleIcon />}
-                            onClick={() => openApproveDialog(req)}
+                            onClick={() => { setRequestsDialogOpen(false); openApproveDialog(req); }}
                             sx={{ borderRadius: '8px', bgcolor: '#388e3c', '&:hover': { bgcolor: '#2e7d32' }, textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}>
                             Review
                           </Button>
                         </Tooltip>
                         <Tooltip title="Reject">
                           <Button size="small" variant="outlined" startIcon={<CancelIcon />}
-                            onClick={() => { setRejectDialog({ open: true, request: req }); setRejectReason(''); }}
+                            onClick={() => { setRequestsDialogOpen(false); setRejectDialog({ open: true, request: req }); setRejectReason(''); }}
                             sx={{ borderRadius: '8px', borderColor: '#c62828', color: '#c62828', textTransform: 'none', fontWeight: 700, fontSize: '0.75rem', '&:hover': { bgcolor: '#ffebee' } }}>
                             Reject
                           </Button>
@@ -777,12 +1061,12 @@ export default function CompanyManagement() {
                     </Box>
                   ))}
                 </Box>
-              </Box>
-            </Box>
-          )}
+              )}
+            </DialogContent>
+          </Dialog>
 
           {/* DataGrid */}
-          <Box sx={{ bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(63,81,181,0.08)', height: pendingRequests.length > 0 ? `calc(100vh - ${240 + pendingRequests.length * 72}px)` : 'calc(100vh - 240px)' }}>
+          <Box sx={{ bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(63,81,181,0.08)', height: 'calc(100vh - 340px)' }}>
             <Box sx={{ px: 3, py: 1.5, background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', borderBottom: '1px solid #c5cae9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box display="flex" alignItems="center" gap={1}>
                 <Box sx={{ width: 4, height: 18, bgcolor: '#3f51b5', borderRadius: 2 }} />
@@ -790,10 +1074,10 @@ export default function CompanyManagement() {
                   All Companies
                 </Typography>
               </Box>
-              <Chip label={`${companies.length} records`} size="small" sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 700, fontSize: '0.75rem' }} />
+              <Chip label={`${filteredCompanies.length} records found`} size="small" sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 700, fontSize: '0.75rem' }} />
             </Box>
             <DataGrid
-              rows={companies}
+              rows={filteredCompanies}
               columns={columns}
               getRowId={(r) => r._id}
               loading={loading}
@@ -821,7 +1105,7 @@ export default function CompanyManagement() {
         open={dialogOpen}
         onClose={closeDialog}
         fullWidth
-        maxWidth="md"
+        maxWidth="lg"
         PaperProps={{
           sx: {
             borderRadius: 3,
@@ -834,51 +1118,51 @@ export default function CompanyManagement() {
       >
         {/* Header */}
         <Box sx={{
-          background: 'linear-gradient(135deg, #1e1e2f, #2d2d44)',
+          background: 'linear-gradient(135deg, #1e1e2f, #33334d)',
           px: 3, py: 2.5,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flexShrink: 0,
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          flexShrink: 0
         }}>
-          <Box display="flex" alignItems="center" gap={1.5}>
+          <Box display="flex" alignItems="center" gap={2}>
             <Box sx={{
-              width: 42, height: 42, borderRadius: '10px',
-              bgcolor: 'rgba(255,215,0,0.15)',
+              width: 44, height: 44, borderRadius: '12px',
+              background: 'rgba(255, 215, 0, 0.15)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             }}>
-              <BusinessIcon sx={{ color: '#FFD700', fontSize: 22 }} />
+              <BusinessIcon sx={{ color: '#FFD700', fontSize: 24 }} />
             </Box>
             <Box>
-              <Typography variant="h6" fontWeight={700} color="#fff" lineHeight={1.2}>
-                {approveRequest ? 'Review & Approve Request' : editCompany ? 'Edit Company' : 'Create New Company'}
+              <Typography variant="h6" fontWeight={800} color="#fff" sx={{ letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                {approveRequest ? 'Review & Approve' : editCompany ? 'Edit Company Profile' : 'Register New Company'}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
                 {approveRequest
-                  ? `Requested by ${approveRequest.requestedBy?.firstName || ''} ${approveRequest.requestedBy?.lastName || ''} — review and confirm`
+                  ? `Requested by ${approveRequest.requestedBy?.firstName || ''} ${approveRequest.requestedBy?.lastName || ''}`
                   : editCompany
-                  ? `Company ID: ${editCompany.companyId}`
-                  : 'Company ID will be auto-assigned from 1001'}
+                    ? `Update details for ID: ${editCompany.companyId}`
+                    : 'System will assign ID starting from 1001'}
               </Typography>
             </Box>
           </Box>
-          <IconButton
-            onClick={closeDialog}
-            size="small"
-            sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' } }}
-          >
+          <IconButton onClick={closeDialog} size="small" sx={{ 
+            color: '#fff', bgcolor: 'rgba(255,255,255,0.08)', 
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } 
+          }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
 
         {/* Scrollable body */}
-        <Box sx={{ overflowY: 'auto', flexGrow: 1, px: 3, pt: 3, pb: 1 }}>
-          <Grid container spacing={2.5}>
+        <Box sx={{ overflowY: 'auto', flexGrow: 1, px: 3, pt: 3, pb: 1, bgcolor: '#fcfdff' }}>
+          <Grid container spacing={3}>
 
             {/* ── Section 1: Basic Information ── */}
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Box sx={{ width: 3, height: 16, bgcolor: '#3f51b5', borderRadius: 2 }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box sx={{ width: 4, height: 18, bgcolor: '#3f51b5', borderRadius: '4px' }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
                   Basic Information
                 </Typography>
               </Box>
@@ -922,10 +1206,10 @@ export default function CompanyManagement() {
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField label="Pincode" name="pincode" value={form.pincode}
-                onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g,'').slice(0,6) }))}
+                onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
                 fullWidth size="small" sx={fieldSx} inputProps={{ maxLength: 6 }} />
             </Grid>
-            
+
             <Grid item xs={12} sm={4}>
               <TextField
                 label="GPS Location Link" name="gpsLocation" value={form.gpsLocation}
@@ -945,9 +1229,9 @@ export default function CompanyManagement() {
 
             {/* ── Section 2: Contact Details ── */}
             <Grid item xs={12} sx={{ mt: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Box sx={{ width: 3, height: 16, bgcolor: '#0891b2', borderRadius: 2 }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#0891b2', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box sx={{ width: 4, height: 18, bgcolor: '#0891b2', borderRadius: '4px' }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
                   Contact Details
                 </Typography>
               </Box>
@@ -1013,10 +1297,10 @@ export default function CompanyManagement() {
 
             {/* ── Section 3: Documents ── */}
             <Grid item xs={12} sx={{ mt: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Box sx={{ width: 3, height: 16, bgcolor: '#7c3aed', borderRadius: 2 }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  Documents
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box sx={{ width: 4, height: 18, bgcolor: '#7c3aed', borderRadius: '4px' }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                  Documents & Agreement
                 </Typography>
               </Box>
             </Grid>
@@ -1055,10 +1339,10 @@ export default function CompanyManagement() {
 
             {/* ── Section 4: Payment ── */}
             <Grid item xs={12} sx={{ mt: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Box sx={{ width: 3, height: 16, bgcolor: '#059669', borderRadius: 2 }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  Payment
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box sx={{ width: 4, height: 18, bgcolor: '#059669', borderRadius: '4px' }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                  Payment Information
                 </Typography>
               </Box>
             </Grid>
@@ -1177,33 +1461,46 @@ export default function CompanyManagement() {
         fullWidth maxWidth="md"
         PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden', maxHeight: '92vh', display: 'flex', flexDirection: 'column' } }}
       >
-        <Box sx={{ background: 'linear-gradient(135deg, #1e1e2f, #2d2d44)', px: 3, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <Box display="flex" alignItems="center" gap={1.5}>
-            <Box sx={{ width: 38, height: 38, borderRadius: '8px', bgcolor: 'rgba(255,215,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BusinessIcon sx={{ color: '#FFD700', fontSize: 20 }} />
+        <Box sx={{
+          background: 'linear-gradient(135deg, #1e1e2f, #33334d)',
+          px: 3, py: 2.5,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          flexShrink: 0
+        }}>
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box sx={{
+              width: 42, height: 42, borderRadius: '12px',
+              bgcolor: 'rgba(255,215,0,0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <BusinessIcon sx={{ color: '#FFD700', fontSize: 22 }} />
             </Box>
             <Box>
-              <Typography variant="subtitle1" fontWeight={700} color="#fff" lineHeight={1.2}>
-                {editBranch ? 'Edit Branch' : 'Add New Branch'}
+              <Typography variant="subtitle1" fontWeight={800} color="#fff" sx={{ letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                {editBranch ? 'Update Branch Details' : 'Add New Branch Location'}
               </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
-                {branchTargetCompany?.companyName} (ID: {branchTargetCompany?.companyId})
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                {branchTargetCompany?.companyName} &bull; ID: {branchTargetCompany?.companyId}
               </Typography>
             </Box>
           </Box>
-          <IconButton onClick={closeBranchDialog} size="small" sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' } }}>
+          <IconButton onClick={closeBranchDialog} size="small" sx={{
+            color: '#fff', bgcolor: 'rgba(255,255,255,0.06)',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' }
+          }}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
 
-        <Box sx={{ overflowY: 'auto', flexGrow: 1, px: 3, pt: 3, pb: 1 }}>
-          <Grid container spacing={2.5}>
-
-            {/* ── Section 1: Basic Information ── */}
+        <Box sx={{ overflowY: 'auto', flexGrow: 1, px: 3, pt: 3, pb: 1, bgcolor: '#fcfdff' }}>
+          <Grid container spacing={3}>
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Box sx={{ width: 3, height: 16, bgcolor: '#3f51b5', borderRadius: 2 }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Basic Information</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box sx={{ width: 4, height: 18, bgcolor: '#3f51b5', borderRadius: '4px' }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                  Branch Basic Information
+                </Typography>
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1244,7 +1541,7 @@ export default function CompanyManagement() {
             </Grid>
             <Grid item xs={12} sm={4}>
               <TextField label="Pincode" value={branchForm.pincode}
-                onChange={e => setBranchForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g,'').slice(0,6) }))}
+                onChange={e => setBranchForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
                 fullWidth size="small" sx={fieldSx} inputProps={{ maxLength: 6 }} />
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -1255,11 +1552,12 @@ export default function CompanyManagement() {
                 InputProps={{ startAdornment: <InputAdornment position="start"><LocationOnIcon fontSize="small" sx={{ color: '#9fa8da' }} /></InputAdornment> }} />
             </Grid>
 
-            {/* ── Section 2: Contact Details ── */}
             <Grid item xs={12} sx={{ mt: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Box sx={{ width: 3, height: 16, bgcolor: '#0891b2', borderRadius: 2 }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#0891b2', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Contact Details</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box sx={{ width: 4, height: 18, bgcolor: '#0891b2', borderRadius: '4px' }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                  Branch Contact Details
+                </Typography>
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1311,7 +1609,7 @@ export default function CompanyManagement() {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField label="Contact Number 2" value={branchForm.contactNumber2 || ''}
-                onChange={e => setBranchForm(p => ({ ...p, contactNumber2: e.target.value.replace(/\D/g,'').slice(0,10) }))}
+                onChange={e => setBranchForm(p => ({ ...p, contactNumber2: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                 fullWidth size="small" sx={fieldSx}
                 inputProps={{ inputMode: 'numeric', maxLength: 10 }}
                 helperText="10-digit number (optional)" />
@@ -1322,11 +1620,12 @@ export default function CompanyManagement() {
                 fullWidth size="small" sx={fieldSx} />
             </Grid>
 
-            {/* ── Section 3: Documents ── */}
             <Grid item xs={12} sx={{ mt: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Box sx={{ width: 3, height: 16, bgcolor: '#7c3aed', borderRadius: 2 }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Documents</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box sx={{ width: 4, height: 18, bgcolor: '#7c3aed', borderRadius: '4px' }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                  Branch Documents & Agreement
+                </Typography>
               </Box>
             </Grid>
             <Grid item xs={12} sm={4}>
@@ -1349,11 +1648,12 @@ export default function CompanyManagement() {
                 fullWidth size="small" sx={fieldSx} InputLabelProps={{ shrink: true }} />
             </Grid>
 
-            {/* ── Section 4: Payment ── */}
             <Grid item xs={12} sx={{ mt: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <Box sx={{ width: 3, height: 16, bgcolor: '#059669', borderRadius: 2 }} />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Payment</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+                <Box sx={{ width: 4, height: 18, bgcolor: '#059669', borderRadius: '4px' }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                  Branch Payment Information
+                </Typography>
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -1420,21 +1720,27 @@ export default function CompanyManagement() {
         PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
       >
         {/* Header */}
-        <Box sx={{
-          background: 'linear-gradient(135deg, #1e1e2f, #2d2d44)',
-          px: 3, py: 2.5,
+        <Box sx={{ 
+          background: 'linear-gradient(135deg, #1e1e2f, #33334d)', 
+          px: 3, py: 2.5, 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(255,255,255,0.1)'
         }}>
-          <Box display="flex" alignItems="center" gap={1.5}>
-            <Box sx={{ width: 42, height: 42, borderRadius: '10px', bgcolor: 'rgba(255,215,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BusinessIcon sx={{ color: '#FFD700', fontSize: 22 }} />
+          <Box display="flex" alignItems="center" gap={2}>
+            <Box sx={{ 
+              width: 44, height: 44, borderRadius: '12px', 
+              background: 'rgba(255, 215, 0, 0.15)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+            }}>
+              <BusinessIcon sx={{ color: '#FFD700', fontSize: 24 }} />
             </Box>
             <Box>
-              <Typography variant="h6" fontWeight={700} color="#fff" lineHeight={1.2}>
-                Branches — {branchViewCompany?.companyName}
+              <Typography variant="h6" fontWeight={800} color="#fff" sx={{ letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                Manage Branches
               </Typography>
-              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)' }}>
-                Company ID: {branchViewCompany?.companyId} &bull; {branchViewCompany?.branches?.length || 0} branch{branchViewCompany?.branches?.length !== 1 ? 'es' : ''}
+              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>
+                {branchViewCompany?.companyName} &bull; ID: {branchViewCompany?.companyId}
               </Typography>
             </Box>
           </Box>
@@ -1451,10 +1757,14 @@ export default function CompanyManagement() {
             >
               Add Branch
             </Button>
-            <IconButton
+             <IconButton
               onClick={() => { setBranchViewOpen(false); setBranchViewCompany(null); }}
               size="small"
-              sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' } }}
+              sx={{ 
+                color: '#fff', bgcolor: 'rgba(255,255,255,0.08)', 
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' },
+                transition: 'all 0.2s'
+              }}
             >
               <CloseIcon fontSize="small" />
             </IconButton>
@@ -1522,21 +1832,21 @@ export default function CompanyManagement() {
                     {/* Branch details */}
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
                       {[
-                        { icon: '📍', label: 'Address',     value: branch.branchAddress },
-                        { icon: '🏙', label: 'City',        value: branch.city },
-                        { icon: '📌', label: 'Area',        value: branch.area },
-                        { icon: '🗺', label: 'State',       value: branch.state },
-                        { icon: '🌍', label: 'Country',     value: branch.country },
-                        { icon: '📮', label: 'Pincode',     value: branch.pincode },
-                        { icon: '👤', label: 'Contact',     value: branch.contactPerson },
+                        { icon: '📍', label: 'Address', value: branch.branchAddress },
+                        { icon: '🏙', label: 'City', value: branch.city },
+                        { icon: '📌', label: 'Area', value: branch.area },
+                        { icon: '🗺', label: 'State', value: branch.state },
+                        { icon: '🌍', label: 'Country', value: branch.country },
+                        { icon: '📮', label: 'Pincode', value: branch.pincode },
+                        { icon: '👤', label: 'Contact', value: branch.contactPerson },
                         { icon: '🏷', label: 'Designation', value: branch.contactPersonDesignation },
-                        { icon: '📞', label: 'Phone',       value: branch.contactNumber },
-                        { icon: '✉', label: 'Email',       value: branch.email },
-                        { icon: '🌐', label: 'Website',     value: branch.websiteUrl },
-                        { icon: '🧾', label: 'Invoice',     value: branch.invoiceNumber },
-                        { icon: '💳', label: 'Pay Mode',    value: branch.paymentMode },
-                        { icon: '💬', label: 'Pay Remark',  value: branch.paymentRemark },
-                        { icon: '💰', label: 'Token',       value: branch.tokenAmount != null ? `₹${branch.tokenAmount}` : null },
+                        { icon: '📞', label: 'Phone', value: branch.contactNumber },
+                        { icon: '✉', label: 'Email', value: branch.email },
+                        { icon: '🌐', label: 'Website', value: branch.websiteUrl },
+                        { icon: '🧾', label: 'Invoice', value: branch.invoiceNumber },
+                        { icon: '💳', label: 'Pay Mode', value: branch.paymentMode },
+                        { icon: '💬', label: 'Pay Remark', value: branch.paymentRemark },
+                        { icon: '💰', label: 'Token', value: branch.tokenAmount != null ? `₹${branch.tokenAmount}` : null },
                       ].filter(item => item.value).map(({ icon, label, value }) => (
                         <Box key={label} display="flex" alignItems="flex-start" gap={0.8}>
                           <Typography variant="caption" sx={{ minWidth: 16 }}>{icon}</Typography>
@@ -1562,10 +1872,10 @@ export default function CompanyManagement() {
                       )}
                       {/* Document links */}
                       {[
-                        { label: 'GST',       url: branch.gstUpload,           color: '#3f51b5' },
-                        { label: 'Agreement', url: branch.agreementUpload,     color: '#388e3c' },
+                        { label: 'GST', url: branch.gstUpload, color: '#3f51b5' },
+                        { label: 'Agreement', url: branch.agreementUpload, color: '#388e3c' },
                         { label: 'Other Doc', url: branch.otherDocumentUpload, color: '#7c3aed' },
-                        { label: 'Token Doc', url: branch.tokenUpload,         color: '#f57c00' },
+                        { label: 'Token Doc', url: branch.tokenUpload, color: '#f57c00' },
                       ].filter(d => d.url).map(({ label, url, color }) => (
                         <Box key={label} display="flex" alignItems="center" gap={0.8}>
                           <Typography variant="caption" sx={{ minWidth: 16 }}>📎</Typography>
@@ -1674,14 +1984,14 @@ export default function CompanyManagement() {
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.2 }}>
               {[
-                { label: 'Branch Name',  value: branchDetailData?.branchName },
-                { label: 'Address',      value: branchDetailData?.branchAddress },
-                { label: 'Area',         value: branchDetailData?.area },
-                { label: 'City',         value: branchDetailData?.city },
-                { label: 'State',        value: branchDetailData?.state },
-                { label: 'Country',      value: branchDetailData?.country },
-                { label: 'Pincode',      value: branchDetailData?.pincode },
-                { label: 'Website',      value: branchDetailData?.websiteUrl },
+                { label: 'Branch Name', value: branchDetailData?.branchName },
+                { label: 'Address', value: branchDetailData?.branchAddress },
+                { label: 'Area', value: branchDetailData?.area },
+                { label: 'City', value: branchDetailData?.city },
+                { label: 'State', value: branchDetailData?.state },
+                { label: 'Country', value: branchDetailData?.country },
+                { label: 'Pincode', value: branchDetailData?.pincode },
+                { label: 'Website', value: branchDetailData?.websiteUrl },
               ].map(({ label, value }) => (
                 <Box key={label} sx={{ bgcolor: '#f8f9ff', borderRadius: '8px', px: 1.5, py: 1, border: '1px solid #e8eaf6' }}>
                   <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block', mb: 0.2 }}>{label}</Typography>
@@ -1709,10 +2019,10 @@ export default function CompanyManagement() {
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.2 }}>
               {[
-                { label: 'Contact Person',      value: branchDetailData?.contactPerson },
-                { label: 'Designation',         value: branchDetailData?.contactPersonDesignation },
-                { label: 'Phone',               value: branchDetailData?.contactNumber },
-                { label: 'Email',               value: branchDetailData?.email },
+                { label: 'Contact Person', value: branchDetailData?.contactPerson },
+                { label: 'Designation', value: branchDetailData?.contactPersonDesignation },
+                { label: 'Phone', value: branchDetailData?.contactNumber },
+                { label: 'Email', value: branchDetailData?.email },
               ].map(({ label, value }) => (
                 <Box key={label} sx={{ bgcolor: '#f0fdff', borderRadius: '8px', px: 1.5, py: 1, border: '1px solid #cffafe' }}>
                   <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block', mb: 0.2 }}>{label}</Typography>
@@ -1727,10 +2037,10 @@ export default function CompanyManagement() {
                 </Typography>
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.2 }}>
                   {[
-                    { label: 'Contact Person 2',  value: branchDetailData?.contactPerson2 },
-                    { label: 'Designation 2',     value: branchDetailData?.contactPerson2Designation },
-                    { label: 'Phone 2',           value: branchDetailData?.contactNumber2 },
-                    { label: 'Email 2',           value: branchDetailData?.email2 },
+                    { label: 'Contact Person 2', value: branchDetailData?.contactPerson2 },
+                    { label: 'Designation 2', value: branchDetailData?.contactPerson2Designation },
+                    { label: 'Phone 2', value: branchDetailData?.contactNumber2 },
+                    { label: 'Email 2', value: branchDetailData?.email2 },
                   ].map(({ label, value }) => (
                     <Box key={label} sx={{ bgcolor: '#f0fdff', borderRadius: '8px', px: 1.5, py: 1, border: '1px solid #cffafe' }}>
                       <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block', mb: 0.2 }}>{label}</Typography>
@@ -1751,7 +2061,7 @@ export default function CompanyManagement() {
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.2, mb: 1.2 }}>
               {[
                 { label: 'Agreement Start', value: branchDetailData?.agreementStartDate ? new Date(branchDetailData.agreementStartDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null },
-                { label: 'Agreement End',   value: branchDetailData?.agreementEndDate   ? new Date(branchDetailData.agreementEndDate).toLocaleDateString('en-IN',   { day: '2-digit', month: 'short', year: 'numeric' }) : null },
+                { label: 'Agreement End', value: branchDetailData?.agreementEndDate ? new Date(branchDetailData.agreementEndDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : null },
               ].map(({ label, value }) => (
                 <Box key={label} sx={{ bgcolor: '#faf5ff', borderRadius: '8px', px: 1.5, py: 1, border: '1px solid #ede9fe' }}>
                   <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block', mb: 0.2 }}>{label}</Typography>
@@ -1761,10 +2071,10 @@ export default function CompanyManagement() {
             </Box>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
               {[
-                { label: 'GST',       url: branchDetailData?.gstUpload,           color: '#3f51b5', bg: '#e8eaf6' },
-                { label: 'Agreement', url: branchDetailData?.agreementUpload,     color: '#388e3c', bg: '#e8f5e9' },
+                { label: 'GST', url: branchDetailData?.gstUpload, color: '#3f51b5', bg: '#e8eaf6' },
+                { label: 'Agreement', url: branchDetailData?.agreementUpload, color: '#388e3c', bg: '#e8f5e9' },
                 { label: 'Other Doc', url: branchDetailData?.otherDocumentUpload, color: '#7c3aed', bg: '#f3e8ff' },
-                { label: 'Token Doc', url: branchDetailData?.tokenUpload,         color: '#f57c00', bg: '#fff3e0' },
+                { label: 'Token Doc', url: branchDetailData?.tokenUpload, color: '#f57c00', bg: '#fff3e0' },
               ].map(({ label, url, color, bg }) => (
                 <Box key={label} sx={{ bgcolor: bg, borderRadius: '8px', px: 1.5, py: 0.8, border: `1px solid ${color}30`, display: 'flex', alignItems: 'center', gap: 0.8 }}>
                   <DescriptionIcon fontSize="small" sx={{ color, fontSize: '0.9rem' }} />
@@ -1786,10 +2096,10 @@ export default function CompanyManagement() {
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.2 }}>
               {[
-                { label: 'Invoice No.',   value: branchDetailData?.invoiceNumber },
-                { label: 'Payment Mode',  value: branchDetailData?.paymentMode },
-                { label: 'Pay Remark',    value: branchDetailData?.paymentRemark },
-                { label: 'Token Amount',  value: branchDetailData?.tokenAmount != null ? `₹${branchDetailData.tokenAmount}` : null },
+                { label: 'Invoice No.', value: branchDetailData?.invoiceNumber },
+                { label: 'Payment Mode', value: branchDetailData?.paymentMode },
+                { label: 'Pay Remark', value: branchDetailData?.paymentRemark },
+                { label: 'Token Amount', value: branchDetailData?.tokenAmount != null ? `₹${branchDetailData.tokenAmount}` : null },
               ].map(({ label, value }) => (
                 <Box key={label} sx={{ bgcolor: '#f0fdf4', borderRadius: '8px', px: 1.5, py: 1, border: '1px solid #bbf7d0' }}>
                   <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block', mb: 0.2 }}>{label}</Typography>
@@ -1807,6 +2117,33 @@ export default function CompanyManagement() {
             Close
           </Button>
         </Box>
+      </Dialog>
+
+      {/* ── Excel Import Confirmation ── */}
+      <Dialog open={showConfirmDialog} onClose={() => !importing && setShowConfirmDialog(false)} maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <CloudUploadIcon sx={{ color: '#4caf50' }} />
+          Confirm Excel Import
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" mb={1}>
+            Are you sure you want to import companies from <strong>{selectedExcelFile?.name}</strong>?
+          </Typography>
+          <Alert severity="info" sx={{ borderRadius: '8px', '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
+            Duplicate companies (by name) will be skipped automatically.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setShowConfirmDialog(false)} variant="outlined" disabled={importing}
+            sx={{ borderRadius: '8px', color: '#666', borderColor: '#ccc' }}>
+            Cancel
+          </Button>
+          <Button onClick={confirmExcelUpload} variant="contained" disabled={importing}
+            sx={{ borderRadius: '8px', bgcolor: '#4caf50', fontWeight: 700, '&:hover': { bgcolor: '#43a047' }, minWidth: 100 }}>
+            {importing ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Import Now'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
     </Box>

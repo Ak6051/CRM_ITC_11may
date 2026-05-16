@@ -216,13 +216,24 @@ Ideal Talent Connect Pvt. Ltd.`
     hasJoined: '',
   });
   const [offerLetterFile, setOfferLetterFile] = useState(null);
-  // ── Wizard step tracking for Add Details modal ────────────────────────────
-  const [activeStep, setActiveStep] = useState(0);
-
   const [rescheduleFormData, setRescheduleFormData] = useState({
     newDate: '',
     reason: ''
   });
+
+  // Calculate form completion progress
+  const calculateProgress = () => {
+    const fields = [
+      editFormData.internalInterviewDate && editFormData.interviewByWhom,
+      editFormData.resumeSubmitDate && editFormData.lineupStatus,
+      editFormData.interviewRounds?.some(r => r.roundDate),
+      editFormData.interviewStatus,
+      editFormData.offeredSalary && editFormData.offeredStatus,
+      editFormData.selectionStatus,
+      editFormData.joiningDateStatus
+    ];
+    return (fields.filter(Boolean).length / fields.length) * 100;
+  };
 
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
 
@@ -321,6 +332,11 @@ Ideal Talent Connect Pvt. Ltd.`
         });
         setCandidates(res.data);
       }
+
+      // Trigger global dashboard refresh event
+      window.dispatchEvent(new CustomEvent('dashboardDataUpdated', { 
+        detail: { source: 'candidateUpdate', timestamp: new Date() } 
+      }));
     } catch (error) {
       console.error("Error updating candidate details:", error);
       // Show error message
@@ -343,9 +359,15 @@ Ideal Talent Connect Pvt. Ltd.`
 
       // Update each candidate
       for (const { id, data } of candidatesToUpdate) {
+        // Special handling for interviewRounds in bulk updates
+        const updateData = { ...data };
+        if (updateData.interviewRounds) {
+          updateData.interviewRounds = JSON.stringify(updateData.interviewRounds);
+        }
+        
         await axios.put(
           `${API_BASE_URL}/candidates/${id}`,
-          data,
+          updateData,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -366,6 +388,11 @@ Ideal Talent Connect Pvt. Ltd.`
         });
         setCandidates(res.data);
       }
+
+      // Trigger global dashboard refresh event
+      window.dispatchEvent(new CustomEvent('dashboardDataUpdated', { 
+        detail: { source: 'bulkCandidateUpdate', timestamp: new Date() } 
+      }));
     } catch (error) {
       console.error("Error updating candidates:", error);
     }
@@ -454,7 +481,6 @@ Ideal Talent Connect Pvt. Ltd.`
       hasJoined:             candidate.hasJoined             || '',
     });
     setOfferLetterFile(null);
-    setActiveStep(0);
     setEditModalOpen(true);
   };
 
@@ -495,7 +521,12 @@ Ideal Talent Connect Pvt. Ltd.`
       // Append all form fields to formData
       Object.keys(editFormData).forEach(key => {
         if (editFormData[key] !== null && editFormData[key] !== '') {
-          formData.append(key, editFormData[key]);
+          // Special handling for interviewRounds array - send as JSON string
+          if (key === 'interviewRounds') {
+            formData.append(key, JSON.stringify(editFormData[key]));
+          } else {
+            formData.append(key, editFormData[key]);
+          }
         }
       });
 
@@ -853,6 +884,57 @@ Ideal Talent Connect Pvt. Ltd.`
       window.history.replaceState({}, document.title);
     }
   }, [jobs, location.state?.openJobId]);
+
+  // Boolean conditions for section enable/disable workflow logic
+  const getWorkflowConditions = () => {
+    // Lineup Status Validation
+    const isLineupDisabled = ['Pending', 'Cancelled'].includes(editFormData.lineupStatus);
+    const isLineupActive = ['Shortlisted', 'Scheduled', 'Completed'].includes(editFormData.lineupStatus);
+    
+    // Interview Rounds - enabled only when lineup is active
+    const isInterviewEnabled = isLineupActive;
+    
+    // Interview Outcome - enabled only after at least one interview round is completed
+    const hasCompletedRound = editFormData.interviewRounds?.some(round => 
+      round.roundDate && round.roundTime
+    );
+    const isOutcomeEnabled = isInterviewEnabled && hasCompletedRound;
+    
+    // Interview Status Validation
+    const isInterviewStatusNegative = ['On Discussion', 'On Hold', 'Rejected'].includes(editFormData.interviewStatus);
+    const isInterviewStatusPositive = ['Selected', 'Trail'].includes(editFormData.interviewStatus);
+    
+    // Offer Details - enabled only for positive interview status
+    const isOfferEnabled = isInterviewStatusPositive;
+    
+    // Selection - enabled only when Offer Status is Accepted
+    const hasOfferDetails = editFormData.offeredSalary && editFormData.offeredStatus === 'Accepted';
+    const isSelectionEnabled = isOfferEnabled && hasOfferDetails;
+    
+    // Joining - enabled only when Selection Status is Accepted AND Selection Date is filled
+    const isJoiningEnabled = editFormData.selectionStatus === 'Accepted' && editFormData.selectionDate;
+    
+    // Helper for disabled section styling
+    const getDisabledSectionProps = (disabled) => ({
+      opacity: disabled ? 0.4 : 1,
+      pointerEvents: disabled ? 'none' : 'auto',
+      transition: 'all 0.3s ease',
+      filter: disabled ? 'grayscale(1)' : 'none',
+    });
+    
+    return {
+      isLineupDisabled,
+      isLineupActive,
+      isInterviewEnabled,
+      isOutcomeEnabled,
+      isInterviewStatusNegative,
+      isInterviewStatusPositive,
+      isOfferEnabled,
+      isSelectionEnabled,
+      isJoiningEnabled,
+      getDisabledSectionProps
+    };
+  };
 
   const jobColumns = [
     {
@@ -1872,7 +1954,8 @@ Ideal Talent Connect Pvt. Ltd.`
           <Box sx={{
             position: 'absolute', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
-            width: 900, bgcolor: 'background.paper',
+            width: 1200, bgcolor: 'background.paper',
+       
             boxShadow: '0 24px 64px rgba(63,81,181,0.18)',
             borderRadius: 3, overflow: 'hidden',
             border: '1px solid #e8eaf6',
@@ -1892,7 +1975,7 @@ Ideal Talent Connect Pvt. Ltd.`
                     Add Candidate Details
                   </Typography>
                   <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
-                    {selectedCandidate?.candidateName} &bull; Step {activeStep + 1} of 7
+                    {selectedCandidate?.candidateName}
                   </Typography>
                 </Box>
               </Box>
@@ -1902,539 +1985,941 @@ Ideal Talent Connect Pvt. Ltd.`
               </IconButton>
             </Box>
 
-            {/* Step Progress Bar */}
-            {(() => {
-              const steps = [
-                { label: 'Internal Interview', done: !!(editFormData.internalInterviewDate && editFormData.interviewByWhom) },
-                { label: 'Resume & Lineup',    done: !!(editFormData.resumeSubmitDate && editFormData.lineupStatus) },
-                { label: 'Interview Rounds',   done: !!(editFormData.interviewRounds?.some(r => r.roundDate)) },
-                { label: 'Outcome',            done: !!(editFormData.interviewStatus) },
-                { label: 'Offer',              done: !!(editFormData.offeredSalary && editFormData.offeredStatus) },
-                { label: 'Selection',          done: !!(editFormData.selectionStatus) },
-                { label: 'Joining',            done: !!(editFormData.joiningDateStatus) },
-              ];
-              return (
-                <Box sx={{ px: 3, pt: 2, pb: 1, bgcolor: '#f8f9ff', borderBottom: '1px solid #e8eaf6' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-                    {steps.map((s, i) => {
-                      const isActive = activeStep === i;
-                      const isDone   = s.done;
-                      const isLocked = i > 0 && !steps[i - 1].done;
-                      return (
-                        <React.Fragment key={i}>
-                          <Box
-                            onClick={() => { if (!isLocked) setActiveStep(i); }}
-                            sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: isLocked ? 'not-allowed' : 'pointer', opacity: isLocked ? 0.4 : 1, minWidth: 80 }}
-                          >
-                            <Box sx={{
-                              width: 28, height: 28, borderRadius: '50%',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontWeight: 700, fontSize: '0.75rem',
-                              bgcolor: isDone ? '#4caf50' : isActive ? '#3f51b5' : '#e8eaf6',
-                              color: isDone || isActive ? '#fff' : '#9fa8da',
-                              border: isActive ? '2px solid #3f51b5' : isDone ? '2px solid #4caf50' : '2px solid #e8eaf6',
-                              transition: 'all 0.2s',
-                            }}>
-                              {isDone ? '✓' : i + 1}
-                            </Box>
-                            <Typography sx={{ fontSize: '0.6rem', fontWeight: isActive ? 700 : 500, mt: 0.4, color: isDone ? '#4caf50' : isActive ? '#3f51b5' : '#9fa8da', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                              {s.label}
-                            </Typography>
-                          </Box>
-                          {i < steps.length - 1 && (
-                            <Box sx={{ flex: 1, height: 2, mb: 2.5, bgcolor: steps[i].done ? '#4caf50' : '#e8eaf6', transition: 'background 0.3s' }} />
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
+            {/* Progress Indicator */}
+            <Box sx={{ px: 3, pt: 2, pb: 1, bgcolor: '#f8f9ff', borderBottom: '1px solid #e8eaf6' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                  📝 Candidate Details Form
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="body2" sx={{ color: '#64748b' }}>
+                    Progress: 
+                  </Typography>
+                  <Box sx={{ width: 200, bgcolor: '#e8eaf6', borderRadius: '10px', p: 1 }}>
+                    <Box sx={{ bgcolor: '#4caf50', borderRadius: '6px', width: `${calculateProgress()}%`, height: 8, transition: 'width 0.3s' }} />
                   </Box>
+                  <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 600 }}>
+                    {Math.round(calculateProgress())}%
+                  </Typography>
                 </Box>
-              );
-            })()}
+              </Box>
+            </Box>
 
-            {/* Step Content */}
+            
+            {/* Single Form with All Fields */}
             <Box sx={{ p: 3, maxHeight: '58vh', overflowY: 'auto',
               '&::-webkit-scrollbar': { width: 6 },
               '&::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 3 },
             }}>
-            <Stack spacing={2.5}>
-
-              {/* STEP 0 - Internal Interview */}
-              {activeStep === 0 && (<>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Internal Interview
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField label="Internal Interview Date *" type="date" size="small" fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.internalInterviewDate}
-                    onChange={e => handleEditFormChange('internalInterviewDate', e.target.value)} />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField select label="Interview By Whom *" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.interviewByWhom}
-                    onChange={e => handleEditFormChange('interviewByWhom', e.target.value)}>
-                    <MenuItem value=""><em>Select HR</em></MenuItem>
-                    {hrUsers.map(hr => (
-                      <MenuItem key={hr._id} value={hr._id}>{hr.firstName + ' ' + hr.lastName}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField select label="Candidate Review" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.candidateReview}
-                    onChange={e => handleEditFormChange('candidateReview', e.target.value)}>
-                    <MenuItem value=""><em>Select</em></MenuItem>
-                    {[{ v: 'Green', c: '#4caf50' }, { v: 'Yellow', c: '#ff9800' }, { v: 'Red', c: '#f44336' }].map(({ v, c }) => (
-                      <MenuItem key={v} value={v}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: c, flexShrink: 0 }} />
-                          {v}
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField label="Candidate Remarks" multiline rows={2} size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.candidateRemark}
-                    onChange={e => handleEditFormChange('candidateRemark', e.target.value)} />
-                </Grid>
-              </Grid>
-              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
-                * Fill Internal Interview Date and Interview By Whom to unlock next step
-              </Typography>
-              </>)}
-
-              {/* STEP 1 - Resume and Lineup */}
-              {activeStep === 1 && (<>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Resume &amp; Lineup
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField label="Resume Submit Date *" type="date" size="small" fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.resumeSubmitDate}
-                    onChange={e => handleEditFormChange('resumeSubmitDate', e.target.value)} />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField select label="Lineup Status *" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.lineupStatus}
-                    onChange={e => handleEditFormChange('lineupStatus', e.target.value)}>
-                    <MenuItem value=""><em>Select</em></MenuItem>
-                    {['Pending','Shortlisted','Scheduled','Completed','Cancelled'].map(o => (
-                      <MenuItem key={o} value={o}>{o}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField label="Remarks 1" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.remarks1}
-                    onChange={e => handleEditFormChange('remarks1', e.target.value)} />
-                </Grid>
-              </Grid>
-              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
-                * Fill Resume Submit Date and Lineup Status to unlock next step
-              </Typography>
-              </>)}
-
-              {/* STEP 2 - Interview Rounds */}
-              {activeStep === 2 && (<>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                  Interview Rounds
-                </Typography>
-                <Button size="small" variant="outlined"
-                  onClick={() => handleEditFormChange('interviewRounds', [
-                    ...editFormData.interviewRounds,
-                    { roundName: 'Round ' + (editFormData.interviewRounds.length + 1), roundDate: '', roundTime: '', interviewMode: 'Face To Face', interviewedByWhom: '' }
-                  ])}
-                  sx={{ borderRadius: '8px', fontSize: '0.72rem', borderColor: '#3f51b5', color: '#3f51b5', textTransform: 'none' }}>
-                  + Add Round
-                </Button>
-              </Box>
-              {editFormData.interviewRounds?.map((round, idx) => (
-                <Box key={idx} sx={{ p: 2, bgcolor: '#f8f9ff', borderRadius: '10px', border: '1px solid #e8eaf6' }}>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-                    <TextField select label="Select Round" value={round.roundName} size="small"
-                      onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundName = e.target.value; handleEditFormChange('interviewRounds', r); }}
-                      sx={{ width: 160, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}>
-                      {['Round 1','Round 2','Round 3','Round 4','HR Round','Final Round'].map(r => (
-                        <MenuItem key={r} value={r}>{r}</MenuItem>
-                      ))}
-                    </TextField>
-                    {editFormData.interviewRounds.length > 1 && (
-                      <Button size="small" color="error"
-                        onClick={() => handleEditFormChange('interviewRounds', editFormData.interviewRounds.filter((_, i) => i !== idx))}
-                        sx={{ fontSize: '0.72rem', textTransform: 'none' }}>Remove</Button>
-                    )}
-                  </Box>
+            <Grid container spacing={2}>
+                {/* Internal Interview Section */}
+                {/* <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1e293b', mb: 2 }}>
+                    📅 Internal Interview
+                  </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={6} sm={3}>
-                      <TextField label="Date *" type="date" value={round.roundDate} size="small" fullWidth
+                    <Grid item xs={12} sm={6} md={4}>
+                      <TextField 
+                        label="Internal Interview Date" 
+                        type="date" 
+                        size="small" 
+                        fullWidth
                         InputLabelProps={{ shrink: true }}
-                        onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundDate = e.target.value; handleEditFormChange('interviewRounds', r); }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        value={editFormData.internalInterviewDate}
+                        onChange={e => handleEditFormChange('internalInterviewDate', e.target.value)} 
+                      />
                     </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField label="Time" type="time" value={round.roundTime} size="small" fullWidth
-                        InputLabelProps={{ shrink: true }}
-                        onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundTime = e.target.value; handleEditFormChange('interviewRounds', r); }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField select label="Interview Mode" value={round.interviewMode} size="small" fullWidth
-                        onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].interviewMode = e.target.value; handleEditFormChange('interviewRounds', r); }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}>
-                        {['Face To Face','Telephonic','Video Call','Other'].map(m => (
-                          <MenuItem key={m} value={m}>{m}</MenuItem>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <TextField 
+                        select 
+                        label="Interview By Whom" 
+                        size="small" 
+                        fullWidth
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        value={editFormData.interviewByWhom}
+                        onChange={e => handleEditFormChange('interviewByWhom', e.target.value)}
+                      >
+                        <MenuItem value="">
+                          <em>Select HR</em>
+                        </MenuItem>
+                        {hrUsers.map(hr => (
+                          <MenuItem key={hr._id} value={hr._id}>
+                            {hr.firstName} {hr.lastName}
+                          </MenuItem>
                         ))}
                       </TextField>
                     </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField label="Interviewed By Whom" value={round.interviewedByWhom} size="small" fullWidth
-                        onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].interviewedByWhom = e.target.value; handleEditFormChange('interviewRounds', r); }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }} />
+                    <Grid item xs={12} sm={6} md={4}>
+                      <TextField 
+                        select 
+                        label="Candidate Review" 
+                        size="small" 
+                        fullWidth
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        value={editFormData.candidateReview}
+                        onChange={e => handleEditFormChange('candidateReview', e.target.value)}
+                      >
+                        <MenuItem value="">
+                          <em>Select</em>
+                        </MenuItem>
+                        {[
+                          { value: 'Green', label: '🟢 Green' },
+                          { value: 'Yellow', label: '🟡 Yellow' },
+                          { value: 'Red', label: '🔴 Red' }
+                        ].map(option => (
+                          <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} sm={10}>
+                      <TextField 
+                        label="Candidate Remarks" 
+                        multiline 
+                        rows={2} 
+                        size="small" 
+                        fullWidth
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        value={editFormData.candidateRemark}
+                        onChange={e => handleEditFormChange('candidateRemark', e.target.value)} 
+                      />
                     </Grid>
                   </Grid>
-                </Box>
-              ))}
-              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
-                * Set at least one round date to unlock next step
-              </Typography>
-              </>)}
+                </Grid> */}
 
-              {/* STEP 3 - Interview Outcome */}
-              {activeStep === 3 && (<>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Interview Outcome
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField select label="Interview Status *" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.interviewStatus}
-                    onChange={e => handleEditFormChange('interviewStatus', e.target.value)}>
-                    <MenuItem value=""><em>Select</em></MenuItem>
-                    {['On Discussion','Selected','On Hold','Trail','Rejected'].map(o => (
-                      <MenuItem key={o} value={o}>{o}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                {editFormData.interviewStatus === 'Trail' && (
-                  <Grid item xs={12} sm={4}>
-                    <TextField label="No. of Trail Days" type="number" size="small" fullWidth
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                      value={editFormData.trailDays}
-                      onChange={e => handleEditFormChange('trailDays', e.target.value.replace(/D/g, ''))}
-                      inputProps={{ min: 1 }} />
+                {/* Internal Interview Section */}
+<Grid item xs={12}>
+  <Typography
+    variant="subtitle2"
+    sx={{
+      fontWeight: 700,
+      color: "#1e293b",
+      mb: 2,
+      display: "flex",
+      alignItems: "center",
+      gap: 1,
+    }}
+  >
+    📅 Internal Interview
+  </Typography>
+
+  <Grid container spacing={2}>
+    {/* Internal Interview Date */}
+    <Grid item xs={12} sm={6} md={3}>
+      <TextField
+        label="Internal Interview Date"
+        type="date"
+        size="small"
+        fullWidth
+        InputLabelProps={{ shrink: true }}
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "10px",
+            bgcolor: "#fff",
+          },
+        }}
+        value={editFormData.internalInterviewDate}
+        onChange={(e) =>
+          handleEditFormChange(
+            "internalInterviewDate",
+            e.target.value
+          )
+        }
+      />
+    </Grid>
+
+    {/* Interview By Whom */}
+    <Grid item xs={12} sm={6} md={3}>
+      <TextField
+        select
+        label="Interview By Whom"
+        size="small"
+        fullWidth
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "10px",
+            bgcolor: "#fff",
+          },
+        }}
+        value={editFormData.interviewByWhom}
+        onChange={(e) =>
+          handleEditFormChange(
+            "interviewByWhom",
+            e.target.value
+          )
+        }
+      >
+        <MenuItem value="">
+          <em>Select HR</em>
+        </MenuItem>
+
+        {hrUsers.map((hr) => (
+          <MenuItem key={hr._id} value={hr._id}>
+            {hr.firstName} {hr.lastName}
+          </MenuItem>
+        ))}
+      </TextField>
+    </Grid>
+
+    {/* Candidate Review */}
+    <Grid item xs={12} sm={6} md={3}>
+      <TextField
+        select
+        label="Candidate Review"
+        size="small"
+        fullWidth
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "10px",
+            bgcolor: "#fff",
+          },
+        }}
+        value={editFormData.candidateReview}
+        onChange={(e) =>
+          handleEditFormChange(
+            "candidateReview",
+            e.target.value
+          )
+        }
+      >
+        <MenuItem value="">
+          <em>Select Review</em>
+        </MenuItem>
+
+        {[
+          { value: "Green", label: "🟢 Green" },
+          { value: "Yellow", label: "🟡 Yellow" },
+          { value: "Red", label: "🔴 Red" },
+        ].map((option) => (
+          <MenuItem
+            key={option.value}
+            value={option.value}
+          >
+            {option.label}
+          </MenuItem>
+        ))}
+      </TextField>
+    </Grid>
+
+    {/* Candidate Remarks */}
+    <Grid item xs={12} sm={6} md={3}>
+      <TextField
+        label="Candidate Remarks"
+        size="small"
+        fullWidth
+        sx={{
+          "& .MuiOutlinedInput-root": {
+            borderRadius: "10px",
+            bgcolor: "#fff",
+          },
+        }}
+        value={editFormData.candidateRemark}
+        onChange={(e) =>
+          handleEditFormChange(
+            "candidateRemark",
+            e.target.value
+          )
+        }
+      />
+    </Grid>
+  </Grid>
+</Grid>
+
+              
+              </Grid>
+  {/* Resume & Lineup Section */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1e293b', mb: 2 }}>
+                    📄 Resume & Lineup
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <TextField 
+                        label="Resume Submit Date" 
+                        type="date" 
+                        size="small" 
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        value={editFormData.resumeSubmitDate}
+                        onChange={e => handleEditFormChange('resumeSubmitDate', e.target.value)} 
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <TextField 
+                        select 
+                        label="Lineup Status" 
+                        size="small" 
+                        fullWidth
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        value={editFormData.lineupStatus}
+                        onChange={e => handleEditFormChange('lineupStatus', e.target.value)}
+                      >
+                        <MenuItem value="">
+                          <em>Select</em>
+                        </MenuItem>
+                        {['Shortlisted','On Hold','Rejected'].map(status => (
+                          <MenuItem key={status} value={status}>
+                            {status}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <TextField 
+                        label="Remarks 1" 
+                        size="small" 
+                        fullWidth
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                        value={editFormData.remarks1}
+                        onChange={e => handleEditFormChange('remarks1', e.target.value)} 
+                      />
+                    </Grid>
                   </Grid>
-                )}
-                <Grid item xs={12} sm={editFormData.interviewStatus === 'Trail' ? 4 : 8}>
-                  <TextField label="Remarks 2" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    disabled={!['On Hold','Rejected'].includes(editFormData.interviewStatus)}
-                    value={editFormData.remarks2}
-                    onChange={e => handleEditFormChange('remarks2', e.target.value)}
-                    placeholder={['On Hold','Rejected'].includes(editFormData.interviewStatus) ? '' : 'Active when On Hold or Rejected'} />
                 </Grid>
-              </Grid>
-              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
-                * Select Interview Status to unlock next step
-              </Typography>
-              </>)}
-
-              {/* STEP 4 - Offer Details */}
-              {activeStep === 4 && (<>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Offer Details
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField label="Offered Salary *" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.offeredSalary}
-                    onChange={e => handleEditFormChange('offeredSalary', e.target.value)} />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField select label="Offered Status *" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.offeredStatus}
-                    onChange={e => handleEditFormChange('offeredStatus', e.target.value)}>
-                    <MenuItem value=""><em>Select</em></MenuItem>
-                    {['Accepted','Rejected'].map(o => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField label="Remarks 3" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    disabled={editFormData.offeredStatus !== 'Rejected'}
-                    value={editFormData.remarks3}
-                    onChange={e => handleEditFormChange('remarks3', e.target.value)}
-                    placeholder={editFormData.offeredStatus !== 'Rejected' ? 'Active when Offer Rejected' : ''} />
-                </Grid>
-              </Grid>
-              <Box sx={{ p: 2, bgcolor: '#f8f9ff', borderRadius: '10px', border: '1px solid #e8eaf6' }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 1 }}>
-                  Offer Letter
-                </Typography>
-                {editFormData.offerLetter && !offerLetterFile && (
-                  <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#fff', borderRadius: '8px', border: '1px solid #e8eaf6' }}>
-                    <DescriptionIcon fontSize="small" sx={{ color: '#3f51b5' }} />
-                    <a href={editFormData.offerLetter} target="_blank" rel="noopener noreferrer"
-                      style={{ color: '#3f51b5', textDecoration: 'none', fontSize: '0.82rem', flexGrow: 1 }}>
-                      View Current Offer Letter
-                    </a>
-                    <Button size="small" color="error" onClick={() => handleEditFormChange('offerLetter', null)}
-                      sx={{ minWidth: 'auto', fontSize: '0.72rem' }}>Remove</Button>
-                  </Box>
-                )}
-                <input accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  style={{ display: 'none' }} id="offer-letter-upload" type="file"
-                  onChange={e => { if (e.target.files.length > 0) { setOfferLetterFile(e.target.files[0]); handleEditFormChange('offerLetter', e.target.files[0].name); } }} />
-                <label htmlFor="offer-letter-upload">
-                  <Button variant="outlined" component="span" fullWidth startIcon={<CloudUploadIcon />}
-                    sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', fontSize: '0.82rem' }}>
-                    {offerLetterFile ? offerLetterFile.name : 'Upload Offer Letter'}
-                  </Button>
-                </label>
-                <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}>Supported: PDF, DOC, DOCX</Typography>
-              </Box>
-              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
-                * Fill Offered Salary and Offered Status to unlock next step
-              </Typography>
-              </>)}
-
-              {/* STEP 5 - Selection */}
-              {activeStep === 5 && (<>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Selection
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField select label="Selection Status *" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.selectionStatus}
-                    onChange={e => handleEditFormChange('selectionStatus', e.target.value)}>
-                    <MenuItem value=""><em>Select</em></MenuItem>
-                    {['Accepted','Rejected'].map(o => (
-                      <MenuItem key={o} value={o}>{o}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField label="Selection Date" type="date" size="small" fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.selectionDate}
-                    onChange={e => handleEditFormChange('selectionDate', e.target.value)} />
-                </Grid>
-              </Grid>
-              <Typography variant="caption" sx={{ color: '#f57c00', fontStyle: 'italic' }}>
-                * Select Selection Status to unlock next step
-              </Typography>
-              </>)}
-
-              {/* STEP 6 - Joining */}
-              {activeStep === 6 && (<>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                Joining
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <TextField select label="Joining Date Status *" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.joiningDateStatus}
-                    onChange={e => handleEditFormChange('joiningDateStatus', e.target.value)}>
-                    <MenuItem value=""><em>Select</em></MenuItem>
-                    {['Confirmed','Pending','Not Decided','Postponed'].map(o => (
-                      <MenuItem key={o} value={o}>{o}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField label="Joining Date" type="date" size="small" fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.joiningDate}
-                    onChange={e => handleEditFormChange('joiningDate', e.target.value)} />
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField select label="Has Joined" size="small" fullWidth
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                    value={editFormData.hasJoined}
-                    onChange={e => handleEditFormChange('hasJoined', e.target.value)}>
-                    <MenuItem value=""><em>Select</em></MenuItem>
-                    {['Confirmation Awaited','Yes','No','Backout'].map(o => (
-                      <MenuItem key={o} value={o}>{o}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-              </Grid>
-
-              {/* ── Offer Letter (required when Joining Date is set) ── */}
-              {(() => {
-                const offerLetterRequired = !!editFormData.joiningDate;
-                const offerLetterPresent  = !!(editFormData.offerLetter || offerLetterFile);
-                const showError = offerLetterRequired && !offerLetterPresent;
-                return (
-                  <Box sx={{
-                    p: 2, borderRadius: '10px',
-                    border: showError ? '1.5px solid #ef4444' : '1px solid #e8eaf6',
-                    bgcolor: showError ? '#fff5f5' : '#f8f9ff',
-                    transition: 'all 0.2s',
+                {/* Interview Rounds Section */}
+                <Grid item xs={12} md={6} sx={getWorkflowConditions().getDisabledSectionProps(!getWorkflowConditions().isInterviewEnabled)}>
+                  <Typography variant="subtitle2" sx={{ 
+                    fontWeight: 600, 
+                    color: getWorkflowConditions().isInterviewEnabled ? '#1e293b' : '#9e9e9e', 
+                    mb: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
                   }}>
-                    <Box display="flex" alignItems="center" gap={1} mb={1}>
-                      <DescriptionIcon fontSize="small" sx={{ color: showError ? '#ef4444' : '#3f51b5' }} />
-                      <Typography variant="caption" sx={{
-                        fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-                        color: showError ? '#ef4444' : '#3f51b5',
-                      }}>
-                        Offer Letter {offerLetterRequired ? '*' : '(Optional)'}
+                    🔄 Interview Rounds
+                    {!getWorkflowConditions().isInterviewEnabled && (
+                      <Typography variant="caption" sx={{ color: '#ee1809', fontWeight: 500 }}>
+                        (Enable by setting Lineup Status to Shortlisted)
                       </Typography>
-                      {offerLetterRequired && !offerLetterPresent && (
-                        <Chip label="Required" size="small"
-                          sx={{ bgcolor: '#fee2e2', color: '#b91c1c', fontWeight: 700, fontSize: '0.65rem', height: 18, ml: 'auto' }} />
-                      )}
-                      {offerLetterPresent && (
-                        <Chip label="✓ Uploaded" size="small"
-                          sx={{ bgcolor: '#d1fae5', color: '#065f46', fontWeight: 700, fontSize: '0.65rem', height: 18, ml: 'auto' }} />
-                      )}
-                    </Box>
-
-                    {/* Existing offer letter */}
-                    {editFormData.offerLetter && !offerLetterFile && (
-                      <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#fff', borderRadius: '8px', border: '1px solid #e8eaf6' }}>
-                        <DescriptionIcon fontSize="small" sx={{ color: '#3f51b5' }} />
-                        <a href={editFormData.offerLetter} target="_blank" rel="noopener noreferrer"
-                          style={{ color: '#3f51b5', textDecoration: 'none', fontSize: '0.82rem', flexGrow: 1 }}>
-                          View Current Offer Letter
-                        </a>
-                        <Button size="small" color="error"
-                          onClick={() => handleEditFormChange('offerLetter', null)}
-                          sx={{ minWidth: 'auto', fontSize: '0.72rem' }}>
-                          Remove
-                        </Button>
-                      </Box>
                     )}
-
-                    {/* New file selected preview */}
-                    {offerLetterFile && (
-                      <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
-                        <DescriptionIcon fontSize="small" sx={{ color: '#16a34a' }} />
-                        <Typography variant="body2" sx={{ color: '#15803d', flexGrow: 1, fontSize: '0.82rem' }}>
-                          {offerLetterFile.name}
-                        </Typography>
-                        <Button size="small" color="error"
-                          onClick={() => { setOfferLetterFile(null); handleEditFormChange('offerLetter', selectedCandidate?.offerLetter || null); }}
-                          sx={{ minWidth: 'auto', fontSize: '0.72rem' }}>
-                          Remove
-                        </Button>
-                      </Box>
-                    )}
-
-                    {/* Upload button */}
-                    <input
-                      accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      style={{ display: 'none' }}
-                      id="offer-letter-upload-step6"
-                      type="file"
-                      onChange={e => {
-                        if (e.target.files.length > 0) {
-                          setOfferLetterFile(e.target.files[0]);
-                          handleEditFormChange('offerLetter', e.target.files[0].name);
+                  </Typography>
+                  <Box sx={{ mb: 2 }}>
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      disabled={!getWorkflowConditions().isInterviewEnabled}
+                      onClick={() => handleEditFormChange('interviewRounds', [
+                        ...editFormData.interviewRounds,
+                        { roundName: 'Round ' + (editFormData.interviewRounds.length + 1), roundDate: '', roundTime: '', interviewMode: 'Face To Face', interviewedByWhom: '' }
+                      ])}
+                      sx={{ 
+                        borderRadius: '8px', 
+                        fontSize: '0.72rem', 
+                        borderColor: getWorkflowConditions().isInterviewEnabled ? '#3f51b5' : '#e0e0e0', 
+                        color: getWorkflowConditions().isInterviewEnabled ? '#3f51b5' : '#9e9e9e', 
+                        textTransform: 'none',
+                        '&:hover': {
+                          borderColor: getWorkflowConditions().isInterviewEnabled ? '#303f9f' : '#e0e0e0',
+                          bgcolor: getWorkflowConditions().isInterviewEnabled ? '#f8f9ff' : 'transparent'
                         }
                       }}
-                    />
-                    <label htmlFor="offer-letter-upload-step6">
-                      <Button variant="outlined" component="span" fullWidth startIcon={<CloudUploadIcon />}
-                        sx={{
-                          borderRadius: '8px', fontSize: '0.82rem',
-                          borderColor: showError ? '#ef4444' : '#9fa8da',
-                          color: showError ? '#ef4444' : '#3f51b5',
-                          '&:hover': { borderColor: showError ? '#dc2626' : '#3f51b5', bgcolor: showError ? '#fff5f5' : undefined },
-                        }}>
-                        {offerLetterFile ? 'Change Offer Letter' : editFormData.offerLetter ? 'Replace Offer Letter' : 'Upload Offer Letter'}
-                      </Button>
-                    </label>
-                    <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: showError ? '#ef4444' : 'text.secondary' }}>
-                      {showError
-                        ? '⚠️ Offer letter is required when a joining date is set'
-                        : 'Supported: PDF, DOC, DOCX'}
-                    </Typography>
-                  </Box>
-                );
-              })()}
-              </>)}
-
-            </Stack>
-            </Box>
-
-            {/* Wizard Footer */}
-            {(() => {
-              const offerLetterPresent = !!(editFormData.offerLetter || offerLetterFile);
-              const joiningDateSet     = !!editFormData.joiningDate;
-              const offerLetterOk      = !joiningDateSet || offerLetterPresent; // required only when joining date is set
-
-              const stepDone = [
-                !!(editFormData.internalInterviewDate && editFormData.interviewByWhom),
-                !!(editFormData.resumeSubmitDate && editFormData.lineupStatus),
-                !!(editFormData.interviewRounds?.some(r => r.roundDate)),
-                !!(editFormData.interviewStatus),
-                !!(editFormData.offeredSalary && editFormData.offeredStatus),
-                !!(editFormData.selectionStatus),
-                !!(editFormData.joiningDateStatus && offerLetterOk), // step 6: also needs offer letter when joining date set
-              ];
-              const canNext   = stepDone[activeStep];
-              const isLast    = activeStep === 6;
-              const canSave   = !isLast || offerLetterOk; // on last step, block Save if offer letter missing
-              const saveTooltip = isLast && !offerLetterOk
-                ? 'Upload an offer letter before saving (joining date is set)'
-                : '';
-              return (
-                <Box sx={{ px: 3, py: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff' }}>
-                  <Button variant="outlined" disabled={activeStep === 0}
-                    onClick={() => setActiveStep(s => s - 1)}
-                    sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', fontWeight: 600, minWidth: 90 }}>
-                    Back
-                  </Button>
-                  <Box display="flex" gap={1.5}>
-                    <Button variant="outlined" onClick={() => setEditModalOpen(false)}
-                      sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#6b7280' }}>
-                      Cancel
+                    >
+                      + Add Round
                     </Button>
-                    <Tooltip title={saveTooltip} arrow>
-                      <span>
-                        <Button variant="contained" onClick={handleEditSubmit} disabled={!canSave}
-                          sx={{ borderRadius: '8px', bgcolor: '#4caf50', '&:hover': { bgcolor: '#388e3c' }, fontWeight: 700, minWidth: 110 }}>
-                          Save Changes
-                        </Button>
-                      </span>
-                    </Tooltip>
-                    {!isLast && (
-                      <Tooltip title={canNext ? '' : 'Complete required fields to proceed'} arrow>
-                        <span>
-                          <Button variant="contained" disabled={!canNext}
-                            onClick={() => setActiveStep(s => s + 1)}
-                            sx={{ borderRadius: '8px', background: canNext ? 'linear-gradient(135deg, #3f51b5, #5c6bc0)' : undefined, fontWeight: 700, minWidth: 90 }}>
-                            Next
-                          </Button>
-                        </span>
-                      </Tooltip>
-                    )}
                   </Box>
+                  {editFormData.interviewRounds?.map((round, idx) => (
+                    <Box key={idx} sx={{ 
+                      p: 2, 
+                      bgcolor: getWorkflowConditions().isInterviewEnabled ? '#f8f9ff' : '#f5f5f5', 
+                      borderRadius: '10px', 
+                      border: `1px solid ${getWorkflowConditions().isInterviewEnabled ? '#e8eaf6' : '#e0e0e0'}`, 
+                      mb: 2 
+                    }}>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                        <TextField 
+                          select 
+                          label="Select Round" 
+                          value={round.roundName} 
+                          size="small"
+                          disabled={!getWorkflowConditions().isInterviewEnabled}
+                          onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundName = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                          sx={{ 
+                            width: 160, 
+                            '& .MuiOutlinedInput-root': { 
+                              borderRadius: '8px',
+                              bgcolor: getWorkflowConditions().isInterviewEnabled ? '#fff' : '#f5f5f5'
+                            } 
+                          }}
+                        >
+                          {['Round 1','Round 2','Round 3','Round 4','HR Round','Final Round'].map(r => (
+                            <MenuItem key={r} value={r}>{r}</MenuItem>
+                          ))}
+                        </TextField>
+                        {editFormData.interviewRounds.length > 1 && (
+                          <Button 
+                            size="small" 
+                            color="error"
+                            disabled={!getWorkflowConditions().isInterviewEnabled}
+                            onClick={() => handleEditFormChange('interviewRounds', editFormData.interviewRounds.filter((_, i) => i !== idx))}
+                            sx={{ 
+                              fontSize: '0.72rem', 
+                              textTransform: 'none',
+                              '&:hover': {
+                                bgcolor: getWorkflowConditions().isInterviewEnabled ? '#ffebee' : 'transparent'
+                              }
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </Box>
+                      <Grid container spacing={2}>
+                        <Grid item xs={6} sm={3}>
+                          <TextField 
+                            label="Date" 
+                            type="date" 
+                            value={round.roundDate} 
+                            size="small" 
+                            fullWidth
+                            disabled={!getWorkflowConditions().isInterviewEnabled}
+                            InputLabelProps={{ shrink: true }}
+                            onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundDate = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                borderRadius: '8px',
+                                bgcolor: getWorkflowConditions().isInterviewEnabled ? '#fff' : '#f5f5f5'
+                              } 
+                            }} 
+                          />
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <TextField 
+                            label="Time" 
+                            type="time" 
+                            value={round.roundTime} 
+                            size="small" 
+                            fullWidth
+                            disabled={!getWorkflowConditions().isInterviewEnabled}
+                            InputLabelProps={{ shrink: true }}
+                            onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].roundTime = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                borderRadius: '8px',
+                                bgcolor: getWorkflowConditions().isInterviewEnabled ? '#fff' : '#f5f5f5'
+                              } 
+                            }} 
+                          />
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <TextField 
+                            select 
+                            label="Interview Mode" 
+                            value={round.interviewMode} 
+                            size="small" 
+                            fullWidth
+                            disabled={!getWorkflowConditions().isInterviewEnabled}
+                            onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].interviewMode = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                borderRadius: '8px',
+                                bgcolor: getWorkflowConditions().isInterviewEnabled ? '#fff' : '#f5f5f5'
+                              } 
+                            }}
+                          >
+                            {['Face To Face','Telephonic','Video Call','Other'].map(m => (
+                              <MenuItem key={m} value={m}>{m}</MenuItem>
+                            ))}
+                          </TextField>
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <TextField 
+                            label="Interviewed By Whom" 
+                            value={round.interviewedByWhom} 
+                            size="small" 
+                            fullWidth
+                            disabled={!getWorkflowConditions().isInterviewEnabled}
+                            onChange={e => { const r = [...editFormData.interviewRounds]; r[idx].interviewedByWhom = e.target.value; handleEditFormChange('interviewRounds', r); }}
+                            sx={{ 
+                              '& .MuiOutlinedInput-root': { 
+                                borderRadius: '8px',
+                                bgcolor: getWorkflowConditions().isInterviewEnabled ? '#fff' : '#f5f5f5'
+                              } 
+                            }} 
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  ))}
+                </Grid>
+
+              {/* Interview Outcome Section */}
+              <Grid item xs={12} md={6} sx={getWorkflowConditions().getDisabledSectionProps(!getWorkflowConditions().isOutcomeEnabled)}>
+                <Typography variant="subtitle2" sx={{ 
+                  fontWeight: 600, 
+                  color: getWorkflowConditions().isOutcomeEnabled ? '#1e293b' : '#9e9e9e', 
+                  mb: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  📊 Interview Outcome
+                  {!getWorkflowConditions().isOutcomeEnabled && (
+                      <Typography variant="caption" sx={{ color: '#f44336', fontWeight: 500 }}>
+                        (Enable after completing at least one interview round with date and time)
+                      </Typography>
+                    )}
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      select 
+                      label="Interview Status" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isOutcomeEnabled}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: getWorkflowConditions().isOutcomeEnabled ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.interviewStatus}
+                      onChange={e => handleEditFormChange('interviewStatus', e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>Select</em>
+                      </MenuItem>
+                      {['On Discussion','Selected','On Hold','Trail','Rejected','Decision Pending'].map(status => (
+                        <MenuItem key={status} value={status}>
+                          {status}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  {editFormData.interviewStatus === 'Trail' && (
+                    <Grid item xs={12} sm={6} md={4}>
+                      <TextField 
+                        label="No. of Trail Days" 
+                        type="number" 
+                        size="small" 
+                        fullWidth
+                        disabled={!getWorkflowConditions().isOutcomeEnabled}
+                        sx={{ 
+                          '& .MuiOutlinedInput-root': { 
+                            borderRadius: '8px',
+                            bgcolor: getWorkflowConditions().isOutcomeEnabled ? '#fff' : '#f5f5f5'
+                          } 
+                        }}
+                        value={editFormData.trailDays}
+                        onChange={e => handleEditFormChange('trailDays', e.target.value.replace(/D/g, ''))}
+                        inputProps={{ min: 1 }} 
+                      />
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      label="Remarks 2" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isOutcomeEnabled || !['On Hold','Rejected'].includes(editFormData.interviewStatus)}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: (getWorkflowConditions().isOutcomeEnabled && ['On Hold','Rejected'].includes(editFormData.interviewStatus)) ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.remarks2}
+                      onChange={e => handleEditFormChange('remarks2', e.target.value)}
+                      placeholder={getWorkflowConditions().isOutcomeEnabled && ['On Hold','Rejected'].includes(editFormData.interviewStatus) ? '' : 'Active when On Hold or Rejected'} 
+                    />
+                  </Grid>
+                </Grid>
+              </Grid>
+
+              {/* Offer Details Section */}
+              <Grid item xs={12} md={6} sx={getWorkflowConditions().getDisabledSectionProps(!getWorkflowConditions().isOfferEnabled)}>
+                <Typography variant="subtitle2" sx={{ 
+                  fontWeight: 600, 
+                  color: getWorkflowConditions().isOfferEnabled ? '#1e293b' : '#9e9e9e', 
+                  mb: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  💰 Offer Details
+                  {!getWorkflowConditions().isOfferEnabled && (
+                      <Typography variant="caption" sx={{ color: '#f44336', fontWeight: 500 }}>
+                        (Enable by setting Interview Status to Selected or Trail)
+                      </Typography>
+                    )}
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      label="Offered Salary" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isOfferEnabled}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: getWorkflowConditions().isOfferEnabled ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.offeredSalary}
+                      onChange={e => handleEditFormChange('offeredSalary', e.target.value)} 
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      select 
+                      label="Offered Status" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isOfferEnabled}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: getWorkflowConditions().isOfferEnabled ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.offeredStatus}
+                      onChange={e => handleEditFormChange('offeredStatus', e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>Select</em>
+                      </MenuItem>
+                      {['Accepted','Rejected','Pending'].map(status => (
+                        <MenuItem key={status} value={status}>
+                          {status}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      label="Remarks 3" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isOfferEnabled || (editFormData.offeredStatus !== 'Pending' && editFormData.offeredStatus !== 'Rejected')}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: (getWorkflowConditions().isOfferEnabled && (editFormData.offeredStatus === 'Pending' || editFormData.offeredStatus === 'Rejected')) ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.remarks3}
+                      onChange={e => handleEditFormChange('remarks3', e.target.value)}
+                      placeholder={(getWorkflowConditions().isOfferEnabled && (editFormData.offeredStatus === 'Pending' || editFormData.offeredStatus === 'Rejected')) ? '' : 'Active when Offer is Pending or Rejected'} 
+                    />
+                  </Grid>
+                </Grid>
+              </Grid>
+
+              {/* Offer Letter Upload Section */}
+              <Grid item xs={12} sx={getWorkflowConditions().getDisabledSectionProps(!getWorkflowConditions().isOfferEnabled)}>
+                <Box sx={{ 
+                  p: 2, 
+                  bgcolor: getWorkflowConditions().isOfferEnabled ? '#f8f9ff' : '#f5f5f5', 
+                  borderRadius: '10px', 
+                  border: `1px solid ${getWorkflowConditions().isOfferEnabled ? '#e8eaf6' : '#e0e0e0'}`, 
+                  mt: 2 
+                }}>
+                  <Typography variant="subtitle2" sx={{ 
+                    fontWeight: 600, 
+                    color: getWorkflowConditions().isOfferEnabled ? '#1e293b' : '#9e9e9e', 
+                    mb: 2 
+                  }}>
+                    📄 Offer Letter Upload
+                  </Typography>
+                  
+                  {/* Existing offer letter */}
+                  {editFormData.offerLetter && !offerLetterFile && (
+                    <Box sx={{ 
+                      mb: 2, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1, 
+                      p: 1.5, 
+                      bgcolor: getWorkflowConditions().isOfferEnabled ? '#fff' : '#f5f5f5', 
+                      borderRadius: '8px', 
+                      border: `1px solid ${getWorkflowConditions().isOfferEnabled ? '#e8eaf6' : '#e0e0e0'}` 
+                    }}>
+                      <DescriptionIcon fontSize="small" sx={{ color: getWorkflowConditions().isOfferEnabled ? '#3f51b5' : '#9e9e9e' }} />
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="body2" sx={{ color: getWorkflowConditions().isOfferEnabled ? '#3f51b5' : '#9e9e9e', fontWeight: 500 }}>
+                          Current Offer Letter
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: getWorkflowConditions().isOfferEnabled ? '#64748b' : '#9e9e9e' }}>
+                          {editFormData.offerLetter}
+                        </Typography>
+                      </Box>
+                      <Button 
+                        size="small" 
+                        color="error"
+                        disabled={!getWorkflowConditions().isOfferEnabled}
+                        onClick={() => handleEditFormChange('offerLetter', null)}
+                        sx={{ 
+                          fontSize: '0.72rem',
+                          '&:hover': {
+                            bgcolor: getWorkflowConditions().isOfferEnabled ? '#ffebee' : 'transparent'
+                          }
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </Box>
+                  )}
+
+                  {/* New file selected preview */}
+                  {offerLetterFile && (
+                    <Box sx={{ 
+                      mb: 2, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1, 
+                      p: 1.5, 
+                      bgcolor: getWorkflowConditions().isOfferEnabled ? '#f0fdf4' : '#f5f5f5', 
+                      borderRadius: '8px', 
+                      border: `1px solid ${getWorkflowConditions().isOfferEnabled ? '#bbf7d0' : '#e0e0e0'}` 
+                    }}>
+                      <DescriptionIcon fontSize="small" sx={{ color: getWorkflowConditions().isOfferEnabled ? '#16a34a' : '#9e9e9e' }} />
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Typography variant="body2" sx={{ color: getWorkflowConditions().isOfferEnabled ? '#15803d' : '#9e9e9e', fontWeight: 500 }}>
+                          Selected File
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: getWorkflowConditions().isOfferEnabled ? '#166534' : '#9e9e9e' }}>
+                          {offerLetterFile.name}
+                        </Typography>
+                      </Box>
+                      <Button 
+                        size="small" 
+                        color="error"
+                        disabled={!getWorkflowConditions().isOfferEnabled}
+                        onClick={() => { 
+                          setOfferLetterFile(null); 
+                          handleEditFormChange('offerLetter', selectedCandidate?.offerLetter || null); 
+                        }}
+                        sx={{ 
+                          fontSize: '0.72rem',
+                          '&:hover': {
+                            bgcolor: getWorkflowConditions().isOfferEnabled ? '#ffebee' : 'transparent'
+                          }
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </Box>
+                  )}
+
+                  {/* Upload button */}
+                  <input
+                    accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    style={{ display: 'none' }}
+                    id="offer-letter-upload"
+                    type="file"
+                    disabled={!getWorkflowConditions().isOfferEnabled}
+                    onChange={e => {
+                      if (e.target.files.length > 0) {
+                        setOfferLetterFile(e.target.files[0]);
+                        handleEditFormChange('offerLetter', e.target.files[0].name);
+                      }
+                    }}
+                  />
+                  <label htmlFor="offer-letter-upload">
+                    <Button 
+                      variant="outlined" 
+                      component="span" 
+                      fullWidth 
+                      disabled={!getWorkflowConditions().isOfferEnabled}
+                      startIcon={<CloudUploadIcon />}
+                      sx={{ 
+                        borderRadius: '8px', 
+                        borderColor: getWorkflowConditions().isOfferEnabled ? '#9fa8da' : '#e0e0e0', 
+                        color: getWorkflowConditions().isOfferEnabled ? '#3f51b5' : '#9e9e9e', 
+                        fontSize: '0.82rem',
+                        '&:hover': { 
+                          borderColor: getWorkflowConditions().isOfferEnabled ? '#3f51b5' : '#e0e0e0', 
+                          bgcolor: getWorkflowConditions().isOfferEnabled ? '#f8f9ff' : 'transparent' 
+                        } 
+                      }}
+                    >
+                      {offerLetterFile ? 'Change Offer Letter' : editFormData.offerLetter ? 'Replace Offer Letter' : 'Upload Offer Letter'}
+                    </Button>
+                  </label>
+                  <Typography variant="caption" sx={{ mt: 1, color: '#64748b', display: 'block' }}>
+                    Supported formats: PDF, DOC, DOCX (Max size: 5MB)
+                  </Typography>
                 </Box>
-              );
-            })()}
+              </Grid>
+
+              {/* Selection Section */}
+              <Grid item xs={12} md={6} sx={getWorkflowConditions().getDisabledSectionProps(!getWorkflowConditions().isSelectionEnabled)}>
+                <Typography variant="subtitle2" sx={{ 
+                  fontWeight: 600, 
+                  color: getWorkflowConditions().isSelectionEnabled ? '#1e293b' : '#9e9e9e', 
+                  mb: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  ✅ Selection
+                  {!getWorkflowConditions().isSelectionEnabled && (
+                      <Typography variant="caption" sx={{ color: '#f44336', fontWeight: 500 }}>
+                        (Enable after completing Offer Details with salary and status)
+                      </Typography>
+                    )}
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      select 
+                      label="Selection Status" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isSelectionEnabled}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: getWorkflowConditions().isSelectionEnabled ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.selectionStatus}
+                      onChange={e => handleEditFormChange('selectionStatus', e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>Select</em>
+                      </MenuItem>
+                      {['Accepted','Rejected'].map(status => (
+                        <MenuItem key={status} value={status}>
+                          {status}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      label="Selection Date" 
+                      type="date" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isSelectionEnabled || editFormData.selectionStatus === 'Rejected'}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: (getWorkflowConditions().isSelectionEnabled && editFormData.selectionStatus !== 'Rejected') ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.selectionDate}
+                      onChange={e => handleEditFormChange('selectionDate', e.target.value)} 
+                    />
+                  </Grid>
+                </Grid>
+              </Grid>
+
+              {/* Joining Section */}
+              <Grid item xs={12} md={6} sx={getWorkflowConditions().getDisabledSectionProps(!getWorkflowConditions().isJoiningEnabled)}>
+                <Typography variant="subtitle2" sx={{ 
+                  fontWeight: 600, 
+                  color: getWorkflowConditions().isJoiningEnabled ? '#1e293b' : '#9e9e9e', 
+                  mb: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  🎯 Joining
+                  {!getWorkflowConditions().isJoiningEnabled && (
+                      <Typography variant="caption" sx={{ color: '#f44336', fontWeight: 500 }}>
+                        (Enable by setting Selection Status to Accepted)
+                      </Typography>
+                    )}
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      select 
+                      label="Joining Date Status" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isJoiningEnabled}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: getWorkflowConditions().isJoiningEnabled ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.joiningDateStatus}
+                      onChange={e => handleEditFormChange('joiningDateStatus', e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>Select</em>
+                      </MenuItem>
+                      {['Confirmed','Pending','Not Joined'].map(status => (
+                        <MenuItem key={status} value={status}>
+                          {status}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      label="Joining Date" 
+                      type="date" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isJoiningEnabled || editFormData.joiningDateStatus === 'Pending'}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: (getWorkflowConditions().isJoiningEnabled && editFormData.joiningDateStatus !== 'Pending') ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.joiningDate}
+                      onChange={e => handleEditFormChange('joiningDate', e.target.value)} 
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={4}>
+                    <TextField 
+                      select 
+                      label="Has Joined" 
+                      size="small" 
+                      fullWidth
+                      disabled={!getWorkflowConditions().isJoiningEnabled || editFormData.joiningDateStatus === 'Pending'}
+                      sx={{ 
+                        '& .MuiOutlinedInput-root': { 
+                          borderRadius: '8px',
+                          bgcolor: (getWorkflowConditions().isJoiningEnabled && editFormData.joiningDateStatus !== 'Pending') ? '#fff' : '#f5f5f5'
+                        } 
+                      }}
+                      value={editFormData.hasJoined}
+                      onChange={e => handleEditFormChange('hasJoined', e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>Select</em>
+                      </MenuItem>
+                      {['Yes','No'].map(status => (
+                        <MenuItem key={status} value={status}>
+                          {status}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                </Grid>
+              </Grid>
+
+            {/* Form Actions */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3, pt: 2, borderTop: '1px solid #e8eaf6' }}>
+              <Button 
+                variant="outlined" 
+                onClick={() => setEditModalOpen(false)}
+                sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', textTransform: 'none' }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="contained" 
+                onClick={handleEditSubmit}
+                sx={{ borderRadius: '8px', bgcolor: '#3f51b5', '&:hover': { bgcolor: '#303f9f' }, textTransform: 'none' }}
+              >
+                Save Candidate Details
+              </Button>
+            </Box>
+          </Box>
           </Box>
         </Modal>
 

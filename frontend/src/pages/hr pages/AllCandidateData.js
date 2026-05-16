@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_BASE_URL } from "../../config/api.config";
 import axios from "axios";
@@ -8,8 +8,7 @@ import {
   Avatar, List, ListItem, ListItemText, ListItemIcon,
   Divider, Chip, Autocomplete, CircularProgress, Tooltip, Checkbox,
   Popover, Grid,
-} from "@mui/material";
-import { QRCodeSVG } from "qrcode.react";
+} from "@mui/material";import { QRCodeSVG } from "qrcode.react";
 import {
   Visibility as ViewIcon,
   Work as WorkIcon,
@@ -27,6 +26,9 @@ import {
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
   Clear as ClearIcon,
+  Search as SearchIcon,
+  BusinessCenter as BusinessCenterIcon,
+  CalendarToday as CalendarTodayIcon,
 } from "@mui/icons-material";
 import CurrencyRupeeIcon from "@mui/icons-material/CurrencyRupee";
 import { DataGrid } from "@mui/x-data-grid";
@@ -59,7 +61,8 @@ const AllCandidateData = () => {
   const [nameFilter, setNameFilter]               = useState("");
   const [locationFilter, setLocationFilter]       = useState("");
   const [positionFilter, setPositionFilter]       = useState("");
-  const [createdByFilter, setCreatedByFilter]     = useState("");
+  const [selectedHRs, setSelectedHRs]             = useState([]);
+  const [hrList, setHrList]                       = useState([]);
   const [experienceRange, setExperienceRange]     = useState({ min: "", max: "" });
   const [ctcFilter, setCtcFilter]                 = useState({ min: "", max: "" });
   const [noticePeriodFilter, setNoticePeriodFilter] = useState("");
@@ -73,7 +76,7 @@ const AllCandidateData = () => {
   const dName     = useDebounce(nameFilter);
   const dLocation = useDebounce(locationFilter);
   const dPosition = useDebounce(positionFilter);
-  const dCreatedBy= useDebounce(createdByFilter);
+  const dCreatedBy= useDebounce(''); // kept for compat — HR uses selectedHRs dropdown now
   const dCtc      = useDebounce(ctcFilter.min);
   const dCtcMax   = useDebounce(ctcFilter.max);
   const dNotice   = useDebounce(noticePeriodFilter);
@@ -399,7 +402,8 @@ iTalentConnect`
       if (dName)      params.name      = dName;
       if (dLocation)  params.location  = dLocation;
       if (dPosition)  params.position  = dPosition;
-      if (dCreatedBy) params.createdBy = dCreatedBy;
+      if (selectedHRs.length > 0)
+        params.createdBy = selectedHRs.map((h) => h.name).join(",");
       if (dExpMin)    params.minExp    = dExpMin;
       if (dExpMax)    params.maxExp    = dExpMax;
       if (dCtc)       params.minCtc    = dCtc;
@@ -429,15 +433,32 @@ iTalentConnect`
     } finally {
       setLoading(false);
     }
-  }, [paginationModel, dName, dLocation, dPosition, dCreatedBy, dExpMin, dExpMax, dCtc, dCtcMax, dNotice, dGender, dPhone, dCurPos, dIndustry, dateRange]);
+  }, [paginationModel, dName, dLocation, dPosition, dExpMin, dExpMax, dCtc, dCtcMax, dNotice, dGender, dPhone, dCurPos, dIndustry, selectedHRs, dateRange]);
 
   // Reset page on filter change
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
     setPaginationModel((p) => ({ ...p, page: 0 }));
-  }, [dName, dLocation, dPosition, dCreatedBy, dExpMin, dExpMax, dCtc, dCtcMax, dNotice, dGender, dPhone, dCurPos, dIndustry, dateRange]);
+  }, [dName, dLocation, dPosition, dExpMin, dExpMax, dCtc, dCtcMax, dNotice, dGender, dPhone, dCurPos, dIndustry, selectedHRs, dateRange]);
 
   useEffect(() => { fetchCandidates(); }, [fetchCandidates]);
+
+  // ── Fetch HR list for Created By dropdown ──────────────────────────────────
+  useEffect(() => {
+    const fetchHRList = async () => {
+      try {
+        const token = sessionStorage.getItem("token");
+        const res = await axios.get(`${API_BASE_URL}/hr/hr-admins`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const sorted = res.data
+          .map((u) => ({ id: u._id, name: `${u.firstName} ${u.lastName}`.trim(), role: u.role }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setHrList(sorted);
+      } catch (e) { console.error(e); }
+    };
+    fetchHRList();
+  }, []);
 
   // ── Fetch HR's assigned jobs only ──────────────────────────────────────────
   const fetchJobs = async () => {
@@ -525,14 +546,14 @@ iTalentConnect`
 
   const handleClearFilters = () => {
     setNameFilter(""); setLocationFilter(""); setPositionFilter("");
-    setCreatedByFilter(""); setDateRange({ startDate: null, endDate: null });
+    setSelectedHRs([]); setDateRange({ startDate: null, endDate: null });
     setExperienceRange({ min: "", max: "" }); setCtcFilter({ min: "", max: "" }); setNoticePeriodFilter("");
     setGenderFilter(""); setPhoneFilter(""); setCurrentPositionFilter("");
     setIndustryFilter("");
   };
 
   const hasActiveFilters =
-    nameFilter || locationFilter || positionFilter || createdByFilter ||
+    nameFilter || locationFilter || positionFilter || selectedHRs.length > 0 ||
     ctcFilter.min || ctcFilter.max || noticePeriodFilter || genderFilter || phoneFilter || currentPositionFilter || industryFilter ||
     experienceRange.min || experienceRange.max ||
     dateRange.startDate || dateRange.endDate;
@@ -596,7 +617,11 @@ iTalentConnect`
         border: "1px solid #e2e8f0",
         borderRadius: "10px",
         mb: 1.5,
-        width: "100%",
+        width: "fit-content",
+        minWidth: "920px",
+        maxWidth: "1150px",
+        ml: 4,
+        mr: "auto",
         overflow: "visible",
         "&:hover": { boxShadow: "0 2px 12px rgba(0,0,0,0.08)", borderColor: "#c7d2fe" },
       }}
@@ -605,7 +630,7 @@ iTalentConnect`
       <Box sx={{ display: "flex", alignItems: "stretch" }}>
 
         {/* ── LEFT: candidate info ── */}
-        <Box sx={{ flex: 1, minWidth: 0, p: "16px 20px 12px 16px" }}>
+        <Box sx={{ flexGrow: 0, width: "auto", minWidth: "720px", p: "16px 20px 12px 16px" }}>
 
           {/* Row 1: Checkbox + Avatar initial + Name + New badge */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
@@ -633,7 +658,7 @@ iTalentConnect`
           </Box>
 
           {/* Row 2: exp · CTC · location */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1.5, ml: "84px", flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1.2, ml: "60px", flexWrap: "wrap" }}>
             {candidate.experience && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <AccessTime sx={{ fontSize: 13, color: "#64748b" }} />
@@ -654,46 +679,42 @@ iTalentConnect`
             )}
           </Box>
 
-          {/* Row 3: Current | Applied For */}
-          {(candidate.currentPosition || candidate.currentCompany || candidate.positionName) && (
-            <Box sx={{ display: "flex", gap: 4, mb: 1.5, ml: "84px" }}>
-              {(candidate.currentPosition || candidate.currentCompany) && (
-                <Box>
-                  <Typography fontSize={12} color="#94a3b8" mb={0.3}>Current</Typography>
-                  <Typography fontSize={13} fontWeight={600} color="#1e293b">
-                    {candidate.currentPosition || ""}
-                    {candidate.currentCompany ? ` at ${candidate.currentCompany}` : ""}
-                  </Typography>
-                </Box>
-              )}
-              {candidate.positionName && (
-                <Box>
-                  <Typography fontSize={12} color="#94a3b8" mb={0.3}>Applied For</Typography>
-                  <Typography fontSize={13} fontWeight={600} color="#1e293b">{candidate.positionName}</Typography>
-                </Box>
-              )}
-            </Box>
-          )}
-
-          {/* Row 4: Key skills chips */}
-          {(candidate.positionName || candidate.currentPosition || candidate.experience) && (
-            <Box sx={{ mb: 1.5, ml: "84px" }}>
-              <Typography fontSize={12} color="#94a3b8" mb={0.5}>Key skills</Typography>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
-                {[
-                  candidate.positionName,
-                  candidate.currentPosition,
-                  candidate.experience ? `${candidate.experience} exp` : null,
-                ].filter(Boolean).map((skill, i) => (
-                  <Chip key={i} label={skill} size="small"
-                    sx={{ bgcolor: "#fff", border: "1px solid #e2e8f0", color: "#475569", fontSize: "12px", height: 24, borderRadius: "20px" }} />
-                ))}
+          {/* Row 3: Current | Applied For — stacked with header left and data right */}
+          <Box sx={{ ml: "60px", mb: 1.2, display: "flex", flexDirection: "column", gap: 0.8 }}>
+            {(candidate.currentPosition || candidate.currentCompany) && (
+              <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+                <Typography fontSize={12} color="#94a3b8" sx={{ minWidth: "80px" }}>Current:</Typography>
+                <Typography fontSize={13} fontWeight={600} color="#1e293b">
+                  {candidate.currentPosition || ""}
+                  {candidate.currentCompany ? ` at ${candidate.currentCompany}` : ""}
+                </Typography>
               </Box>
-            </Box>
-          )}
+            )}
+            {candidate.positionName && (
+              <Box sx={{ display: "flex", alignItems: "baseline", gap: 1 }}>
+                <Typography fontSize={12} color="#94a3b8" sx={{ minWidth: "80px" }}>Applied For:</Typography>
+                <Typography fontSize={13} fontWeight={600} color="#1e293b">{candidate.positionName}</Typography>
+              </Box>
+            )}
+            {(candidate.positionName || candidate.currentPosition || candidate.experience) && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography fontSize={12} color="#94a3b8" sx={{ minWidth: "80px" }}>Key skills:</Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
+                  {[
+                    candidate.positionName,
+                    candidate.currentPosition,
+                    candidate.experience ? `${candidate.experience} exp` : null,
+                  ].filter(Boolean).map((skill, i) => (
+                    <Chip key={i} label={skill} size="small"
+                      sx={{ bgcolor: "#fff", border: "1px solid #e2e8f0", color: "#475569", fontSize: "11px", height: 22, borderRadius: "20px" }} />
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </Box>
 
           {/* Row 5: Expected CTC · Notice Period · Phone */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 1, ml: "84px", flexWrap: "wrap" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 1, ml: "60px", flexWrap: "wrap" }}>
             {candidate.expectedCTC && (
               <Typography fontSize={12.5} color="#64748b">
                 Expected CTC: <strong>{candidate.expectedCTC}</strong>
@@ -712,7 +733,7 @@ iTalentConnect`
           </Box>
 
           {/* Row 6: Created by + date */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: "84px", pt: 1, borderTop: "1px solid #f1f5f9" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: "60px", pt: 1, borderTop: "1px solid #f1f5f9" }}>
             {candidate.createdBy && (
               <Typography fontSize={12} color="#94a3b8">
                 Created by: <span style={{ color: "#475569", fontWeight: 500 }}>{candidate.createdBy}</span>
@@ -876,35 +897,51 @@ iTalentConnect`
         }}>
           {/* Filter Header — sticky */}
           <Box sx={{
-            px: 2, py: 1.5,
-            borderBottom: "1px solid #e8eaf6",
+            px: 2, py: 1.8,
+            borderBottom: "1px solid #e0e7ff",
             position: "sticky", top: 0, bgcolor: "#fff", zIndex: 10,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "linear-gradient(135deg, #f8faff 0%, #eef2ff 100%)",
           }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: "3px", mr: 0.5 }}>
-                {[0,1,2].map(i => (
-                  <Box key={i} sx={{ width: 16, height: 2, bgcolor: "#64748b", borderRadius: 1 }} />
-                ))}
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: hasActiveFilters ? 1.2 : 0 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Box sx={{ width: 28, height: 28, borderRadius: "8px", bgcolor: "#3f51b5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: "2.5px" }}>
+                    {[0,1,2].map(i => (
+                      <Box key={i} sx={{ width: 12, height: 1.5, bgcolor: "#fff", borderRadius: 1 }} />
+                    ))}
+                  </Box>
+                </Box>
+                <Typography fontWeight={700} fontSize={15} color="#1e293b">Filters</Typography>
+                {hasActiveFilters && (
+                  <Box sx={{ bgcolor: "#3f51b5", color: "#fff", fontWeight: 700, fontSize: "0.7rem", borderRadius: "10px",
+                    minWidth: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", px: 0.5 }}>
+                    {[nameFilter, locationFilter, positionFilter, experienceRange.min || experienceRange.max,
+                      ctcFilter.min || ctcFilter.max, noticePeriodFilter, genderFilter, phoneFilter,
+                      currentPositionFilter, industryFilter, selectedHRs.length > 0,
+                      dateRange.startDate || dateRange.endDate,
+                    ].filter(Boolean).length}
+                  </Box>
+                )}
               </Box>
-              <Typography fontWeight={700} fontSize={15} color="#1e293b">Filters</Typography>
               {hasActiveFilters && (
-                <Chip label="Active" size="small"
-                  sx={{ bgcolor: "#ff6b35", color: "#fff", fontWeight: 700, height: 20, fontSize: "0.7rem", borderRadius: "6px" }} />
+                <Button size="small" onClick={handleClearFilters}
+                  sx={{ fontSize: 11, fontWeight: 700, color: "#ef4444", textTransform: "none", minWidth: "auto",
+                    borderRadius: "6px", px: 1, "&:hover": { bgcolor: "#fef2f2" } }}>
+                  Clear all
+                </Button>
               )}
             </Box>
             {hasActiveFilters && (
-              <Typography fontSize={12} color="#ef4444" sx={{ cursor: "pointer", fontWeight: 600 }}
-                onClick={handleClearFilters}>
+              <Button size="small" onClick={handleClearFilters} sx={{ textTransform: "none", fontSize: 12, minWidth: 0, p: 0.5 }}>
                 Clear all
-              </Typography>
+              </Button>
             )}
           </Box>
 
           {/* Accordion filter rows */}
           {[
             {
-              key: "keywords", label: "Keywords",
+              key: "keywords", label: "Keywords", icon: <SearchIcon sx={{ fontSize: 18 }} />,
               content: (
                 <TextField fullWidth size="small" placeholder="Search by name..."
                   value={nameFilter} onChange={(e) => setNameFilter(e.target.value)}
@@ -916,7 +953,7 @@ iTalentConnect`
               ),
             },
             {
-              key: "location", label: "Location",
+              key: "location", label: "Location", icon: <LocationIcon sx={{ fontSize: 18 }} />,
               content: (
                 <TextField fullWidth size="small" placeholder="e.g. Mumbai, Delhi"
                   value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}
@@ -928,7 +965,7 @@ iTalentConnect`
               ),
             },
             {
-              key: "experience", label: "Experience (Years)",
+              key: "experience", label: "Experience", icon: <AccessTime sx={{ fontSize: 18 }} />,
               content: (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <TextField size="small" placeholder="Min" value={experienceRange.min}
@@ -942,33 +979,33 @@ iTalentConnect`
               ),
             },
             {
-              key: "salary", label: "Salary (CTC)",
+              key: "salary", label: "Salary (CTC)", icon: <CurrencyRupeeIcon sx={{ fontSize: 18 }} />,
               content: (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <TextField size="small" placeholder="Min (e.g. 3)"
+                  <TextField size="small" placeholder="Min"
                     value={ctcFilter.min}
                     onChange={(e) => setCtcFilter(p => ({ ...p, min: e.target.value.replace(/[^0-9.]/g, "") }))}
                     sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                    InputProps={{ startAdornment: <span style={{ color: '#94a3b8', fontSize: 12, marginRight: 2 }}>₹</span> }}
                   />
                   <Typography fontSize={12} color="#94a3b8">–</Typography>
-                  <TextField size="small" placeholder="Max (e.g. 10)"
+                  <TextField size="small" placeholder="Max"
                     value={ctcFilter.max}
                     onChange={(e) => setCtcFilter(p => ({ ...p, max: e.target.value.replace(/[^0-9.]/g, "") }))}
                     sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                    InputProps={{ startAdornment: <span style={{ color: '#94a3b8', fontSize: 12, marginRight: 2 }}>₹</span> }}
                   />
                 </Box>
               ),
             },
             {
-              key: "position", label: "Position",
+              key: "position", label: "Position", icon: <AssignIcon sx={{ fontSize: 18 }} />,
               content: (
-                <Autocomplete multiple size="small" options={positions} value={positionFilter ? [positionFilter] : []}
-                  onChange={(_, val) => setPositionFilter(val[val.length - 1] || "")}
-                  freeSolo
+                <Autocomplete
+                  multiple size="small"
+                  options={positions}
+                  value={positionFilter ? [positionFilter] : []}
+                  onChange={(_, val) => setPositionFilter(val[val.length-1] || "")}
                   renderInput={(params) => (
-                    <TextField {...params} placeholder="Select or type position"
+                    <TextField {...params} placeholder="Select positions"
                       sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
                   )}
                   renderTags={(value, getTagProps) =>
@@ -978,43 +1015,23 @@ iTalentConnect`
               ),
             },
             {
-              key: "createdBy", label: "Created By",
+              key: "createdBy", label: "Created By", icon: <PersonIcon sx={{ fontSize: 18 }} />,
               content: (
-                <TextField fullWidth size="small" placeholder="Creator name"
-                  value={createdByFilter} onChange={(e) => setCreatedByFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                  InputProps={{ endAdornment: createdByFilter && (
-                    <IconButton size="small" onClick={() => setCreatedByFilter("")}><ClearIcon sx={{ fontSize: 14 }} /></IconButton>
-                  )}}
+                <Autocomplete multiple size="small" options={hrList} value={selectedHRs}
+                  getOptionLabel={(o) => `${o.name} (${o.role})`}
+                  onChange={(_, val) => setSelectedHRs(val)}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder="Select HR/Admin"
+                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
+                  )}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => <Chip {...getTagProps({ index })} label={option.name} size="small" key={index} />)
+                  }
                 />
               ),
             },
             {
-              key: "currentPosition", label: "Current Position",
-              content: (
-                <TextField fullWidth size="small" placeholder="e.g. Accountant, Manager"
-                  value={currentPositionFilter} onChange={(e) => setCurrentPositionFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                  InputProps={{ endAdornment: currentPositionFilter && (
-                    <IconButton size="small" onClick={() => setCurrentPositionFilter("")}><ClearIcon sx={{ fontSize: 14 }} /></IconButton>
-                  )}}
-                />
-              ),
-            },
-            {
-              key: "industry", label: "Industry",
-              content: (
-                <TextField fullWidth size="small" placeholder="e.g. IT, Manufacturing"
-                  value={industryFilter} onChange={(e) => setIndustryFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                  InputProps={{ endAdornment: industryFilter && (
-                    <IconButton size="small" onClick={() => setIndustryFilter("")}><ClearIcon sx={{ fontSize: 14 }} /></IconButton>
-                  )}}
-                />
-              ),
-            },
-            {
-              key: "noticePeriod", label: "Notice period",
+              key: "noticePeriod", label: "Notice period", icon: <ClearIcon sx={{ fontSize: 18 }} />,
               content: (
                 <TextField fullWidth size="small" placeholder="Max days (e.g. 30)"
                   value={noticePeriodFilter} onChange={(e) => setNoticePeriodFilter(e.target.value)}
@@ -1022,7 +1039,25 @@ iTalentConnect`
               ),
             },
             {
-              key: "gender", label: "Gender",
+              key: "currentPosition", label: "Current Position", icon: <AssignIcon sx={{ fontSize: 18 }} />,
+              content: (
+                <TextField fullWidth size="small" placeholder="e.g. Accountant"
+                  value={currentPositionFilter} onChange={(e) => setCurrentPositionFilter(e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                />
+              ),
+            },
+            {
+              key: "industry", label: "Industry", icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
+              content: (
+                <TextField fullWidth size="small" placeholder="e.g. IT"
+                  value={industryFilter} onChange={(e) => setIndustryFilter(e.target.value)}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                />
+              ),
+            },
+            {
+              key: "gender", label: "Gender", icon: <PersonIcon sx={{ fontSize: 18 }} />,
               content: (
                 <Autocomplete
                   size="small"
@@ -1037,19 +1072,16 @@ iTalentConnect`
               ),
             },
             {
-              key: "phone", label: "Phone Number",
+              key: "phone", label: "Phone Number", icon: <PhoneIcon sx={{ fontSize: 18 }} />,
               content: (
                 <TextField fullWidth size="small" placeholder="Search by phone..."
                   value={phoneFilter} onChange={(e) => setPhoneFilter(e.target.value)}
                   sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                  InputProps={{ endAdornment: phoneFilter && (
-                    <IconButton size="small" onClick={() => setPhoneFilter("")}><ClearIcon sx={{ fontSize: 14 }} /></IconButton>
-                  )}}
                 />
               ),
             },
             {
-              key: "dateRange", label: "Date Range",
+              key: "dateRange", label: "Date Range", icon: <CalendarTodayIcon sx={{ fontSize: 18 }} />,
               content: (
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -1065,32 +1097,52 @@ iTalentConnect`
                 </LocalizationProvider>
               ),
             },
-          ].map(({ key, label, content }) => (
+          ].map(({ key, label, icon, content }) => {
+            const isActive = {
+              keywords: !!nameFilter, location: !!locationFilter,
+              experience: !!(experienceRange.min || experienceRange.max),
+              salary: !!(ctcFilter.min || ctcFilter.max),
+              position: !!positionFilter,
+              createdBy: selectedHRs.length > 0,
+              currentPosition: !!currentPositionFilter,
+              industry: !!industryFilter,
+              noticePeriod: !!noticePeriodFilter,
+              gender: !!genderFilter,
+              phone: !!phoneFilter,
+              dateRange: !!(dateRange.startDate || dateRange.endDate),
+            }[key];
+            return (
             <Box key={key} sx={{ borderBottom: "1px solid #f1f5f9" }}>
               <Box
                 onClick={() => toggleFilter(key)}
                 sx={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
-                  px: 2, py: 1.4, cursor: "pointer",
-                  "&:hover": { bgcolor: "#f8fafc" },
+                  px: 2, py: 1.5, cursor: "pointer",
+                  bgcolor: isActive ? "#f8faff" : "transparent",
+                  borderLeft: isActive ? "4px solid #3f51b5" : "4px solid transparent",
+                  transition: "all 0.2s ease",
+                  "&:hover": { bgcolor: "#f1f5f9" },
                 }}
               >
-                <Typography fontSize={13.5} fontWeight={600} color="#1e293b">{label}</Typography>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  {isActive && <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#3f51b5" }} />}
+                  <Typography fontSize={13} fontWeight={isActive ? 700 : 600} color={isActive ? "#3f51b5" : "#1e293b"}>{label}</Typography>
+                </Box>
                 <Typography fontSize={16} color="#94a3b8" sx={{
                   transform: openFilters[key] ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s",
+                  transition: "transform 0.2s ease",
                   lineHeight: 1,
                 }}>
                   ⌄
                 </Typography>
               </Box>
               {openFilters[key] && (
-                <Box sx={{ px: 2, pb: 2 }}>
+                <Box sx={{ px: 2, pb: 1.5, pt: 0.5 }}>
                   {content}
                 </Box>
               )}
             </Box>
-          ))}
+          );})}
         </Box>
 
         {/* Right Content Area */}
@@ -1176,7 +1228,7 @@ iTalentConnect`
               ) : (
                 <>
                   {/* Select All bar */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, px: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, px: 1, width: "fit-content", ml: 4 }}>
                     <input
                       type="checkbox"
                       checked={selectedIds.length === candidates.length && candidates.length > 0}
@@ -1192,7 +1244,7 @@ iTalentConnect`
                   </Box>
                   {candidates.map(renderCandidateCard)}
                   {/* Pagination */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, px: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, px: 1, width: "fit-content", minWidth: "920px", ml: 4 }}>
                     <Typography variant="caption" sx={{ color: '#64748b' }}>
                       Showing {paginationModel.page * paginationModel.pageSize + 1}–{Math.min((paginationModel.page + 1) * paginationModel.pageSize, total)} of {total} records
                     </Typography>

@@ -177,8 +177,9 @@ const LoginForm = () => {
         if (userId) sessionStorage.setItem('userId', userId);
         navigateToDashboard(role);
       }
-    } catch {
-      alert('Invalid credentials');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Invalid credentials';
+      alert(msg);
       setIsLoading(false);
     }
   };
@@ -194,8 +195,9 @@ const LoginForm = () => {
       if (userId) sessionStorage.setItem('userId', userId);
       setIsLoading(false);
       navigateToDashboard(role);
-    } catch {
-      alert('Invalid OTP');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Invalid OTP';
+      alert(msg);
       setIsLoading(false);
     }
   };

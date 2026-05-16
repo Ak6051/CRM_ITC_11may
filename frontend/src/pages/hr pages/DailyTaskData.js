@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { DataGrid } from '@mui/x-data-grid';
-import { 
-  Box, 
-  Typography, 
-  IconButton, 
-  Tooltip, 
-  Button, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
+import {
+  Box,
+  Typography,
+  IconButton,
+  Tooltip,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   TextField,
   Snackbar,
   Alert,
@@ -18,7 +18,8 @@ import {
   Autocomplete
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import AddIcon from '@mui/icons-material/Add';
+import AddIcon from '@mui/icons-material/AddCircleOutline';
+import RemoveIcon from '@mui/icons-material/RemoveCircleOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -56,9 +57,9 @@ const DailyTaskData = () => {
     PSEOD: '0',
     ISEOD: '0',
     RGEOD: '0',
-    remark: ''
+    remarks: ['']
   });
-  
+
   const [formErrors, setFormErrors] = useState({});
   const navigate = useNavigate();
 
@@ -78,15 +79,15 @@ const DailyTaskData = () => {
     fetchTasks();
     fetchMyEditRequests();
     fetchAssignedJobs();
-  
+
     const now = new Date();
     const msUntilMidnight =
       new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1) - now;
-  
+
     const timer = setTimeout(() => {
       fetchTasks();
     }, msUntilMidnight);
-  
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -106,7 +107,7 @@ const DailyTaskData = () => {
         ? `${API_BASE_URL}/dailyTask/hr/all`
         : `${API_BASE_URL}/dailyTask/hr`;
       const res = await axios.get(url, config);
-      
+
       if (showAll) {
         setTasks(res.data);
       } else {
@@ -173,6 +174,36 @@ const DailyTaskData = () => {
       : value;
     setFormData(prev => ({ ...prev, [name]: newValue }));
     if (formErrors[name]) setFormErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const handleRemarkChange = (index, value) => {
+    const newRemarks = [...(formData.remarks || [''])];
+    newRemarks[index] = value;
+    setFormData(prev => ({ ...prev, remarks: newRemarks }));
+  };
+
+  const addRemarkField = () => {
+    setFormData(prev => ({ ...prev, remarks: [...(prev.remarks || ['']), ''] }));
+  };
+
+  const removeRemarkField = (index) => {
+    const newRemarks = (formData.remarks || ['']).filter((_, i) => i !== index);
+    setFormData(prev => ({ ...prev, remarks: newRemarks.length > 0 ? newRemarks : [''] }));
+  };
+
+  const handleEditRemarkChange = (index, value) => {
+    const newRemarks = [...(editRequestData.remarks || [''])];
+    newRemarks[index] = value;
+    setEditRequestData(prev => ({ ...prev, remarks: newRemarks }));
+  };
+
+  const addEditRemarkField = () => {
+    setEditRequestData(prev => ({ ...prev, remarks: [...(prev.remarks || ['']), ''] }));
+  };
+
+  const removeEditRemarkField = (index) => {
+    const newRemarks = (editRequestData.remarks || ['']).filter((_, i) => i !== index);
+    setEditRequestData(prev => ({ ...prev, remarks: newRemarks.length > 0 ? newRemarks : [''] }));
   };
 
   // When company is selected from dropdown, filter positions for that company
@@ -259,7 +290,7 @@ const DailyTaskData = () => {
       setFormData({
         companyName: '', position: '', totalCall: '', profilesShared: '',
         interviewsScheduled: '', revenueGenerated: '',
-        TCEOD: '0', PSEOD: '0', ISEOD: '0', RGEOD: '0', remark: ''
+        TCEOD: '0', PSEOD: '0', ISEOD: '0', RGEOD: '0', remarks: ['']
       });
       setFormErrors({});
       setPositionOptions([]);
@@ -320,7 +351,7 @@ const DailyTaskData = () => {
       PSEOD: task.PSEOD || '0',
       ISEOD: task.ISEOD || '0',
       RGEOD: task.RGEOD || '0',
-      remark: task.remark || ''
+      remarks: Array.isArray(task.remarks) ? (task.remarks.length > 0 ? task.remarks : ['']) : (task.remark ? [task.remark] : [''])
     });
     setEditRequestErrors({});
     setEditRequestOpen(true);
@@ -395,9 +426,9 @@ const DailyTaskData = () => {
         );
       }
     },
-    { 
-      field: 'createdBy', 
-      headerName: 'Created By', 
+    {
+      field: 'createdBy',
+      headerName: 'Created By',
       width: 200,
       renderCell: (params) => {
         const creator = params.row.createdBy;
@@ -412,7 +443,24 @@ const DailyTaskData = () => {
     { field: 'profilesShared', headerName: 'Profiles Shared', width: 150 },
     { field: 'interviewsScheduled', headerName: 'Interviews', width: 120 },
     { field: 'revenueGenerated', headerName: 'Revenue', width: 120 },
-    { field: 'remark', headerName: 'Remarks', width: 200 },
+    {
+      field: 'remarks',
+      headerName: 'Remarks',
+      width: 250,
+      renderCell: (params) => {
+        const remarks = params.row.remarks || (params.row.remark ? [params.row.remark] : []);
+        if (!remarks || remarks.length === 0) return 'N/A';
+        return (
+          <Box sx={{ py: 1 }}>
+            {remarks.map((r, i) => (
+              <Typography key={i} variant="caption" display="block" sx={{ lineHeight: 1.2, mb: 0.5 }}>
+                • {r}
+              </Typography>
+            ))}
+          </Box>
+        );
+      }
+    },
     {
       field: 'createdAt',
       headerName: 'Created At',
@@ -685,8 +733,8 @@ const DailyTaskData = () => {
               {/* ── Main Body: Metrics (left) + Remarks (right) ── */}
               <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
 
-                {/* ── Left: Metrics Panel ── */}
-                <Grid item xs={12} md={7}>
+                {/* ── Top: Metrics Panel ── */}
+                <Grid item xs={12}>
                   <Box
                     sx={{
                       border: '1px solid #e3eaf5',
@@ -711,58 +759,49 @@ const DailyTaskData = () => {
                     </Box>
 
                     <Box sx={{ p: 2 }}>
-                      {[
-                        { name: 'totalCall', label: 'Total Calls', icon: '📞', step: '1', required: true },
-                        { name: 'profilesShared', label: 'Profiles Shared', icon: '👤', step: '1', required: true },
-                        { name: 'interviewsScheduled', label: 'Interviews Scheduled', icon: '📅', step: '1', required: true },
-                        { name: 'revenueGenerated', label: 'Revenue Generated (₹)', icon: '💰', step: '0.01', required: false }
-                      ].map(({ name, label, icon, step, required }, idx, arr) => (
-                        <Box
-                          key={name}
-                          sx={{
-                            mb: idx < arr.length - 1 ? 1.5 : 0,
-                            pb: idx < arr.length - 1 ? 1.5 : 0,
-                            borderBottom: idx < arr.length - 1 ? '1px dashed #e8edf5' : 'none'
-                          }}
-                        >
-                          <Typography variant="caption" sx={{ color: '#666', fontWeight: 600, display: 'block', mb: 0.5 }}>
-                            {icon} {label}{required ? ' *' : ''}
-                          </Typography>
-                          <TextField
-                            name={name}
-                            label={`Target ${label}`}
-                            fullWidth
-                            size="small"
-                            value={formData[name]}
-                            onChange={handleChange}
-                            error={!!formErrors[name]}
-                            helperText={
-                              formErrors[name] ||
-                              (name === 'revenueGenerated' && formData.revenueGenerated && formData.position
-                                ? `Auto-filled from "${formData.position}" salary`
-                                : '')
-                            }
-                            type="number"
-                            inputProps={{ min: 0, step }}
-                            InputLabelProps={{ shrink: true }}
-                            required={required}
-                            onBlur={(e) => setFormErrors(prev => ({ ...prev, [name]: validateField(name, e.target.value) }))}
-                            sx={{
-                              '& .MuiOutlinedInput-root': {
-                                backgroundColor: name === 'revenueGenerated' && formData.revenueGenerated && formData.position
-                                  ? '#f0fdf4'
-                                  : '#fafcff'
-                              }
-                            }}
-                          />
-                        </Box>
-                      ))}
+                      <Grid container spacing={2}>
+                        {[
+                          { name: 'totalCall', label: 'Total Calls', icon: '📞', step: '1', required: true },
+                          { name: 'profilesShared', label: 'Profiles Shared', icon: '👤', step: '1', required: true },
+                          { name: 'interviewsScheduled', label: 'Interviews Scheduled', icon: '📅', step: '1', required: true },
+                          { name: 'revenueGenerated', label: 'Revenue Generated (₹)', icon: '💰', step: '0.01', required: false }
+                        ].map(({ name, label, icon, step, required }) => (
+                          <Grid item xs={12} sm={6} md={3} key={name}>
+                            <Box sx={{
+                              p: 1.5,
+                              border: '1px solid #eef2f6',
+                              borderRadius: 1.5,
+                              backgroundColor: '#fcfdff',
+                              height: '100%'
+                            }}>
+                              <Typography variant="caption" sx={{ color: '#1565c0', fontWeight: 700, display: 'block', mb: 1.5, textAlign: 'center', borderBottom: '1px solid #eef2f6', pb: 0.5 }}>
+                                {icon} {label}{required ? ' *' : ''}
+                              </Typography>
+                              <TextField
+                                name={name}
+                                label="Target"
+                                fullWidth
+                                size="small"
+                                value={formData[name]}
+                                onChange={handleChange}
+                                error={!!formErrors[name]}
+                                type="number"
+                                inputProps={{ min: 0, step }}
+                                InputLabelProps={{ shrink: true }}
+                                required={required}
+                                onBlur={(e) => setFormErrors(prev => ({ ...prev, [name]: validateField(name, e.target.value) }))}
+                                sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
+                              />
+                            </Box>
+                          </Grid>
+                        ))}
+                      </Grid>
                     </Box>
                   </Box>
                 </Grid>
 
-                {/* ── Right: Remarks Panel ── */}
-                <Grid item xs={12} md={5}>
+                {/* ── Bottom: Remarks Panel ── */}
+                <Grid item xs={12} sx={{ mt: 1 }}>
                   <Box
                     sx={{
                       border: '1px solid #e3eaf5',
@@ -785,28 +824,40 @@ const DailyTaskData = () => {
                         📝 Remarks
                       </Typography>
                     </Box>
-                    <Box sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                      <TextField
-                        name="remark"
-                        label="Additional Notes"
-                        fullWidth
-                        size="small"
-                        value={formData.remark}
-                        onChange={handleChange}
-                        multiline
-                        placeholder="Enter any additional notes or comments..."
-                        sx={{
-                          flex: 1,
-                          '& .MuiInputBase-root': {
-                            height: '100%',
-                            alignItems: 'flex-start'
-                          },
-                          '& textarea': {
-                            minHeight: '220px !important',
-                            resize: 'none'
-                          }
-                        }}
-                      />
+                    <Box sx={{ p: 2, flex: 1 }}>
+                      <Grid container spacing={2}>
+                        {(formData.remarks || ['']).map((rem, index) => (
+                          <Grid item xs={12} md={6} key={index}>
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                              <TextField
+                                label={`Remark ${index + 1}`}
+                                fullWidth
+                                size="small"
+                                value={rem}
+                                onChange={(e) => handleRemarkChange(index, e.target.value)}
+                                multiline
+                                rows={12}
+                                placeholder="Enter detailed remark..."
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    backgroundColor: '#fafcff'
+                                  }
+                                }}
+                              />
+                              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                <IconButton size="small" color="primary" onClick={addRemarkField}>
+                                  <AddIcon fontSize="small" />
+                                </IconButton>
+                                {formData.remarks?.length > 1 && (
+                                  <IconButton size="small" color="error" onClick={() => removeRemarkField(index)}>
+                                    <RemoveIcon fontSize="small" />
+                                  </IconButton>
+                                )}
+                              </Box>
+                            </Box>
+                          </Grid>
+                        ))}
+                      </Grid>
                     </Box>
                   </Box>
                 </Grid>
@@ -941,8 +992,8 @@ const DailyTaskData = () => {
             {/* ── Main Body: Metrics (left) + Remarks (right) ── */}
             <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
 
-              {/* ── Left: Metrics Panel ── */}
-              <Grid item xs={12} md={7}>
+              {/* ── Top: Metrics Panel ── */}
+              <Grid item xs={12}>
                 <Box
                   sx={{
                     border: '1px solid #e3eaf5',
@@ -969,100 +1020,70 @@ const DailyTaskData = () => {
                   </Box>
 
                   <Box sx={{ p: 2 }}>
-                    {/* Column headers */}
-                    <Grid container spacing={1.5} sx={{ mb: 1 }}>
-                      <Grid item xs={6}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#555', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                          🎯 Target
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#2e7d32', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                          ✅ EOD Achieved
-                        </Typography>
-                      </Grid>
-                    </Grid>
+                    <Grid container spacing={2}>
+                      {[
+                        { name: 'totalCall', label: 'Total Calls', eod: 'TCEOD', icon: '📞', step: '1' },
+                        { name: 'profilesShared', label: 'Profiles Shared', eod: 'PSEOD', icon: '👤', step: '1' },
+                        { name: 'interviewsScheduled', label: 'Interviews Scheduled', eod: 'ISEOD', icon: '📅', step: '1' },
+                        { name: 'revenueGenerated', label: 'Revenue Generated (₹)', eod: 'RGEOD', icon: '💰', step: '0.01' }
+                      ].map(({ name, label, eod, icon, step }) => (
+                        <Grid item xs={12} sm={6} md={3} key={name}>
+                          <Box sx={{
+                            p: 1.5,
+                            border: '1px solid #eef2f6',
+                            borderRadius: 1.5,
+                            backgroundColor: '#fcfdff',
+                            height: '100%'
+                          }}>
+                            <Typography variant="caption" sx={{ color: '#1565c0', fontWeight: 700, display: 'block', mb: 1.5, textAlign: 'center', borderBottom: '1px solid #eef2f6', pb: 0.5 }}>
+                              {icon} {label}
+                            </Typography>
 
-                    {/* Metric rows */}
-                    {[
-                      { name: 'totalCall', label: 'Total Calls', eod: 'TCEOD', icon: '📞', step: '1' },
-                      { name: 'profilesShared', label: 'Profiles Shared', eod: 'PSEOD', icon: '👤', step: '1' },
-                      { name: 'interviewsScheduled', label: 'Interviews Scheduled', eod: 'ISEOD', icon: '📅', step: '1' },
-                      { name: 'revenueGenerated', label: 'Revenue Generated (₹)', eod: 'RGEOD', icon: '💰', step: '0.01' }
-                    ].map(({ name, label, eod, icon, step }, idx, arr) => (
-                      <Box
-                        key={name}
-                        sx={{
-                          mb: idx < arr.length - 1 ? 1.5 : 0,
-                          pb: idx < arr.length - 1 ? 1.5 : 0,
-                          borderBottom: idx < arr.length - 1 ? '1px dashed #e8edf5' : 'none'
-                        }}
-                      >
-                        <Typography variant="caption" sx={{ color: '#666', fontWeight: 600, display: 'block', mb: 0.5 }}>
-                          {icon} {label}
-                        </Typography>
-                        <Grid container spacing={1.5}>
-                          <Grid item xs={6}>
-                            <TextField
-                              name={name}
-                              label="Target"
-                              fullWidth
-                              size="small"
-                              value={editRequestData[name] ?? ''}
-                              onChange={handleEditRequestChange}
-                              type="number"
-                              inputProps={{ min: 0, step }}
-                              InputLabelProps={{ shrink: true }}
-                              sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  backgroundColor: '#fafcff'
-                                }
-                              }}
-                            />
-                          </Grid>
-                          <Grid item xs={6}>
-                            <TextField
-                              name={eod}
-                              label="EOD Achieved"
-                              fullWidth
-                              size="small"
-                              value={editRequestData[eod] ?? ''}
-                              onChange={handleEditRequestChange}
-                              type="number"
-                              inputProps={{ min: 0, step }}
-                              InputLabelProps={{ shrink: true }}
-                              helperText={
-                                eod === 'TCEOD'
-                                  ? '🔄 Auto-fetched from today\'s candidates'
-                                  : ''
-                              }
-                              sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  backgroundColor: eod === 'TCEOD' ? '#e8f5e9' : '#f1faf2'
-                                },
-                                '& .MuiOutlinedInput-notchedOutline': {
-                                  borderColor: eod === 'TCEOD' ? '#66bb6a' : '#a5d6a7'
-                                }
-                              }}
-                            />
-                          </Grid>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                              <TextField
+                                name={name}
+                                label="Target"
+                                fullWidth
+                                size="small"
+                                value={editRequestData[name] ?? ''}
+                                onChange={handleEditRequestChange}
+                                type="number"
+                                inputProps={{ min: 0, step }}
+                                InputLabelProps={{ shrink: true }}
+                                sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
+                              />
+
+                              <TextField
+                                name={eod}
+                                label="EOD Achieved"
+                                fullWidth
+                                size="small"
+                                value={editRequestData[eod] ?? ''}
+                                onChange={handleEditRequestChange}
+                                type="number"
+                                inputProps={{ min: 0, step }}
+                                InputLabelProps={{ shrink: true }}
+                                sx={{
+                                  '& .MuiOutlinedInput-root': { backgroundColor: '#f1faf2' },
+                                  '& .MuiOutlinedInput-notchedOutline': { borderColor: '#a5d6a7' }
+                                }}
+                              />
+                            </Box>
+                          </Box>
                         </Grid>
-                      </Box>
-                    ))}
+                      ))}
+                    </Grid>
                   </Box>
                 </Box>
               </Grid>
 
-              {/* ── Right: Remarks Panel ── */}
-              <Grid item xs={12} md={5}>
+              {/* ── Bottom: Remarks Panel ── */}
+              <Grid item xs={12} sx={{ mt: 1 }}>
                 <Box
                   sx={{
                     border: '1px solid #e3eaf5',
                     borderRadius: 2,
-                    overflow: 'hidden',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column'
+                    overflow: 'hidden'
                   }}
                 >
                   <Box
@@ -1077,28 +1098,40 @@ const DailyTaskData = () => {
                       📝 Remarks
                     </Typography>
                   </Box>
-                  <Box sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <TextField
-                      name="remark"
-                      label="Additional Notes"
-                      fullWidth
-                      size="small"
-                      value={editRequestData.remark || ''}
-                      onChange={handleEditRequestChange}
-                      multiline
-                      placeholder="Enter any additional notes, observations, or comments about this edit request..."
-                      sx={{
-                        flex: 1,
-                        '& .MuiInputBase-root': {
-                          height: '100%',
-                          alignItems: 'flex-start'
-                        },
-                        '& textarea': {
-                          minHeight: '220px !important',
-                          resize: 'none'
-                        }
-                      }}
-                    />
+                  <Box sx={{ p: 2, flex: 1 }}>
+                    <Grid container spacing={2}>
+                      {(editRequestData.remarks || ['']).map((rem, index) => (
+                        <Grid item xs={12} md={6} key={index}>
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <TextField
+                              label={`Remark ${index + 1}`}
+                              fullWidth
+                              size="small"
+                              value={rem}
+                              onChange={(e) => handleEditRemarkChange(index, e.target.value)}
+                              multiline
+                              rows={12}
+                              placeholder="Enter detailed remark..."
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  backgroundColor: '#fafcff'
+                                }
+                              }}
+                            />
+                            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                              <IconButton size="small" color="primary" onClick={addEditRemarkField}>
+                                <AddIcon fontSize="small" />
+                              </IconButton>
+                              {editRequestData.remarks?.length > 1 && (
+                                <IconButton size="small" color="error" onClick={() => removeEditRemarkField(index)}>
+                                  <RemoveIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </Box>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
                   </Box>
                 </Box>
               </Grid>

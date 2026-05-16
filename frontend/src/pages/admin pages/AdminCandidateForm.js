@@ -552,7 +552,7 @@ const handleSubmit = async (e) => {
       "remark"
     ];
 
-    // Sample rows — one real-looking example + one showing all allowed values
+    // Sample row — one real-looking example
     const sampleRows = [
       {
         name:             "Rahul Sharma",
@@ -572,47 +572,46 @@ const handleSubmit = async (e) => {
         industry:         "IT",
         remark:           "Good communication skills",
       },
-      {
-        name:             "Priya Patel",
-        phoneNumber:      "9123456780",
-        email:            "priya.patel@email.com",
-        positionName:     "HR Manager",
-        qualification:    "MBA",
-        experience:       "5 Years",
-        currentLocation:  "Mumbai",
-        preferredLocation:"Mumbai",
-        currentPosition:  "HR Executive",
-        currentCTC:       35000,
-        expectedCTC:      45000,
-        noticePeriod:     "45 Days",
-        reasonforLeaving: "Salary Growth",
-        currentCompany:   "ABC Corp",
-        industry:         "Manufacturing",
-        remark:           "Team player",
-      },
     ];
 
     // Build worksheet with headers + sample rows
     const worksheet = XLSX.utils.json_to_sheet(sampleRows, { header: headers });
 
     // ── Column widths ──────────────────────────────────────────────────────
-    worksheet['!cols'] = headers.map(h => ({
-      wch: Math.max(h.length + 4, 18),
-    }));
+    const colWidths = [
+      { wch: 20 }, // name
+      { wch: 15 }, // phoneNumber
+      { wch: 25 }, // email
+      { wch: 20 }, // positionName
+      { wch: 15 }, // qualification
+      { wch: 15 }, // experience
+      { wch: 18 }, // currentLocation
+      { wch: 18 }, // preferredLocation
+      { wch: 20 }, // currentPosition
+      { wch: 12 }, // currentCTC
+      { wch: 12 }, // expectedCTC
+      { wch: 15 }, // noticePeriod
+      { wch: 25 }, // reasonforLeaving
+      { wch: 25 }, // currentCompany
+      { wch: 15 }, // industry
+      { wch: 30 }, // remark
+    ];
+    worksheet['!cols'] = colWidths;
 
-    // ── Style header row (bold + light blue fill) ──────────────────────────
-    // Note: basic xlsx doesn't support cell styles; use xlsx-style for that.
-    // We add a comment row above the data to explain the CTC format.
+    // ── Add instructions at the bottom ──
+    const lastRow = sampleRows.length + 2;
     XLSX.utils.sheet_add_aoa(worksheet, [
-      ["⚠ currentCTC & expectedCTC: enter monthly amount in ₹ (e.g. 20000 = ₹20,000/month = 2.40 LPA). It will be auto-converted on import."],
-    ], { origin: { r: sampleRows.length + 2, c: 0 } });
-
-    // ── Allowed values note ────────────────────────────────────────────────
-    XLSX.utils.sheet_add_aoa(worksheet, [
-      ["Allowed experience values: Fresher | 0-6 Months | 6 Months | 1 Year | 1 Year 6 Months | 2 Years | 3 Years | 3-5 Years | 5 Years | 5-7 Years | 7-10 Years | 10+ Years | 15+ Years"],
-      ["Allowed noticePeriod values: Immediate | 1 Week | 15 Days | 30 Days | 45 Days | 60 Days | 90 Days"],
-      ["Required columns: name, phoneNumber, email, positionName, qualification, experience, currentLocation, currentPosition, currentCTC, noticePeriod"],
-    ], { origin: { r: sampleRows.length + 3, c: 0 } });
+      [""], // empty row
+      ["📢 INSTRUCTIONS & RULES:"],
+      ["1. Do NOT change the header names in the first row."],
+      ["2. currentCTC & expectedCTC: Enter ONLY monthly amount in numbers (e.g. 20000). System will auto-convert to LPA."],
+      ["3. phoneNumber: Must be a 10-digit number."],
+      ["4. Required Columns: name, phoneNumber, email, positionName, qualification, experience, currentLocation, currentPosition, currentCTC, noticePeriod"],
+      [""],
+      ["VALID VALUES FOR DROPDOWNS:"],
+      ["Experience:", "Fresher | 0-6 Months | 6 Months | 1 Year | 1 Year 6 Months | 2 Years | 3 Years | 3-5 Years | 5 Years | 5-7 Years | 7-10 Years | 10+ Years | 15+ Years"],
+      ["Notice Period:", "Immediate | 1 Week | 15 Days | 30 Days | 45 Days | 60 Days | 90 Days"]
+    ], { origin: { r: lastRow, c: 0 } });
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "CandidatesTemplate");

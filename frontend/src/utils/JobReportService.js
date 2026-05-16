@@ -160,3 +160,14 @@ export const fetchHRUsers = async () => {
     return { ...response, data: sortedData };
 };
 
+export const fetchTLUsers = async () => {
+    const response = await axios.get(`${API_BASE_URL}/hr/tl-users`);
+    // Sort TL users by full name
+    const sortedData = response.data.sort((a, b) => {
+        const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim().toLowerCase();
+        const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB, undefined, {sensitivity: 'base'});
+    });
+    return { ...response, data: sortedData };
+};
+

@@ -22,13 +22,12 @@ import {
   listenForNotifications
 } from '../../services/chatService';
 
-const HrChatBox = ({ open, handleClose, senderId }) => {
-  const [activeTab, setActiveTab] = useState('admin'); // 'admin', 'hr', 'sales'
+const SalesChatBox = ({ open, handleClose, senderId }) => {
+  const [activeTab, setActiveTab] = useState('admin'); // 'admin', 'hr'
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [adminUsers, setAdminUsers] = useState([]);
   const [hrUsers, setHrUsers] = useState([]);
-  const [salesUsers, setSalesUsers] = useState([]);
   const [messages, setMessages] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,8 +61,7 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
         };
         
         setAdminUsers(processUsers(response.data.admins, 'admin'));
-        setHrUsers(processUsers(response.data.hrs, 'hr').filter(u => u._id !== senderId));
-        setSalesUsers(processUsers(response.data.sales, 'sales'));
+        setHrUsers(processUsers(response.data.hrs, 'hr'));
       } catch (err) {
         console.error('Error fetching chat data:', err);
         setError('Failed to load chat data');
@@ -73,7 +71,7 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
     };
     
     fetchUsers();
-  }, [open, senderId]);
+  }, [open]);
 
   // Real-time notifications and statuses
   useEffect(() => {
@@ -84,7 +82,7 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
     });
 
     const unsubStatuses = [];
-    [...adminUsers, ...hrUsers, ...salesUsers].forEach(user => {
+    [...adminUsers, ...hrUsers].forEach(user => {
       unsubStatuses.push(listenForUserStatus(user._id, (statusData) => {
         setUserStatuses(prev => ({ ...prev, [user._id]: statusData }));
       }));
@@ -94,7 +92,7 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
       unsubNotifications();
       unsubStatuses.forEach(unsub => unsub());
     };
-  }, [open, senderId, adminUsers, hrUsers, salesUsers]);
+  }, [open, senderId, adminUsers, hrUsers]);
 
   // Real-time messages for selected user
   useEffect(() => {
@@ -123,10 +121,7 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
   }, [notifications]);
 
   const filteredUsers = useMemo(() => {
-    let users = [];
-    if (activeTab === 'admin') users = adminUsers;
-    else if (activeTab === 'hr') users = hrUsers;
-    else if (activeTab === 'sales') users = salesUsers;
+    let users = activeTab === 'admin' ? adminUsers : hrUsers;
     
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -149,7 +144,7 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
 
       return 0;
     });
-  }, [activeTab, adminUsers, hrUsers, salesUsers, searchQuery, userStatuses, unreadCounts]);
+  }, [activeTab, adminUsers, hrUsers, searchQuery, userStatuses, unreadCounts]);
   
   const handleUserSelect = (user) => {
     setSelectedUser(user);
@@ -174,7 +169,7 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
               InputProps={{ startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1, color: '#54656f' }} />, sx: { borderRadius: '8px', bgcolor: '#f0f2f5', height: '35px', '& fieldset': { border: 'none' } } }} />
           </Box>
           <Box sx={{ display: 'flex', borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
-            {['admin', 'hr', 'sales'].map((tab) => (
+            {['admin', 'hr'].map((tab) => (
               <Box key={tab} onClick={() => setActiveTab(tab)} sx={{ flex: 1, textAlign: 'center', p: 1.5, cursor: 'pointer', borderBottom: activeTab === tab ? '3px solid #00a884' : 'none', color: activeTab === tab ? '#00a884' : '#54656f', fontWeight: activeTab === tab ? 'bold' : 'normal', fontSize: '13px', textTransform: 'uppercase' }}>{tab}</Box>
             ))}
           </Box>
@@ -225,7 +220,7 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', bgcolor: '#f8f9fa', borderBottom: '6px solid #25d366' }}>
               <Avatar sx={{ width: 100, height: 100, mb: 3, bgcolor: '#e9edef' }}><ChatIcon sx={{ fontSize: 50, color: '#8696a0' }} /></Avatar>
-              <Typography variant="h5" color="#41525d" fontWeight="light">WhatsApp for CRM</Typography>
+              <Typography variant="h5" color="#41525d" fontWeight="light">WhatsApp Web</Typography>
             </Box>
           )}
         </Box>
@@ -234,4 +229,4 @@ const HrChatBox = ({ open, handleClose, senderId }) => {
   );
 };
 
-export default HrChatBox;
+export default SalesChatBox;
