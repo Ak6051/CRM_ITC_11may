@@ -45,7 +45,7 @@ const candidateApplicationSchema = new mongoose.Schema(
     // ── 9. Interview Status + Trail Days ──────────────────────────────────────
     interviewStatus: {
       type: String,
-      enum: ['On Discussion', 'Selected', 'On Hold', 'Trail', 'Rejected', ''],
+      enum: ['On Discussion', 'Selected', 'On Hold', 'Trail', 'Rejected', 'Decision Pending', ''],
       default: '',
     },
     trailDays: { type: Number, default: null }, // active only when interviewStatus = 'Trail'

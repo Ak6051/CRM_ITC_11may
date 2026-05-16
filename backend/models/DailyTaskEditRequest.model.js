@@ -23,7 +23,7 @@ const dailyTaskEditRequestSchema = new mongoose.Schema({
     PSEOD: { type: String },
     ISEOD: { type: String },
     RGEOD: { type: String },
-    remark: { type: String }
+    remarks: [{ type: String }]
   },
   status: {
     type: String,

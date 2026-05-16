@@ -14,7 +14,7 @@ const {
 } = require('../controllers/allJobPost.controller');
 const JobOpenings = require('../models/jobopennings.modal');
 const Candidate = require("../models/candidateModal");
-const Company = require("../models/company.model");
+const CompanyCreate = require("../models/companycreate.model");
 const SalesPanel = require('../models/SalesPanel.model'); // import salesPanel model
 const User = require('../models/User'); // import user model
 
@@ -51,35 +51,37 @@ router.get('/industries', getUniqueIndustries);
 router.post('/import', protect, async (req, res) => {
   try {
     const jobs = req.body.jobs;
+    const CompanyCreate = require('../models/companycreate.model');
 
-    // Get the current max companyId
-    const lastCompany = await Company.findOne().sort({ companyId: -1 });
-    let currentCompanyId = lastCompany ? lastCompany.companyId + 1 : 10001;
+    // 1. Get all unique company names from the Excel data
+    const uniqueCompanyNames = [...new Set(jobs.map(j => j.companyName?.trim()).filter(Boolean))];
 
-    const companyMap = {}; // to avoid duplicate inserts within this batch
+    // 2. Check which companies exist in CompanyCreate
+    const existingCompanies = await CompanyCreate.find({
+      companyName: { $in: uniqueCompanyNames.map(name => new RegExp(`^${name}$`, 'i')) }
+    });
 
-    const jobsWithCompanyId = await Promise.all(jobs.map(async (job) => {
-      const companyName = job.companyName?.trim();
+    const existingCompanyMap = {};
+    existingCompanies.forEach(c => {
+      existingCompanyMap[c.companyName.toLowerCase()] = c.companyId;
+    });
 
-      if (!companyName) throw new Error("Missing companyName in job entry.");
+    // 3. Find missing companies
+    const missingCompanies = uniqueCompanyNames.filter(name => !existingCompanyMap[name.toLowerCase()]);
 
-      let company = await Company.findOne({ companyName });
+    if (missingCompanies.length > 0) {
+      return res.status(400).json({
+        error: 'Validation Failed',
+        message: `The following companies are not registered in the system: ${missingCompanies.join(', ')}. Please create these companies first before importing jobs.`,
+        missingCompanies
+      });
+    }
 
-      if (!company && !companyMap[companyName]) {
-        // Create a new company with a unique companyId
-        company = new Company({
-          companyName,
-          companyId: currentCompanyId++
-        });
-        await company.save();
-        companyMap[companyName] = company.companyId;
-      }
-
-      return {
-        ...job,
-        companyId: company ? company.companyId : companyMap[companyName],
-        createdBy: req.user._id
-      };
+    // 4. Map jobs with existing companyIds
+    const jobsWithCompanyId = jobs.map(job => ({
+      ...job,
+      companyId: existingCompanyMap[job.companyName.trim().toLowerCase()],
+      createdBy: req.user._id
     }));
 
     const inserted = await JobOpenings.insertMany(jobsWithCompanyId, { ordered: false });

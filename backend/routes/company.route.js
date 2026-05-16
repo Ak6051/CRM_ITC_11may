@@ -4,7 +4,7 @@ const { upload } = require('../middleware/gcsMulter');
 const auth = require('../middleware/authMiddleware');
 const {
   getAllCompanies, getCompany, createCompany, updateCompany, deleteCompany,
-  addBranch, updateBranch, deleteBranch,
+  addBranch, updateBranch, deleteBranch, bulkImportCompanies,
 } = require('../controllers/company.controller');
 
 const companyUpload = upload.fields([
@@ -20,6 +20,7 @@ router.get('/:id',    auth, getCompany);
 router.post('/',      auth, companyUpload, createCompany);
 router.put('/:id',    auth, companyUpload, updateCompany);
 router.delete('/:id', auth, deleteCompany);
+router.post('/bulk-import', auth, bulkImportCompanies);
 
 // Branch CRUD (nested under company)
 router.post('/:id/branches',                  auth, companyUpload, addBranch);

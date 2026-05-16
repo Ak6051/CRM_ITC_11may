@@ -47,6 +47,7 @@ const jobOpeningsSchema = new mongoose.Schema(
 
     createdBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     assignedHR: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false }],
+    assignedTL: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false }],
 
     convertedAt:  { type: Date, required: false },
     originalJobId:{ type: mongoose.Schema.Types.ObjectId, ref: 'salesPanel', required: false },

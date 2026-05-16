@@ -1,6 +1,6 @@
-const Candidate    = require("../models/candidateModal");
+const Candidate = require("../models/candidateModal");
 const CandidateApplication = require("../models/CandidateApplication.model");
-const User         = require("../models/User");
+const User = require("../models/User");
 const CompanyCreate = require("../models/companycreate.model");
 const { uploadToS3 } = require("../middleware/gcsMulter");
 
@@ -15,7 +15,7 @@ const getAllCandidates = async (req, res) => {
     // ── Base filter ───────────────────────────────────────────────────────
     const filter = {
       selectionStatus: { $in: ['Accepted', 'Yes'] },
-      selectionDate:   { $exists: true, $ne: null },
+      selectionDate: { $exists: true, $ne: null },
     };
 
     // ── Filter by HR name (createdBy) ─────────────────────────────────────
@@ -76,56 +76,56 @@ const getAllCandidates = async (req, res) => {
 
     // ── Flatten: merge candidate profile + application tracking fields ─────
     const result = applications.map(app => {
-      const c   = app.candidateId || {};
+      const c = app.candidateId || {};
       const obj = app.toObject();
       const fullCompany = obj.jobId?.companyId ? (companyMap[obj.jobId.companyId] || null) : null;
       return {
-        _id:              app._id,
+        _id: app._id,
         // candidate profile
-        candidateName:    c.candidateName    || '',
-        candidateEmail:   c.candidateEmail   || '',
-        candidatePhone:   c.candidatePhone   || '',
-        qualification:    c.qualification    || '',
-        positionName:     obj.positionName   || c.positionName || '',
-        experience:       c.experience       || '',
-        currentLocation:  c.currentLocation  || '',
-        currentPosition:  c.currentPosition  || '',
-        currentCTC:       c.currentCTC       || '',
-        expectedCTC:      c.expectedCTC      || '',
-        noticePeriod:     c.noticePeriod     || '',
+        candidateName: c.candidateName || '',
+        candidateEmail: c.candidateEmail || '',
+        candidatePhone: c.candidatePhone || '',
+        qualification: c.qualification || '',
+        positionName: obj.positionName || c.positionName || '',
+        experience: c.experience || '',
+        currentLocation: c.currentLocation || '',
+        currentPosition: c.currentPosition || '',
+        currentCTC: c.currentCTC || '',
+        expectedCTC: c.expectedCTC || '',
+        noticePeriod: c.noticePeriod || '',
         reasonforLeaving: c.reasonforLeaving || '',
-        currentCompany:   c.currentCompany   || '',
-        remark:           c.remark           || '',
-        resumeLink:       c.resumeLink       || '',
-        isBackout:        c.isBackout        || false,
-        backoutReason:    c.backoutReason    || '',
-        backoutAt:        c.backoutAt        || null,
+        currentCompany: c.currentCompany || '',
+        remark: c.remark || '',
+        resumeLink: c.resumeLink || '',
+        isBackout: c.isBackout || false,
+        backoutReason: c.backoutReason || '',
+        backoutAt: c.backoutAt || null,
         // job info
-        jobId:            obj.jobId,
+        jobId: obj.jobId,
         // full company details from CompanyCreate
-        companyDetails:   fullCompany,
+        companyDetails: fullCompany,
         // HR who owns this application
-        createdBy:        obj.createdBy,
+        createdBy: obj.createdBy,
         // application tracking fields (from CandidateApplication)
-        interviewDate:    obj.interviewDate,
-        selectionStatus:  obj.selectionStatus,
-        selectionDate:    obj.selectionDate,
-        salaryOffered:    obj.salaryOffered   || obj.offeredSalary || '',
-        offerStatus:      obj.offerStatus     || obj.offeredStatus || '',
-        joiningDate:      obj.joiningDate,
-        hasJoined:        obj.hasJoined       || '',
+        interviewDate: obj.interviewDate,
+        selectionStatus: obj.selectionStatus,
+        selectionDate: obj.selectionDate,
+        salaryOffered: obj.salaryOffered || obj.offeredSalary || '',
+        offerStatus: obj.offerStatus || obj.offeredStatus || '',
+        joiningDate: obj.joiningDate,
+        hasJoined: obj.hasJoined || '',
         candidateRemarks: obj.candidateRemarks || obj.candidateRemark || '',
-        lineupStatus:     obj.lineupStatus    || '',
+        lineupStatus: obj.lineupStatus || '',
         // billing
-        billingDate:      obj.billingDate,
-        billingAmount:    obj.billingAmount   || '',
-        paymentStatus:    obj.paymentStatus   || 'Pending',
-        paymentDate:      obj.paymentDate,
-        paymentMode:      obj.paymentMode     || '',
-        paymentRemark:    obj.paymentRemark   || '',
+        billingDate: obj.billingDate,
+        billingAmount: obj.billingAmount || '',
+        paymentStatus: obj.paymentStatus || 'Pending',
+        paymentDate: obj.paymentDate,
+        paymentMode: obj.paymentMode || '',
+        paymentRemark: obj.paymentRemark || '',
         // timestamps
-        createdAt:        obj.createdAt,
-        updatedAt:        obj.updatedAt,
+        createdAt: obj.createdAt,
+        updatedAt: obj.updatedAt,
       };
     });
 
@@ -154,15 +154,15 @@ const deleteCandidate = async (req, res) => {
     // Delete the candidate
     await Candidate.findByIdAndDelete(id);
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: "Candidate deleted successfully",
       deletedCandidate: candidate
     });
   } catch (error) {
     console.error("Error deleting candidate:", error);
-    res.status(500).json({ 
-      message: "Server Error", 
-      error: error.message 
+    res.status(500).json({
+      message: "Server Error",
+      error: error.message
     });
   }
 };
@@ -173,40 +173,40 @@ const markCandidateAsBackout = async (req, res) => {
     const { backoutReason } = req.body;
 
     if (!backoutReason || backoutReason.trim() === '') {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: 'Backout reason is required' 
+        message: 'Backout reason is required'
       });
     }
 
     const candidate = await Candidate.findById(id);
     if (!candidate) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: 'Candidate not found' 
+        message: 'Candidate not found'
       });
     }
 
     // Update candidate with backout information
     const updatedCandidate = await Candidate.findByIdAndUpdate(
       id,
-      { 
+      {
         isBackout: true,
         backoutReason: backoutReason.trim(),
         backoutAt: new Date()
       },
       { new: true }
     )
-    .populate({
-      path: 'jobId',
-      model: 'JobOpenings',
-      select: 'companyName companyAddress phoneNumber jobTitle jobLocation jobTiming',
-    })
-    .populate({
-      path: 'createdBy',
-      model: 'User',
-      select: 'firstName lastName role',
-    });
+      .populate({
+        path: 'jobId',
+        model: 'JobOpenings',
+        select: 'companyName companyAddress phoneNumber jobTitle jobLocation jobTiming',
+      })
+      .populate({
+        path: 'createdBy',
+        model: 'User',
+        select: 'firstName lastName role',
+      });
 
     res.status(200).json({
       success: true,
@@ -228,10 +228,10 @@ const updateCandidate = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    
+
     // Find the candidate first to check permissions
     const candidate = await Candidate.findById(id);
-    
+
     if (!candidate) {
       return res.status(404).json({ success: false, message: 'Candidate not found' });
     }
@@ -239,11 +239,11 @@ const updateCandidate = async (req, res) => {
     // Check permissions
     const isAdmin = req.user.role === 'admin' || req.user.role === 'teamleader';
     const isOwner = candidate.createdBy.toString() === req.user._id.toString();
-    
+
     if (!isAdmin && !isOwner) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Not authorized to update this candidate' 
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to update this candidate'
       });
     }
 
@@ -256,9 +256,9 @@ const updateCandidate = async (req, res) => {
         updates.resumeLink = await uploadToS3(file.buffer, uniqueName, file.mimetype);
       } catch (err) {
         console.error(`❌ S3 upload failed for resume: ${err.message}`);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Failed to upload resume' 
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload resume'
         });
       }
     }
@@ -272,9 +272,9 @@ const updateCandidate = async (req, res) => {
         updates.candidateAgreement = await uploadToS3(file.buffer, uniqueName, file.mimetype);
       } catch (err) {
         console.error(`❌ S3 upload failed for agreement: ${err.message}`);
-        return res.status(500).json({ 
-          success: false, 
-          message: 'Failed to upload candidate agreement' 
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload candidate agreement'
         });
       }
     }
@@ -297,9 +297,9 @@ const updateCandidate = async (req, res) => {
       isRescheduleEntry: false
     };
 
-    res.status(200).json({ 
-      success: true, 
-      data: candidateWithType 
+    res.status(200).json({
+      success: true,
+      data: candidateWithType
     });
   } catch (error) {
     res.status(500).json({
@@ -344,6 +344,7 @@ const getHRCandidates = async (req, res) => {
     res.status(500).json({ message: 'Error fetching candidates', error: error.message });
   }
 };
+
 
 module.exports = {
   getAllCandidates,

@@ -12,4 +12,7 @@ router.get('/hr', authMiddleware, masterDashboardController.getHRDashboardData);
 // Sales Master Dashboard
 router.get('/sales', authMiddleware, masterDashboardController.getSalesDashboardData);
 
+// TL Master Dashboard
+router.get('/tl', authMiddleware, masterDashboardController.getTLDashboardData);
+
 module.exports = router;

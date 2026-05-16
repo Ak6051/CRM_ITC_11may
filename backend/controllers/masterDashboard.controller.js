@@ -7,7 +7,7 @@ const User = require('../models/User');
 // Get Admin Master Dashboard Data
 exports.getAdminDashboardData = async (req, res) => {
   try {
-    const { timeFilter = 'all', fromDate, toDate } = req.query;
+    const { timeFilter = 'week', fromDate, toDate } = req.query;
 
     // Calculate date range based on filter
     let dateFilter = {};
@@ -47,6 +47,8 @@ exports.getAdminDashboardData = async (req, res) => {
     // Fetch all candidates with date filter
     const allCandidates = await CandidateApplication.find(dateFilter)
       .populate('candidateId', 'candidateName candidateEmail candidatePhone qualification currentLocation')
+      .populate('interviewByWhom', 'firstName lastName')
+      .populate('jobId', 'jobTitle companyName')
       .lean();
 
     // Fetch all job openings
@@ -56,24 +58,37 @@ exports.getAdminDashboardData = async (req, res) => {
 
     // Calculate recruitment analytics
     const internalInterviewLineup = allCandidates.filter(c => 
-      c.lineupStatus === 'Internal Interview' || c.lineupStatus === 'Shortlisted'
+      c.lineupStatus === 'Internal Interview' || 
+      c.lineupStatus === 'Shortlisted' ||
+      (c.internalInterviewDate && c.interviewByWhom) // Include candidates who have conducted internal interviews
     );
 
     const employerInterview = allCandidates.filter(c => 
-      c.lineupStatus === 'Employer Interview' || c.lineupStatus === 'Client Interview'
+      c.lineupStatus === 'Employer Interview' || 
+      c.lineupStatus === 'Client Interview' ||
+      (c.interviewRounds && c.interviewRounds.length > 0 && c.interviewRounds.some(r => {
+        // Handle both string and Date formats for roundDate
+        const roundDate = r.roundDate;
+        return roundDate && (
+          (typeof roundDate === 'string' && roundDate.length > 0) ||
+          (roundDate instanceof Date && !isNaN(roundDate.getTime())) ||
+          (typeof roundDate === 'object' && roundDate !== null)
+        );
+      }))
     );
 
     const joiningsScheduled = allCandidates.filter(c => 
-      c.lineupStatus === 'Joining Scheduled' && c.joiningDate
+      c.lineupStatus === 'Joining Scheduled' || 
+      (c.joiningDateStatus === 'Confirmed' && c.joiningDate) // Include candidates with confirmed joining dates
     );
 
     // Calculate current status
     const decisionPending = allCandidates.filter(c => 
-      c.lineupStatus === 'Decision Pending' || c.lineupStatus === 'Under Review'
+      c.interviewStatus === 'Decision Pending'
     );
 
     const offerAcceptancePending = allCandidates.filter(c => 
-      c.lineupStatus === 'Offer Extended' || c.lineupStatus === 'Offer Sent'
+      c.offeredSalary && c.offeredStatus === 'Pending' // Only include candidates with pending offers
     );
 
     const joiningDatePending = allCandidates.filter(c => 
@@ -81,8 +96,19 @@ exports.getAdminDashboardData = async (req, res) => {
     );
 
     const selectedCandidates = allCandidates.filter(c => 
-      c.lineupStatus === 'Selected' || c.lineupStatus === 'Joined'
+      c.lineupStatus === 'Selected' || 
+      c.lineupStatus === 'Joined' ||
+      c.hasJoined === 'Yes' // Include candidates marked as joined
     );
+
+    // New metrics based on workflow model
+    const resumesShared = allCandidates.filter(c => c.resumeSubmitDate);
+    const offerAccepted = allCandidates.filter(c => c.offeredStatus === 'Accepted');
+    const offerRejected = allCandidates.filter(c => c.offeredStatus === 'Rejected');
+    const selectionAccepted = allCandidates.filter(c => c.selectionStatus === 'Accepted');
+    const selectionRejected = allCandidates.filter(c => c.selectionStatus === 'Rejected');
+    const actualJoined = allCandidates.filter(c => c.hasJoined === 'Yes');
+    const notJoined = allCandidates.filter(c => c.joiningDateStatus === 'Not Joined');
 
     // Interview status cards
     const onDiscussion = allCandidates.filter(c => c.interviewStatus === 'On Discussion');
@@ -141,7 +167,11 @@ exports.getAdminDashboardData = async (req, res) => {
           count: internalInterviewLineup.length,
           trend: calculateTrend(
             internalInterviewLineup,
-            previousCandidates.filter(c => c.lineupStatus === 'Internal Interview' || c.lineupStatus === 'Shortlisted')
+            previousCandidates.filter(c => 
+              c.lineupStatus === 'Internal Interview' || 
+              c.lineupStatus === 'Shortlisted' ||
+              (c.internalInterviewDate && c.interviewByWhom)
+            )
           ),
           candidates: internalInterviewLineup.slice(0, 10), // Top 10
         },
@@ -149,7 +179,11 @@ exports.getAdminDashboardData = async (req, res) => {
           count: employerInterview.length,
           trend: calculateTrend(
             employerInterview,
-            previousCandidates.filter(c => c.lineupStatus === 'Employer Interview' || c.lineupStatus === 'Client Interview')
+            previousCandidates.filter(c => 
+              c.lineupStatus === 'Employer Interview' || 
+              c.lineupStatus === 'Client Interview' ||
+              (c.interviewRounds && c.interviewRounds.length > 0 && c.interviewRounds.some(r => r.roundDate))
+            )
           ),
           candidates: employerInterview.slice(0, 10),
         },
@@ -157,7 +191,10 @@ exports.getAdminDashboardData = async (req, res) => {
           count: joiningsScheduled.length,
           trend: calculateTrend(
             joiningsScheduled,
-            previousCandidates.filter(c => c.lineupStatus === 'Joining Scheduled' && c.joiningDate)
+            previousCandidates.filter(c => 
+              c.lineupStatus === 'Joining Scheduled' || 
+              (c.joiningDateStatus === 'Confirmed' && c.joiningDate)
+            )
           ),
           candidates: joiningsScheduled.slice(0, 10),
         },
@@ -167,7 +204,7 @@ exports.getAdminDashboardData = async (req, res) => {
           count: decisionPending.length,
           trend: calculateTrend(
             decisionPending,
-            previousCandidates.filter(c => c.lineupStatus === 'Decision Pending' || c.lineupStatus === 'Under Review')
+            previousCandidates.filter(c => c.interviewStatus === 'Decision Pending')
           ),
           candidates: decisionPending.slice(0, 10),
         },
@@ -175,7 +212,7 @@ exports.getAdminDashboardData = async (req, res) => {
           count: offerAcceptancePending.length,
           trend: calculateTrend(
             offerAcceptancePending,
-            previousCandidates.filter(c => c.lineupStatus === 'Offer Extended' || c.lineupStatus === 'Offer Sent')
+            previousCandidates.filter(c => c.offeredSalary && c.offeredStatus === 'Pending')
           ),
           candidates: offerAcceptancePending.slice(0, 10),
         },
@@ -191,7 +228,11 @@ exports.getAdminDashboardData = async (req, res) => {
           count: selectedCandidates.length,
           trend: calculateTrend(
             selectedCandidates,
-            previousCandidates.filter(c => c.lineupStatus === 'Selected' || c.lineupStatus === 'Joined')
+            previousCandidates.filter(c => 
+              c.lineupStatus === 'Selected' || 
+              c.lineupStatus === 'Joined' ||
+              c.hasJoined === 'Yes'
+            )
           ),
           candidates: selectedCandidates.slice(0, 10),
         },
@@ -251,6 +292,43 @@ exports.getAdminDashboardData = async (req, res) => {
         thisMonth: thisMonthCandidates,
         thisWeek: thisWeekCandidates,
       },
+      workflowMetrics: {
+        resumesShared: {
+          count: resumesShared.length,
+          trend: calculateTrend(resumesShared, previousCandidates.filter(c => c.resumeSubmitDate)),
+          candidates: resumesShared.slice(0, 50),
+        },
+        offerAccepted: {
+          count: offerAccepted.length,
+          trend: calculateTrend(offerAccepted, previousCandidates.filter(c => c.offeredStatus === 'Accepted')),
+          candidates: offerAccepted.slice(0, 50),
+        },
+        offerRejected: {
+          count: offerRejected.length,
+          trend: calculateTrend(offerRejected, previousCandidates.filter(c => c.offeredStatus === 'Rejected')),
+          candidates: offerRejected.slice(0, 50),
+        },
+        selectionAccepted: {
+          count: selectionAccepted.length,
+          trend: calculateTrend(selectionAccepted, previousCandidates.filter(c => c.selectionStatus === 'Accepted')),
+          candidates: selectionAccepted.slice(0, 50),
+        },
+        selectionRejected: {
+          count: selectionRejected.length,
+          trend: calculateTrend(selectionRejected, previousCandidates.filter(c => c.selectionStatus === 'Rejected')),
+          candidates: selectionRejected.slice(0, 50),
+        },
+        actualJoined: {
+          count: actualJoined.length,
+          trend: calculateTrend(actualJoined, previousCandidates.filter(c => c.hasJoined === 'Yes')),
+          candidates: actualJoined.slice(0, 50),
+        },
+        notJoined: {
+          count: notJoined.length,
+          trend: calculateTrend(notJoined, previousCandidates.filter(c => c.joiningDateStatus === 'Not Joined')),
+          candidates: notJoined.slice(0, 50),
+        },
+      },
     };
 
     res.status(200).json(response);
@@ -263,7 +341,7 @@ exports.getAdminDashboardData = async (req, res) => {
 // Get HR Master Dashboard Data
 exports.getHRDashboardData = async (req, res) => {
   try {
-    const { timeFilter = 'all' } = req.query;
+    const { timeFilter = 'week', fromDate, toDate } = req.query;
     const userId = req.user._id;
 
     // Tenure filter — only data from current tenure start
@@ -273,10 +351,22 @@ exports.getHRDashboardData = async (req, res) => {
     let dateFilter = {};
     const now = new Date();
     
-    if (timeFilter === 'today') {
+    if (timeFilter === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const start = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
+      const end = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
+      dateFilter = { createdAt: { $gte: start, $lte: end } };
+    } else if (timeFilter === 'today') {
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
       const endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
       dateFilter = { createdAt: { $gte: startOfDay, $lte: endOfDay } };
+    } else if (timeFilter === 'tomorrow') {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const startOfTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 0, 0, 0, 0);
+      const endOfTomorrow = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 23, 59, 59, 999);
+      dateFilter = { createdAt: { $gte: startOfTomorrow, $lte: endOfTomorrow } };
     } else if (timeFilter === 'week') {
       const weekAgo = new Date(now);
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -284,6 +374,12 @@ exports.getHRDashboardData = async (req, res) => {
     } else if (timeFilter === 'month') {
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       dateFilter = { createdAt: { $gte: monthStart } };
+    } else if (timeFilter === 'dateRange' && fromDate && toDate) {
+      const start = new Date(fromDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter = { createdAt: { $gte: start, $lte: end } };
     }
 
     // Merge tenure constraint into dateFilter
@@ -310,28 +406,45 @@ exports.getHRDashboardData = async (req, res) => {
     const myCandidates = await CandidateApplication.find({
       ...dateFilter,
       createdBy: userId,
-    }).lean();
+    })
+    .populate('candidateId', 'candidateName candidateEmail candidatePhone qualification currentLocation')
+    .populate('interviewByWhom', 'firstName lastName')
+    .populate('jobId', 'jobTitle companyName')
+    .lean();
 
     // Calculate recruitment analytics
     const internalInterviewLineup = myCandidates.filter(c => 
-      c.lineupStatus === 'Internal Interview' || c.lineupStatus === 'Shortlisted'
+      c.lineupStatus === 'Internal Interview' || 
+      c.lineupStatus === 'Shortlisted' ||
+      (c.internalInterviewDate && c.interviewByWhom) // Include candidates who have conducted internal interviews
     );
 
     const employerInterview = myCandidates.filter(c => 
-      c.lineupStatus === 'Employer Interview' || c.lineupStatus === 'Client Interview'
+      c.lineupStatus === 'Employer Interview' || 
+      c.lineupStatus === 'Client Interview' ||
+      (c.interviewRounds && c.interviewRounds.length > 0 && c.interviewRounds.some(r => {
+        // Handle both string and Date formats for roundDate
+        const roundDate = r.roundDate;
+        return roundDate && (
+          (typeof roundDate === 'string' && roundDate.length > 0) ||
+          (roundDate instanceof Date && !isNaN(roundDate.getTime())) ||
+          (typeof roundDate === 'object' && roundDate !== null)
+        );
+      }))
     );
 
     const joiningsScheduled = myCandidates.filter(c => 
-      c.lineupStatus === 'Joining Scheduled' && c.joiningDate
+      c.lineupStatus === 'Joining Scheduled' || 
+      (c.joiningDateStatus === 'Confirmed' && c.joiningDate) // Include candidates with confirmed joining dates
     );
 
     // Calculate current status
     const decisionPending = myCandidates.filter(c => 
-      c.lineupStatus === 'Decision Pending' || c.lineupStatus === 'Under Review'
+      c.interviewStatus === 'Decision Pending'
     );
 
     const offerAcceptancePending = myCandidates.filter(c => 
-      c.lineupStatus === 'Offer Extended' || c.lineupStatus === 'Offer Sent'
+      c.offeredSalary && c.offeredStatus === 'Pending' // Only include candidates with pending offers
     );
 
     const joiningDatePending = myCandidates.filter(c => 
@@ -339,8 +452,26 @@ exports.getHRDashboardData = async (req, res) => {
     );
 
     const selectedCandidates = myCandidates.filter(c => 
-      c.lineupStatus === 'Selected' || c.lineupStatus === 'Joined'
+      c.lineupStatus === 'Selected' || 
+      c.lineupStatus === 'Joined' ||
+      c.hasJoined === 'Yes' // Include candidates marked as joined
     );
+
+    // New metrics based on workflow model for HR
+    const resumesShared = myCandidates.filter(c => c.resumeSubmitDate);
+    const offerAccepted = myCandidates.filter(c => c.offeredStatus === 'Accepted');
+    const offerRejected = myCandidates.filter(c => c.offeredStatus === 'Rejected');
+    const selectionAccepted = myCandidates.filter(c => c.selectionStatus === 'Accepted');
+    const selectionRejected = myCandidates.filter(c => c.selectionStatus === 'Rejected');
+    const actualJoined = myCandidates.filter(c => c.hasJoined === 'Yes');
+    const notJoined = myCandidates.filter(c => c.joiningDateStatus === 'Not Joined');
+
+    // Interview status cards for HR
+    const onDiscussion = myCandidates.filter(c => c.interviewStatus === 'On Discussion');
+    const onHold = myCandidates.filter(c => c.interviewStatus === 'On Hold');
+    const trail = myCandidates.filter(c => c.interviewStatus === 'Trail');
+    const interviewSelected = myCandidates.filter(c => c.interviewStatus === 'Selected');
+    const interviewRejected = myCandidates.filter(c => c.interviewStatus === 'Rejected');
 
     // Get total counts — scoped to current tenure
     const tenureQuery = tenureStart ? { createdAt: { $gte: tenureStart } } : {};
@@ -389,10 +520,62 @@ exports.getHRDashboardData = async (req, res) => {
           candidates: selectedCandidates.slice(0, 10),
         },
       },
+      interviewStatus: {
+        onDiscussion: {
+          count: onDiscussion.length,
+          candidates: onDiscussion.slice(0, 50),
+        },
+        onHold: {
+          count: onHold.length,
+          candidates: onHold.slice(0, 50),
+        },
+        trail: {
+          count: trail.length,
+          candidates: trail.slice(0, 50),
+        },
+        selected: {
+          count: interviewSelected.length,
+          candidates: interviewSelected.slice(0, 50),
+        },
+        rejected: {
+          count: interviewRejected.length,
+          candidates: interviewRejected.slice(0, 50),
+        },
+      },
       myStats: {
         assignedJobs: myJobs.length,
         myCandidates: totalMyCandidates,
         mySelections: totalMySelections,
+      },
+      workflowMetrics: {
+        resumesShared: {
+          count: resumesShared.length,
+          candidates: resumesShared.slice(0, 50),
+        },
+        offerAccepted: {
+          count: offerAccepted.length,
+          candidates: offerAccepted.slice(0, 50),
+        },
+        offerRejected: {
+          count: offerRejected.length,
+          candidates: offerRejected.slice(0, 50),
+        },
+        selectionAccepted: {
+          count: selectionAccepted.length,
+          candidates: selectionAccepted.slice(0, 50),
+        },
+        selectionRejected: {
+          count: selectionRejected.length,
+          candidates: selectionRejected.slice(0, 50),
+        },
+        actualJoined: {
+          count: actualJoined.length,
+          candidates: actualJoined.slice(0, 50),
+        },
+        notJoined: {
+          count: notJoined.length,
+          candidates: notJoined.slice(0, 50),
+        },
       },
     };
 
@@ -473,6 +656,143 @@ exports.getSalesDashboardData = async (req, res) => {
     res.status(200).json(response);
   } catch (error) {
     console.error('Error fetching sales dashboard data:', error);
+    res.status(500).json({ message: 'Error fetching dashboard data', error: error.message });
+  }
+};
+
+
+// Get Team Leader Master Dashboard Data
+exports.getTLDashboardData = async (req, res) => {
+  try {
+    const { timeFilter = 'week', fromDate, toDate } = req.query;
+    const tlId = req.user._id;
+
+    // Fetch TL details with assigned HRs
+    const tl = await User.findById(tlId).populate('assignedHRs', 'firstName lastName email mobileNo tenureStartedAt isActive').lean();
+    if (!tl) return res.status(404).json({ message: 'Team Leader not found' });
+
+    const hrIds = tl.assignedHRs ? tl.assignedHRs.map(hr => hr._id) : [];
+
+    // Calculate date range based on filter
+    let dateFilter = {};
+    const now = new Date();
+    
+    if (timeFilter === 'yesterday') {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const start = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0);
+      const end = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999);
+      dateFilter = { createdAt: { $gte: start, $lte: end } };
+    } else if (timeFilter === 'today') {
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      dateFilter = { createdAt: { $gte: startOfDay, $lte: endOfDay } };
+    } else if (timeFilter === 'tomorrow') {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const start = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 0, 0, 0, 0);
+      const end = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate(), 23, 59, 59, 999);
+      dateFilter = { createdAt: { $gte: start, $lte: end } };
+    } else if (timeFilter === 'week') {
+      const weekAgo = new Date(now);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      dateFilter = { createdAt: { $gte: weekAgo } };
+    } else if (timeFilter === 'month') {
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      dateFilter = { createdAt: { $gte: monthStart } };
+    } else if (timeFilter === 'dateRange' && fromDate && toDate) {
+      const start = new Date(fromDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter = { createdAt: { $gte: start, $lte: end } };
+    }
+
+    // Fetch all candidates belonging to either the TL or any of their HRs
+    const allRelevantCandidates = await CandidateApplication.find({
+      ...dateFilter,
+      $or: [
+        { createdBy: tlId },
+        { createdBy: { $in: hrIds } }
+      ]
+    })
+    .populate('candidateId', 'candidateName candidateEmail candidatePhone qualification currentLocation')
+    .populate('interviewByWhom', 'firstName lastName')
+    .populate('jobId', 'jobTitle companyName')
+    .lean();
+
+    // Calculate aggregated metrics
+    const internalInterviewLineup = allRelevantCandidates.filter(c => 
+      c.lineupStatus === 'Internal Interview' || c.lineupStatus === 'Shortlisted' || (c.internalInterviewDate && c.interviewByWhom)
+    );
+
+    const employerInterview = allRelevantCandidates.filter(c => 
+      c.lineupStatus === 'Employer Interview' || c.lineupStatus === 'Client Interview' || (c.interviewRounds && c.interviewRounds.length > 0)
+    );
+
+    const joiningsScheduled = allRelevantCandidates.filter(c => 
+      c.lineupStatus === 'Joining Scheduled' || (c.joiningDateStatus === 'Confirmed' && c.joiningDate)
+    );
+
+    const selectedCandidates = allRelevantCandidates.filter(c => 
+      c.lineupStatus === 'Selected' || c.lineupStatus === 'Joined' || c.hasJoined === 'Yes'
+    );
+
+    // Workflow metrics
+    const resumesShared = allRelevantCandidates.filter(c => c.resumeSubmitDate);
+    const offerAccepted = allRelevantCandidates.filter(c => c.offeredStatus === 'Accepted');
+    const actualJoined = allRelevantCandidates.filter(c => c.hasJoined === 'Yes');
+
+    // Fetch jobs assigned to TL or their HRs
+    const teamJobs = await JobOpening.find({
+      $or: [
+        { assignedTL: tlId },
+        { assignedHR: { $in: hrIds } }
+      ]
+    }).lean();
+
+    // Calculate per-HR stats for "Team Performance"
+    const hrPerformance = await Promise.all(tl.assignedHRs.map(async (hr) => {
+      const hrCandidates = allRelevantCandidates.filter(c => String(c.createdBy) === String(hr._id));
+      const hrJoined = hrCandidates.filter(c => c.hasJoined === 'Yes').length;
+      const hrSelections = hrCandidates.filter(c => c.lineupStatus === 'Selected' || c.lineupStatus === 'Joined').length;
+      
+      return {
+        hrId: hr._id,
+        hrName: `${hr.firstName} ${hr.lastName}`,
+        isActive: hr.isActive,
+        totalCandidates: hrCandidates.length,
+        selections: hrSelections,
+        joined: hrJoined,
+        resumes: hrCandidates.filter(c => c.resumeSubmitDate).length,
+      };
+    }));
+
+    const response = {
+      teamStats: {
+        totalHRs: tl.assignedHRs.length,
+        activeHRs: tl.assignedHRs.filter(h => h.isActive).length,
+        totalJobs: teamJobs.length,
+      },
+      recruitmentAnalytics: {
+        internalInterviewLineup: { count: internalInterviewLineup.length, candidates: internalInterviewLineup.slice(0, 10) },
+        employerInterview: { count: employerInterview.length, candidates: employerInterview.slice(0, 10) },
+        joiningsScheduled: { count: joiningsScheduled.length, candidates: joiningsScheduled.slice(0, 10) },
+      },
+      currentStatus: {
+        selectedCandidates: { count: selectedCandidates.length, candidates: selectedCandidates.slice(0, 10) },
+      },
+      workflowMetrics: {
+        resumesShared: { count: resumesShared.length, candidates: resumesShared.slice(0, 50) },
+        offerAccepted: { count: offerAccepted.length, candidates: offerAccepted.slice(0, 50) },
+        actualJoined: { count: actualJoined.length, candidates: actualJoined.slice(0, 50) },
+      },
+      hrPerformance,
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error('Error fetching TL dashboard data:', error);
     res.status(500).json({ message: 'Error fetching dashboard data', error: error.message });
   }
 };

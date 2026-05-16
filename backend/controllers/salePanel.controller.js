@@ -3,30 +3,13 @@ const salesPanel = require('../models/SalesPanel.model');
 const ConvertedJob = require('../models/convertOpening.model');
 const mongoose = require('mongoose')
 const convertSourceData = require("../models/convertSourceData.model");
-const Reminder = require('../models/reminder.model');
+
 const JobOpenings = require('../models/jobopennings.modal');
-const Company = require('../models/company.model');
+
 const CompanyCreate = require('../models/companycreate.model');
 const RescheduledMeeting = require('../models/rescheduleMeeting.modal');
 
-const getTodaysAndUpcomingReminders = async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // start of today
 
-    const reminders = await Reminder.find({
-      user: req.user._id,
-      salesPanelId: { $ne: null },     // salesPanelId present hona chahiye
-      candidateId: null,               // candidateId null hona chahiye
-      remindAt: { $gte: today },
-      isShown: false
-    }).sort({ remindAt: 1 });
-
-    res.status(200).json(reminders);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch reminders', error: error.message });
-  }
-};
 
 
 
@@ -130,23 +113,7 @@ const createJobOpening = async (req, res) => {
     const newJob = new salesPanel(jobData);
     await newJob.save();
 
-    // Handle Reminder creation
-    if (jobData.remarks?.toLowerCase().includes('reminder:')) {
-      const match = jobData.remarks.match(/reminder\s*:\s*(.*?)\s*(\d{2})-(\d{2})-(\d{4})/i);
-      if (match) {
-        const message = `reminder: ${match[1]} on ${match[2]}`;
-        const remindUntil = new Date(`${match[4]}-${match[3]}-${match[2]}`);
-        const reminder = new Reminder({
-          user: req.user._id,
-          salesPanelId: newJob._id,
-          message,
-          remindAt: new Date(),
-          remindUntil,
-          remindRepeat: true,
-        });
-        await reminder.save();
-      }
-    }
+
 
     res.status(201).json({ message: 'Job opening created successfully', job: newJob });
   } catch (error) {
@@ -194,29 +161,7 @@ const updateJobOpening = async (req, res) => {
       runValidators: true,
     });
 
-    // Handle Reminder update
-    if (updateData.remarks?.toLowerCase().includes('reminder:')) {
-      const match = updateData.remarks.match(/reminder\s*:\s*(.*?)\s*(\d{2})-(\d{2})-(\d{4})/i);
-if (match) {
-  const message = `reminder: ${match[1]} on ${match[2]}`; // ✅ Fix: full message
-  const day = match[2];
-  const month = match[3];
-  const year = match[4];
 
-  const remindUntil = new Date(`${year}-${month}-${day}`); // ✅ ISO-safe format
-
-  const reminder = new Reminder({
-    user: req.user._id,
-    salesPanelId: req.params.id,
-    message,
-    remindAt: new Date(),     // start now
-    remindUntil,              // stop at specified date
-    remindRepeat: true
-  });
-
-  await reminder.save();
-}
-    }
 
     res.status(200).json({ message: 'Job updated successfully', job: updatedJob });
   } catch (error) {
@@ -476,6 +421,5 @@ module.exports = {
   getAssignedjob,
   addMultipleCandidates,
   createReschedule,
-  getTodaysAndUpcomingReminders,
   getLeadsBySalesId
 };

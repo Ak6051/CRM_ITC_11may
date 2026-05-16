@@ -8,7 +8,7 @@ const Candidate = require("../models/candidateModal");
 const { protect } = require('../middleware/Hr.data.middleware');
 const {uploadToS3, upload } = require("../middleware/gcsMulter"); // multer config
 const Reschedule = require("../models/reschedule.model");
-const CandidateReminder = require('../models/candidate.reminder.model'); // Add this import at top
+
 
 const router = express.Router();
 
@@ -231,97 +231,7 @@ router.get("/jobs/:jobId/candidates", protect, async (req, res) => {
 });
 
 
-const parseReminderDate = (remarks) => {
-  const now = new Date();
 
-  // 1. after X days
-  const daysMatch = remarks.match(/after (\d+) days?/i);
-  if (daysMatch) {
-    const days = parseInt(daysMatch[1]);
-    return new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-  }
-
-  // 2. after X hours
-  const hoursMatch = remarks.match(/after (\d+) hours?/i);
-  if (hoursMatch) {
-    const hours = parseInt(hoursMatch[1]);
-    return new Date(now.getTime() + hours * 60 * 60 * 1000);
-  }
-
-  // 3. on dd/mm/yyyy
-  const ddmmyyyyMatch = remarks.match(/on (\d{1,2})\/(\d{1,2})\/(\d{4})/i);
-  if (ddmmyyyyMatch) {
-    const [_, day, month, year] = ddmmyyyyMatch;
-    const parsed = new Date(`${year}-${month}-${day}`);
-    if (!isNaN(parsed)) return parsed;
-  }
-
-  // 4. on dd Month yyyy
-  const fullDateMatch = remarks.match(/on (\d{1,2}) (\w+) (\d{4})/i);
-  if (fullDateMatch) {
-    const [_, day, monthName, year] = fullDateMatch;
-    const parsed = new Date(`${day} ${monthName} ${year}`);
-    if (!isNaN(parsed)) return parsed;
-  }
-
-  // 5. on dd Month (assume current year)
-  const shortDateMatch = remarks.match(/on (\d{1,2}) (\w+)/i);
-  if (shortDateMatch) {
-    const [_, day, monthName] = shortDateMatch;
-    const parsed = new Date(`${day} ${monthName} ${now.getFullYear()}`);
-    if (!isNaN(parsed)) return parsed;
-  }
-
-  // 6. after 5pm or 10 am
-  const timeMatch = remarks.match(/after (\d{1,2})\s*(am|pm)/i);
-  if (timeMatch) {
-    const hour = parseInt(timeMatch[1]);
-    const period = timeMatch[2].toLowerCase();
-    const future = new Date(now);
-    future.setHours(period === 'pm' ? hour + 12 : hour, 0, 0, 0);
-    return future;
-  }
-
-  // 7. tomorrow
-  if (remarks.toLowerCase().includes("tomorrow")) {
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    return tomorrow;
-  }
-
-  // 8. next week
-  if (remarks.toLowerCase().includes("next week")) {
-    const nextWeek = new Date(now);
-    nextWeek.setDate(now.getDate() + 7);
-    return nextWeek;
-  }
-
-
-  // 0. after X minutes
-const minutesMatch = remarks.match(/after (\d+) minutes?/i);
-if (minutesMatch) {
-  const minutes = parseInt(minutesMatch[1]);
-  return new Date(now.getTime() + minutes * 60 * 1000);
-}
-
-  // 9. on Monday, Tuesday, etc.
-  const weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-  const weekdayMatch = remarks.toLowerCase().match(/on (\w+)/);
-  if (weekdayMatch) {
-    const targetDay = weekdayMatch[1].toLowerCase();
-    const targetIndex = weekdays.indexOf(targetDay);
-    if (targetIndex !== -1) {
-      const currentIndex = now.getDay();
-      let diff = targetIndex - currentIndex;
-      if (diff <= 0) diff += 7; // next occurrence
-      const targetDate = new Date(now);
-      targetDate.setDate(now.getDate() + diff);
-      return targetDate;
-    }
-  }
-
-  return null; // No valid date found
-};
 
 
 router.put("/candidates/:candidateId", protect, upload.fields([{ name: 'offerLetter', maxCount: 1 }]), async (req, res) => {
@@ -398,21 +308,26 @@ router.put("/candidates/:candidateId", protect, upload.fields([{ name: 'offerLet
       );
     }
 
-    // ── Reminder logic ──────────────────────────────────────────────────────
-    if (candidateRemarks && candidateRemarks.toLowerCase().includes('reminder:')) {
-      const remindAt = parseReminderDate(candidateRemarks);
-      if (remindAt) {
-        const message = candidateRemarks.split('reminder:')[1].split('on')[0].trim();
-        await CandidateReminder.deleteMany({ candidateId: candidate._id, user: req.user._id });
-        const reminder = new CandidateReminder({
-          user: req.user._id,
-          candidateId: candidate._id,
-          message,
-          remindAt,
+    // ── Auto-close job when requirements are fulfilled ───────────────────
+    // If selectionDate was just set, check if all requirements are now met
+    if (jobId && selectionDate) {
+      const job = await Job.findById(jobId);
+      if (job && job.jobStatus === 'Open' && job.numberOfRequirements > 0) {
+        // Count candidates with selectionDate set for this job
+        const fulfilledCount = await CandidateApplication.countDocuments({
+          jobId,
+          selectionDate: { $ne: null, $gt: new Date('1970-01-01') },
         });
-        await reminder.save();
+        if (fulfilledCount >= job.numberOfRequirements) {
+          await Job.findByIdAndUpdate(jobId, {
+            $set: { jobStatus: 'Closed' },
+          });
+          console.log(`✅ Auto-closed job "${job.jobTitle}" (ID: ${jobId}) — ${fulfilledCount}/${job.numberOfRequirements} fulfilled`);
+        }
       }
     }
+
+
 
     res.status(200).json({ message: "Candidate updated successfully" });
 
@@ -454,29 +369,7 @@ router.put("/candidates/:candidateId", protect, upload.fields([{ name: 'offerLet
 //   }
 // });
 
-// controllers/reminderController.js
 
-
-router.get("/candidate-reminders", protect, async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-
-    const reminders = await Reminder.find({
-      user: req.user._id,
-      candidateId: { $ne: null },          // Only those with candidateId
-      salesPanelId: null,                 // Make sure salesPanelId is null
-      remindAt: { $gte: today },
-      isShown: false
-    })
-      .populate('candidateId')            // Populate candidate details if needed
-      .sort({ remindAt: 1 });
-
-    res.status(200).json(reminders);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch candidate reminders', error: error.message });
-  }
-});
 
 
 

@@ -31,7 +31,7 @@ const salesPanelSchema = new mongoose.Schema(
     jobTiming:            { type: String, required: false },
     gender:               { type: String, required: false },
     remarks:              { type: String, required: false },
-    reminderDate:         { type: Date },
+
     descriptionFile:      { type: String, required: false },
 
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

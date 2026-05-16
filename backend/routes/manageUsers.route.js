@@ -160,10 +160,10 @@ router.patch('/manage-users/:id/toggle-active', authMiddleware, adminOnly, async
 // It starts a fresh tenure so old data stays under the previous person's name.
 router.patch('/manage-users/:id/reassign', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const { firstName, lastName, password } = req.body;
+    const { firstName, lastName, mobileNo, address, password } = req.body;
 
-    if (!firstName || !lastName) {
-      return res.status(400).json({ error: 'firstName and lastName are required for reassignment' });
+    if (!firstName || !lastName || !mobileNo || !address) {
+      return res.status(400).json({ error: 'firstName, lastName, mobileNo, and address are required' });
     }
 
     const user = await User.findById(req.params.id);
@@ -178,27 +178,103 @@ router.patch('/manage-users/:id/reassign', authMiddleware, adminOnly, async (req
 
     const now = new Date();
 
+    // Helper to extract current profile data for snapshot
+    const getProfileSnapshot = (u) => ({
+      firstName: u.firstName,
+      lastName: u.lastName,
+      mobileNo: u.mobileNo,
+      address: u.address,
+      gender: u.gender,
+      fatherHusbandName: u.fatherHusbandName,
+      dateOfBirth: u.dateOfBirth,
+      maritalStatus: u.maritalStatus,
+      nationality: u.nationality,
+      alternateNumber: u.alternateNumber,
+      currentAddress: u.currentAddress,
+      permanentAddress: u.permanentAddress,
+      position: u.position,
+      department: u.department,
+      dateOfJoining: u.dateOfJoining,
+      workLocation: u.workLocation,
+      reportingManager: u.reportingManager,
+      education: u.education,
+      workExperience: u.workExperience,
+      currentCTC: u.currentCTC,
+      offeredCTC: u.offeredCTC,
+      paymentMode: u.paymentMode,
+      bankName: u.bankName,
+      accountHolderName: u.accountHolderName,
+      accountNumber: u.accountNumber,
+      ifscCode: u.ifscCode,
+      bankBranch: u.bankBranch,
+      docAadhaar: u.docAadhaar,
+      docPAN: u.docPAN,
+      docResume: u.docResume,
+      docEducationalCerts: u.docEducationalCerts,
+      docExperienceLetters: u.docExperienceLetters,
+      docPassportPhoto: u.docPassportPhoto,
+      emergencyName: u.emergencyName,
+      emergencyRelation: u.emergencyRelation,
+      emergencyContact: u.emergencyContact,
+    });
+
     // Save previous tenure to history
     if (user.tenureStartedAt) {
       user.tenureHistory.push({
-        name:      `${user.firstName} ${user.lastName}`.trim(),
-        startedAt: user.tenureStartedAt,
-        endedAt:   now,
+        name:            `${user.firstName} ${user.lastName}`.trim(),
+        startedAt:       user.tenureStartedAt,
+        endedAt:         now,
+        profileSnapshot: getProfileSnapshot(user),
       });
     } else {
-      // First-ever tenure (account existed before this feature)
       user.tenureHistory.push({
-        name:      `${user.firstName} ${user.lastName}`.trim(),
-        startedAt: user.createdAt,
-        endedAt:   now,
+        name:            `${user.firstName} ${user.lastName}`.trim(),
+        startedAt:       user.createdAt,
+        endedAt:         now,
+        profileSnapshot: getProfileSnapshot(user),
       });
     }
 
     // Update to new person's details
     user.firstName       = firstName;
     user.lastName        = lastName;
+    user.mobileNo        = mobileNo;
+    user.address         = address;
     user.tenureStartedAt = now;
     user.isActive        = true;
+
+    // ── CLEAR EMPLOYEE PROFILE FOR NEW TENURE ────────────────────────────────
+    user.fatherHusbandName = '';
+    user.dateOfBirth       = null;
+    user.maritalStatus     = '';
+    user.nationality       = '';
+    user.alternateNumber   = '';
+    user.currentAddress    = '';
+    user.permanentAddress  = '';
+    user.position          = '';
+    user.department        = '';
+    user.dateOfJoining     = null;
+    user.workLocation      = '';
+    user.reportingManager  = '';
+    user.education         = [];
+    user.workExperience    = [];
+    user.currentCTC        = '';
+    user.offeredCTC        = '';
+    user.paymentMode       = '';
+    user.bankName          = '';
+    user.accountHolderName = '';
+    user.accountNumber     = '';
+    user.ifscCode          = '';
+    user.bankBranch        = '';
+    user.docAadhaar        = '';
+    user.docPAN            = '';
+    user.docResume         = '';
+    user.docEducationalCerts  = '';
+    user.docExperienceLetters = '';
+    user.docPassportPhoto     = '';
+    user.emergencyName     = '';
+    user.emergencyRelation = '';
+    user.emergencyContact  = '';
 
     // Optionally update password
     if (password) {

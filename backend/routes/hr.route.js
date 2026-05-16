@@ -7,17 +7,27 @@ const { updateUserProfile, getUserProfile, changeUserPassword } = require('../co
 // Fetch all HR users
 router.get('/hr-users', async (req, res) => {
     try {
-        const hrUsers = await User.find({ role: 'HR' });
+        const hrUsers = await User.find({ role: 'HR', isActive: true });
         res.json(hrUsers);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching HR users', error });
     }
 });
 
+// Fetch all Team Leader users
+router.get('/tl-users', async (req, res) => {
+    try {
+        const tlUsers = await User.find({ role: 'teamleader', isActive: true });
+        res.json(tlUsers);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching TL users', error });
+    }
+});
+
 router.get('/hr-admins', async (req, res) => {
   try {
     // Fetch users whose role is either 'HR' or 'Admin'
-    const hrAndAdminUsers = await User.find({ role: { $in: ['HR', 'admin'] } });
+    const hrAndAdminUsers = await User.find({ role: { $in: ['HR', 'admin'] }, isActive: true });
     res.json(hrAndAdminUsers);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching HR and Admin users', error });

@@ -40,8 +40,26 @@ function extractClientIp(req) {
  * @param {import('express').NextFunction} next
  */
 async function ipWhitelistMiddleware(req, res, next) {
+  const { email } = req.body;
+
+  // If no email, we can't check role, but we should probably let the next handler handle validation
+  if (!email) {
+    return next();
+  }
+
+  // Find user to check role
+  const User = require('../models/User');
+  let user;
+  try {
+    user = await User.findOne({ email });
+  } catch (err) {
+    console.error('[ipWhitelistMiddleware] User lookup failed:', err);
+    return next();
+  }
+
   // Requirement 2.6 — bypass for non-HR roles (admin, Sales, etc.)
-  if (req.body.role !== 'HR') {
+  // If user not found, let preLogin handle it
+  if (!user || user.role !== 'HR') {
     return next();
   }
 

@@ -18,7 +18,7 @@ const dailyTaskSchema = new mongoose.Schema({
   ISEOD: {type:String, required:true},
   revenueGenerated:{type:Number, required:true},
   RGEOD: {type:String, required:true},
-  remark:{type:String, required:false},
+  remarks: [{ type: String }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('DailyTask', dailyTaskSchema);

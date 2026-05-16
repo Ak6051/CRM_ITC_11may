@@ -275,3 +275,48 @@ exports.deleteBranch = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+// ── POST bulk import companies ─────────────────────────────────────────────
+exports.bulkImportCompanies = async (req, res) => {
+  try {
+    const { companies } = req.body;
+    if (!Array.isArray(companies) || companies.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid or empty companies list' });
+    }
+
+    let insertedCount = 0;
+    let duplicateCount = 0;
+    const skippedNames = [];
+
+    for (const data of companies) {
+      const { companyName } = data;
+      if (!companyName) continue;
+
+      const existing = await Company.findOne({
+        companyName: { $regex: `^${companyName.trim()}$`, $options: 'i' },
+      });
+
+      if (existing) {
+        duplicateCount++;
+        skippedNames.push(companyName);
+        continue;
+      }
+
+      const company = new Company({
+        ...data,
+        createdBy: req.user?._id,
+      });
+
+      await company.save();
+      insertedCount++;
+    }
+
+    res.json({
+      success: true,
+      insertedCount,
+      duplicateCount,
+      skippedNames,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};

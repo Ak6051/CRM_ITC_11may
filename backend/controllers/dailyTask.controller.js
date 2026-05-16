@@ -5,7 +5,7 @@ const DailyTaskEditRequest = require('../models/DailyTaskEditRequest.model.js');
 
 const createTask = async (req, res) => {
   try {
-    const { hrId, companyName, position, totalCall, profilesShared, interviewsScheduled, revenueGenerated, TCEOD, PSEOD, ISEOD, RGEOD, remark } = req.body;
+    const { hrId, companyName, position, totalCall, profilesShared, interviewsScheduled, revenueGenerated, TCEOD, PSEOD, ISEOD, RGEOD, remarks } = req.body;
 
     // Find HR user by ID
     const hrUser = await User.findOne({ _id: hrId, role: 'HR' });
@@ -28,7 +28,7 @@ const createTask = async (req, res) => {
       PSEOD: PSEOD || '0',
       ISEOD: ISEOD || '0',
       RGEOD: RGEOD || '0',
-      remark: remark || '',
+      remarks: remarks || [],
     });
 
     const savedTask = await newTask.save();
@@ -126,7 +126,7 @@ const updateTask = async (req, res) => {
     const {
       hrName, hrId, companyName, position, totalCall, profilesShared,
       interviewsScheduled, revenueGenerated, TCEOD,
-      PSEOD, ISEOD, RGEOD, remark
+      PSEOD, ISEOD, RGEOD, remarks
     } = req.body;
 
     let hrUser;
@@ -167,7 +167,7 @@ const updateTask = async (req, res) => {
         PSEOD: PSEOD || '0',
         ISEOD: ISEOD || '0',
         RGEOD: RGEOD || '0',
-        remark: remark || '',
+        remarks: remarks || [],
       },
       { new: true }
     );
@@ -200,7 +200,7 @@ const deleteTask = async (req, res) => {
 
 const getAllHRs = async (req, res) => {
   try {
-    const hrs = await User.find({ role: 'HR' }, 'firstName lastName email'); // select only needed fields
+    const hrs = await User.find({ role: 'HR', isActive: true }, 'firstName lastName email'); // select only needed fields
     res.json(hrs);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -211,7 +211,7 @@ const getAllHRs = async (req, res) => {
 // Function for HR to create their own task
 const createHrTask = async (req, res) => {
   try {
-    const { companyName, position, totalCall, profilesShared, interviewsScheduled, revenueGenerated, TCEOD, PSEOD, ISEOD, RGEOD, remark } = req.body;
+    const { companyName, position, totalCall, profilesShared, interviewsScheduled, revenueGenerated, TCEOD, PSEOD, ISEOD, RGEOD, remarks } = req.body;
     
     // Get HR user from the request (added by auth middleware)
     const hrUser = req.user;
@@ -230,7 +230,7 @@ const createHrTask = async (req, res) => {
       PSEOD: PSEOD || '0',
       ISEOD: ISEOD || '0',
       RGEOD: RGEOD || '0',
-      remark: remark || '',
+      remarks: remarks || [],
     });
 
     const savedTask = await newTask.save();
@@ -248,7 +248,7 @@ const createHrTask = async (req, res) => {
 // ---------------------------------------------------------sales panel controller ----------------------------------------------------------------
 const createSalesTask = async (req, res) => {
   try {
-    const { TargetedLead, TargetedMeeting, TargetedAgreement, TargetedOpenings, remark } = req.body;
+    const { TargetedLead, TargetedMeeting, TargetedAgreement, TargetedOpenings, remarks } = req.body;
     
     // Get sales user from the request (added by auth middleware)
     const salesUser = req.user;
@@ -261,7 +261,7 @@ const createSalesTask = async (req, res) => {
       TargetedMeeting: TargetedMeeting || '0',
       TargetedAgreement: TargetedAgreement || '0',
       TargetedOpenings: TargetedOpenings || '0',
-      remark: remark || ''
+      remarks: remarks || []
     });
 
     const savedTask = await newTask.save();
@@ -341,7 +341,7 @@ const SalesdeleteTask = async (req, res) => {
 
 const SalesTaskCreate = async (req, res) => {
   try {
-    const { salesId, TargetedLead, TargetedMeeting, TargetedAgreement, TargetedOpenings,TLEOD,TMEOD,TAEOD,TOEOD, remark } = req.body;
+    const { salesId, TargetedLead, TargetedMeeting, TargetedAgreement, TargetedOpenings,TLEOD,TMEOD,TAEOD,TOEOD, remarks } = req.body;
 
     // Find Sales user by ID
     const salesUser = await User.findOne({ _id: salesId, role: 'Sales' });
@@ -362,7 +362,7 @@ const SalesTaskCreate = async (req, res) => {
       TMEOD: TMEOD || '0',
       TAEOD: TAEOD || '0',
       TOEOD: TOEOD || '0',
-      remark: remark || '',
+      remarks: remarks || [],
     });
 
     const savedTask = await newTask.save();
@@ -388,7 +388,7 @@ const SalesupdateTask = async (req, res) => {
     }
 
     const {
-      salesName, salesId, TargetedLead, TargetedMeeting, TargetedAgreement, TargetedOpenings, TLEOD,TMEOD,TAEOD,TOEOD, remark
+      salesName, salesId, TargetedLead, TargetedMeeting, TargetedAgreement, TargetedOpenings, TLEOD,TMEOD,TAEOD,TOEOD, remarks
     } = req.body;
 
     let salesUser;
@@ -427,7 +427,7 @@ const SalesupdateTask = async (req, res) => {
         TMEOD : TMEOD || '0',
         TAEOD : TAEOD || '0',
         TOEOD : TOEOD || '0',
-        remark: remark || '',
+        remarks: remarks || [],
       },
       { new: true }
     );
@@ -469,7 +469,7 @@ const hrRequestTaskEdit = async (req, res) => {
     const {
       companyName, position, totalCall, profilesShared,
       interviewsScheduled, revenueGenerated,
-      TCEOD, PSEOD, ISEOD, RGEOD, remark
+      TCEOD, PSEOD, ISEOD, RGEOD, remarks
     } = req.body;
 
     const editRequest = new DailyTaskEditRequest({
@@ -486,7 +486,7 @@ const hrRequestTaskEdit = async (req, res) => {
         PSEOD: PSEOD || '0',
         ISEOD: ISEOD || '0',
         RGEOD: RGEOD || '0',
-        remark: remark || ''
+        remarks: remarks || []
       },
       status: 'pending'
     });
@@ -505,7 +505,18 @@ const hrRequestTaskEdit = async (req, res) => {
 const getEditRequests = async (req, res) => {
   try {
     const { status } = req.query; // optional filter: pending | approved | rejected
-    const filter = status ? { status } : {};
+    let filter = status ? { status } : {};
+
+    // If TL, only show requests from their assigned HRs
+    if (req.user.role === 'teamleader') {
+      const tl = await User.findById(req.user._id).select('assignedHRs');
+      if (tl && tl.assignedHRs && tl.assignedHRs.length > 0) {
+        filter.requestedBy = { $in: tl.assignedHRs };
+      } else {
+        // If no HRs assigned, return empty array
+        return res.json([]);
+      }
+    }
 
     const requests = await DailyTaskEditRequest.find(filter)
       .populate('taskId')

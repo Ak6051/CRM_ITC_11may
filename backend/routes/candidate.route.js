@@ -10,7 +10,7 @@ const {
 const { protect } = require('../middleware/Hr.data.middleware');
 const Candidate = require("../models/candidateModal");
 const JobOpenings = require('../models/jobopennings.modal');
-const Company = require('../models/company.model');
+
 const {upload} = require('../middleware/gcsMulter');
 
 // Get all candidates (admin only)

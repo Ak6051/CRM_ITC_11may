@@ -284,7 +284,7 @@ const getCombinedCandidates = async (req, res) => {
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
     const skip  = (page - 1) * limit;
 
-    const { name, location, createdBy, position, currentPosition, industry, startDate, endDate, minExp, maxExp, minCtc, maxCtc, maxNotice } = req.query;
+    const { name, location, createdBy, position, currentPosition, industry, startDate, endDate, minExp, maxExp, minCtc, maxCtc, maxNotice, phone, gender } = req.query;
 
     // Resolve createdBy filter to user IDs
     let createdByIds = null;
@@ -332,19 +332,97 @@ const getCombinedCandidates = async (req, res) => {
     if (position)        filterQuery.positionName    = { $regex: position,        $options: 'i' };
     if (currentPosition) filterQuery.currentPosition = { $regex: currentPosition, $options: 'i' };
     if (industry)        filterQuery.industry        = { $regex: industry,        $options: 'i' };
+    if (phone)           filterQuery.candidatePhone  = { $regex: phone,           $options: 'i' };
+    if (gender)          filterQuery.gender          = { $regex: `^${gender.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
     if (startDate || endDate) {
       filterQuery.createdAt = {};
       if (startDate) filterQuery.createdAt.$gte = new Date(startDate);
       if (endDate)   filterQuery.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
     }
 
-    // Numeric filters
+    // ── Helper: extract leading number from a string ────────────────────────
+    // "2 Years" → 2, "6 Months" → 0.5, "Fresher" → 0, "3-5 Years" → 3,
+    // "1 Year 6 Months" → 1.5, "2.40 LPA" → 2.40, "0-6 Months" → 0
+    const parseExpToYears = (fieldRef) => ({
+      $let: {
+        vars: {
+          raw: { $toLower: { $ifNull: [fieldRef, ''] } },
+        },
+        in: {
+          $switch: {
+            branches: [
+              // "fresher" → 0
+              { case: { $regexMatch: { input: '$$raw', regex: /^fresher$/i } }, then: 0 },
+              // "X Year(s) Y Month(s)" → X + Y/12
+              {
+                case: { $regexMatch: { input: '$$raw', regex: /(\d+)\s*year.*?(\d+)\s*month/i } },
+                then: {
+                  $add: [
+                    { $convert: { input: { $arrayElemAt: [{ $regexFind: { input: '$$raw', regex: /(\d+)\s*year/i } }, 0] }, to: 'double', onError: 0, onNull: 0 } },
+                    { $divide: [{ $convert: { input: { $arrayElemAt: [{ $regexFind: { input: '$$raw', regex: /(\d+)\s*month/i } }, 0] }, to: 'double', onError: 0, onNull: 0 } }, 12] },
+                  ],
+                },
+              },
+              // "X-Y Years" → X (lower bound)
+              { case: { $regexMatch: { input: '$$raw', regex: /(\d+)\s*-\s*\d+\s*year/i } }, then: { $convert: { input: { $arrayElemAt: [{ $split: ['$$raw', '-'] }, 0] }, to: 'double', onError: 0, onNull: 0 } } },
+              // "X+ Years" or "X Years" → X
+              { case: { $regexMatch: { input: '$$raw', regex: /(\d+).*year/i } }, then: { $convert: { input: { $arrayElemAt: [{ $regexFind: { input: '$$raw', regex: /\d+/ } }, 0] }, to: 'double', onError: 0, onNull: 0 } } },
+              // "X-Y Months" → X/12
+              { case: { $regexMatch: { input: '$$raw', regex: /(\d+)\s*-\s*\d+\s*month/i } }, then: { $divide: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$$raw', '-'] }, 0] }, to: 'double', onError: 0, onNull: 0 } }, 12] } },
+              // "X Months" → X/12
+              { case: { $regexMatch: { input: '$$raw', regex: /(\d+)\s*month/i } }, then: { $divide: [{ $convert: { input: { $arrayElemAt: [{ $regexFind: { input: '$$raw', regex: /\d+/ } }, 0] }, to: 'double', onError: 0, onNull: 0 } }, 12] } },
+            ],
+            // fallback: try extracting leading number directly
+            default: { $convert: { input: { $ifNull: [{ $getField: { field: 'match', input: { $regexFind: { input: '$$raw', regex: /[\d.]+/ } } } }, '0'] }, to: 'double', onError: 0, onNull: 0 } },
+          },
+        },
+      },
+    });
+
+    // Helper: extract leading number from CTC strings ("2.40 LPA" → 2.40, "₹20000" → 20000)
+    const parseCTCToNum = (fieldRef) => ({
+      $convert: {
+        input: { $ifNull: [{ $getField: { field: 'match', input: { $regexFind: { input: { $ifNull: [fieldRef, '0'] }, regex: /[\d.]+/ } } } }, '0'] },
+        to: 'double', onError: 0, onNull: 0,
+      },
+    });
+
+    // Numeric filters (applied after $project via $expr)
     const numericFilters = [];
-    if (minExp)    numericFilters.push({ $gte: [{ $toDouble: { $ifNull: ['$experience',   '0'] } }, parseFloat(minExp)] });
-    if (maxExp)    numericFilters.push({ $lte: [{ $toDouble: { $ifNull: ['$experience',   '0'] } }, parseFloat(maxExp)] });
-    if (minCtc)    numericFilters.push({ $gte: [{ $toDouble: { $ifNull: ['$currentCTC',   '0'] } }, parseFloat(minCtc)] });
-    if (maxCtc)    numericFilters.push({ $lte: [{ $toDouble: { $ifNull: ['$currentCTC',   '0'] } }, parseFloat(maxCtc)] });
-    if (maxNotice) numericFilters.push({ $lte: [{ $toDouble: { $ifNull: ['$noticePeriod', '0'] } }, parseInt(maxNotice)] });
+    if (minExp) numericFilters.push({ $gte: [parseExpToYears('$experience'), parseFloat(minExp)] });
+    if (maxExp) numericFilters.push({ $lte: [parseExpToYears('$experience'), parseFloat(maxExp)] });
+    if (minCtc) numericFilters.push({ $gte: [parseCTCToNum('$currentCTC'), parseFloat(minCtc)] });
+    if (maxCtc) numericFilters.push({ $lte: [parseCTCToNum('$currentCTC'), parseFloat(maxCtc)] });
+    // noticePeriod filter — extract leading number from strings like "30 Days", "Immediate" (=0), "1 Week" (=7)
+    if (maxNotice) {
+      const maxN = parseInt(maxNotice);
+      // Use $and to safely combine with existing filterQuery without overwriting $or
+      const noticeCondition = {
+        $or: [
+          { noticePeriod: { $regex: /^immediate$/i } },
+          {
+            $expr: {
+              $lte: [
+                {
+                  $convert: {
+                    input: { $arrayElemAt: [{ $split: [{ $ifNull: ['$noticePeriod', '0'] }, ' '] }, 0] },
+                    to: 'double',
+                    onError: 999,
+                    onNull: 999,
+                  },
+                },
+                maxN,
+              ],
+            },
+          },
+        ],
+      };
+      if (filterQuery.$and) {
+        filterQuery.$and.push(noticeCondition);
+      } else {
+        filterQuery.$and = [noticeCondition];
+      }
+    }
 
     const pipeline = [
       { $match: filterQuery },
@@ -354,6 +432,7 @@ const getCombinedCandidates = async (req, res) => {
           name:            { $ifNull: ['$candidateName',   ''] },
           phoneNumber:     { $ifNull: ['$candidatePhone',  ''] },
           email:           { $ifNull: ['$candidateEmail',  ''] },
+          gender:          { $ifNull: ['$gender',          ''] },
           positionName:    { $ifNull: ['$positionName',    ''] },
           experience:      { $ifNull: ['$experience',      ''] },
           currentLocation: { $ifNull: ['$currentLocation', ''] },
@@ -367,6 +446,7 @@ const getCombinedCandidates = async (req, res) => {
           industry:        { $ifNull: ['$industry',        ''] },
           remark:          { $ifNull: ['$remark',          ''] },
           resumeUpload:    { $ifNull: ['$resumeLink',      ''] },
+          qualification:   { $ifNull: ['$qualification',   ''] },
         },
       },
     ];
@@ -375,19 +455,19 @@ const getCombinedCandidates = async (req, res) => {
       pipeline.push({ $match: { $expr: { $and: numericFilters } } });
     }
 
-    pipeline.push({ $sort: { createdAt: -1 } });
-
+    // Sort + paginate inside $facet so MongoDB can use allowDiskUse efficiently
     pipeline.push({
       $facet: {
         metadata: [{ $count: 'total' }],
         data: [
+          { $sort: { createdAt: -1 } },
           { $skip: skip },
           { $limit: limit },
         ],
       },
     });
 
-    const [result] = await Candidate.aggregate(pipeline);
+    const [result] = await Candidate.aggregate(pipeline, { allowDiskUse: true });
 
     const total = result.metadata[0]?.total || 0;
     const data  = result.data.map(row => ({

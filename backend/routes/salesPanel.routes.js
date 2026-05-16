@@ -7,7 +7,7 @@ const {upload} = require("../middleware/gcsMulter"); // multer config
 const salesPanel = require('../models/SalesPanel.model');
 const Job = require("../models/convertOpening.model");
 const Candidate = require("../models/convertSourceData.model");
-const Company = require("../models/company.model");
+const CompanyCreate = require("../models/companycreate.model");
 const { verifyToken } = require("../middleware/AddCandidates.middleware");
 const {
   createJobOpening,
@@ -18,7 +18,7 @@ const {
   getAssignedjob,
   addMultipleCandidates,
   createReschedule,
-  getTodaysAndUpcomingReminders,
+
   deleteJobOpening,
   getLeadsBySalesId
 } = require('../controllers/salePanel.controller');
@@ -32,13 +32,13 @@ router.get('/converted-jobs',protect, getConvertedJobs);
 router.get('/assignsales', protect, getAssignedjob);
 router.post("/candidate", upload.any() ,verifyToken, addMultipleCandidates);
 router.post('/reschedule', protect, createReschedule);
-router.get('/reminders', protect, getTodaysAndUpcomingReminders);
+
 router.delete('/delete-sale/:id', protect, deleteJobOpening);
 router.get('/leads/:id', protect, getLeadsBySalesId);
 
 router.get('/hr-users', protect,async (req, res) => {
     try {
-        const hrUsers = await User.find({ role: 'HR' });
+        const hrUsers = await User.find({ role: 'HR', isActive: true });
         res.json(hrUsers);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching HR users', error });
@@ -47,7 +47,7 @@ router.get('/hr-users', protect,async (req, res) => {
 
 router.get('/sales-users', protect,async (req, res) => {
     try {
-        const salesUsers = await User.find({ role: 'Sales' });
+        const salesUsers = await User.find({ role: 'Sales', isActive: true });
         res.json(salesUsers);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching Sales users', error });
@@ -81,37 +81,37 @@ router.post('/sales-import', protect, async (req, res) => {
   try {
     const jobs = req.body.jobs;
 
-    // Get the current max companyId
-    const lastCompany = await Company.findOne().sort({ companyId: -1 });
-    let currentCompanyId = lastCompany ? lastCompany.companyId + 1 : 10001;
+    // 1. Get all unique company names from the Excel data
+    const uniqueCompanyNames = [...new Set(jobs.map(j => j.companyName?.trim()).filter(Boolean))];
 
-    const companyMap = {}; // to avoid duplicate inserts within this batch
+    // 2. Check which companies exist in CompanyCreate
+    const existingCompanies = await CompanyCreate.find({
+      companyName: { $in: uniqueCompanyNames.map(name => new RegExp(`^${name}$`, 'i')) }
+    });
 
-    const jobsWithCompanyId = await Promise.all(jobs.map(async (job) => {
-      const companyName = job.companyName?.trim();
+    const existingCompanyMap = {};
+    existingCompanies.forEach(c => {
+      existingCompanyMap[c.companyName.toLowerCase()] = c.companyId;
+    });
 
-      if (!companyName) throw new Error("Missing companyName in job entry.");
+    // 3. Find missing companies
+    const missingCompanies = uniqueCompanyNames.filter(name => !existingCompanyMap[name.toLowerCase()]);
 
-      let company = await Company.findOne({ companyName });
+    if (missingCompanies.length > 0) {
+      return res.status(400).json({
+        error: 'Validation Failed',
+        message: `The following companies are not registered in the system: ${missingCompanies.join(', ')}. Please create these companies first before importing jobs.`,
+        missingCompanies
+      });
+    }
 
-      if (!company && !companyMap[companyName]) {
-        // Create a new company with a unique companyId
-        company = new Company({
-          companyName,
-          companyId: currentCompanyId++
-        });
-        await company.save();
-        companyMap[companyName] = company.companyId;
-      }
-
-      return {
-        ...job,
-        companyId: company ? company.companyId : companyMap[companyName],
-        createdBy: req.user._id
-      };
+    // 4. Map jobs with existing companyIds
+    const jobsWithCompanyId = jobs.map(job => ({
+      ...job,
+      companyId: existingCompanyMap[job.companyName.trim().toLowerCase()],
+      createdBy: req.user._id
     }));
 
-    // const inserted = await salesPanel.insertMany(jobsWithCompanyId);
     const inserted = await salesPanel.insertMany(jobsWithCompanyId, { ordered: false });
     res.status(201).json(inserted);
   } catch (err) {
