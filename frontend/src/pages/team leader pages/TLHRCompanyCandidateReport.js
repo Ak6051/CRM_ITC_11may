@@ -226,13 +226,13 @@ const HRCompanyCandidateReport = () => {
     },
     { 
       field: 'experience', 
-      headerName: 'Experience', 
+      headerName: 'Experience (Years)', 
       width: 150,
       renderCell: renderCellWithTooltip
     },
     { 
       field: 'salary', 
-      headerName: 'Salary', 
+      headerName: 'Salary (Monthly ₹)', 
       width: 150,
       renderCell: renderCellWithTooltip
     },
@@ -357,11 +357,11 @@ const HRCompanyCandidateReport = () => {
     { field: 'candidatePhone', headerName: 'Phone', width: 150 },
     { field: 'qualification', headerName: 'Qualification', width: 150 },
     { field: 'positionName', headerName: 'Position', width: 150 },  
-    { field: 'experience', headerName: 'Experience', width: 150 },
+    { field: 'experience', headerName: 'Experience (Years)', width: 150 },
     { field: 'currentLocation', headerName: 'Location', width: 150 },
-    { field: 'currentCTC', headerName: 'CTC', width: 150 },
-    { field: 'expectedCTC', headerName: 'Expected CTC', width: 150 },
-    { field: 'noticePeriod', headerName: 'Notice Period', width: 150 },
+    { field: 'currentCTC', headerName: 'Current Monthly ₹', width: 150 },
+    { field: 'expectedCTC', headerName: 'Expected Monthly ₹', width: 150 },
+    { field: 'noticePeriod', headerName: 'Notice Period (Days)', width: 150 },
     { field: 'reasonforLeaving', headerName: 'Reason for Leaving', width: 150 },
     { field: 'currentCompany', headerName: 'Current Company', width: 150 },
     { field: 'remark', headerName: 'Remark', width: 200 },

@@ -285,11 +285,13 @@ const DailyTaskReport = () => {
   useEffect(() => {
     fetchTasks();
     fetchEditRequests();
+    fetchHRs();
 
     // Auto-refresh every 30 seconds so admin sees new HR tasks without manual reload
     const interval = setInterval(() => {
       fetchTasks();
       fetchEditRequests();
+      fetchHRs();
     }, 30000);
 
     return () => clearInterval(interval);
@@ -912,7 +914,7 @@ const DailyTaskReport = () => {
                   <>
                     <Button variant="contained" size="small" onClick={() => { setEditData(null); setOpenForm(true); }} sx={{ textTransform: 'none', ml: 1 }}>+ Create</Button>
                     <Autocomplete
-                      options={Array.from(new Set(tasks.map(t => t.hrName).filter(Boolean))).sort()}
+                      options={Array.from(new Set(hrList.map(h => `${h.firstName} ${h.lastName}`))).sort()}
                       value={hrFilter || null}
                       onChange={(_, newValue) => setHrFilter(newValue || '')}
                       size="small"
@@ -1113,7 +1115,7 @@ const DailyTaskReport = () => {
                         <Grid container spacing={2} sx={{ mb: 2 }}>
                           <Grid item xs={12} md={4}>
                             <Autocomplete
-                              options={hrList}
+                              options={[...hrList].sort((a, b) => `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`, undefined, { sensitivity: 'base' }))}
                               getOptionLabel={(hr) => hr ? `${hr.firstName} ${hr.lastName}` : ''}
                               value={hrList.find(hr => hr._id === formData.hrId) || null}
                               onChange={(_, val) => handleHrSelect(val?._id || '')}

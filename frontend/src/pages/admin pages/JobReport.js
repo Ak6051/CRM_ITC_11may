@@ -1837,7 +1837,7 @@ const JobReport = () => {
 
     // ── Column 9: Salary ──────────────────────────────────────────────────────
     {
-      field: 'salary', headerName: 'Salary', width: 85,
+      field: 'salary', headerName: 'Monthly Salary (₹)', width: 140,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -1867,7 +1867,7 @@ const JobReport = () => {
 
     // ── Column 12: Experience ─────────────────────────────────────────────────
     {
-      field: 'experience', headerName: 'Exp.', width: 75,
+      field: 'experience', headerName: 'Exp. (Years)', width: 100,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
@@ -3153,12 +3153,12 @@ const JobReport = () => {
                     { field: 'name', headerName: 'Name', width: 150 },
                     { field: 'phoneNumber', headerName: 'Phone', width: 130 },
                     { field: 'positionName', headerName: 'Position', width: 150 },
-                    { field: 'experience', headerName: 'Experience', width: 100 },
+                    { field: 'experience', headerName: 'Experience (Years)', width: 140 },
                     { field: 'currentLocation', headerName: 'Location', width: 150 },
                     { field: 'currentPosition', headerName: 'Current Position', width: 160 },
-                    { field: 'currentCTC', headerName: 'Current CTC', width: 130 },
-                    { field: 'expectedCTC', headerName: 'Expected CTC', width: 130 },
-                    { field: 'noticePeriod', headerName: 'Notice Period', width: 130 },
+                    { field: 'currentCTC', headerName: 'Current Monthly ₹', width: 140 },
+                    { field: 'expectedCTC', headerName: 'Expected Monthly ₹', width: 140 },
+                    { field: 'noticePeriod', headerName: 'Notice Period (Days)', width: 150 },
                     { field: 'reasonforLeaving', headerName: 'Reason for Leaving', width: 180 },
                     { field: 'currentCompany', headerName: 'Current Company', width: 150 },
                     { field: 'remark', headerName: 'Remark', width: 150 },

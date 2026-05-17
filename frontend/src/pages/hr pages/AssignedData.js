@@ -838,8 +838,8 @@ const HrDashboard = () => {
               endAdornment: mcFilterName && <IconButton size="small" onClick={() => setMcFilterName("")}><CloseIcon sx={{ fontSize: 13 }} /></IconButton>,
             }}
           />
-          <TextField size="small" label="Experience" value={mcFilterExperience} onChange={(e) => setMcFilterExperience(e.target.value)}
-            sx={{ width: 130, "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: 12, bgcolor: mcFilterExperience ? "#e8eaf6" : "#fff" } }}
+          <TextField size="small" label="Experience (Years)" value={mcFilterExperience} onChange={(e) => setMcFilterExperience(e.target.value)}
+            sx={{ width: 140, "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: 12, bgcolor: mcFilterExperience ? "#e8eaf6" : "#fff" } }}
             InputProps={{ endAdornment: mcFilterExperience && <IconButton size="small" onClick={() => setMcFilterExperience("")}><CloseIcon sx={{ fontSize: 13 }} /></IconButton> }}
           />
           <TextField size="small" label="Location" value={mcFilterLocation} onChange={(e) => setMcFilterLocation(e.target.value)}
@@ -850,12 +850,12 @@ const HrDashboard = () => {
             sx={{ width: 150, "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: 12, bgcolor: mcFilterPosition ? "#e8eaf6" : "#fff" } }}
             InputProps={{ endAdornment: mcFilterPosition && <IconButton size="small" onClick={() => setMcFilterPosition("")}><CloseIcon sx={{ fontSize: 13 }} /></IconButton> }}
           />
-          <TextField size="small" label="Expected CTC" value={mcFilterExpectedCTC} onChange={(e) => setMcFilterExpectedCTC(e.target.value)}
-            sx={{ width: 140, "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: 12, bgcolor: mcFilterExpectedCTC ? "#e8eaf6" : "#fff" } }}
+          <TextField size="small" label="Monthly CTC (₹)" value={mcFilterExpectedCTC} onChange={(e) => setMcFilterExpectedCTC(e.target.value)}
+            sx={{ width: 150, "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: 12, bgcolor: mcFilterExpectedCTC ? "#e8eaf6" : "#fff" } }}
             InputProps={{ endAdornment: mcFilterExpectedCTC && <IconButton size="small" onClick={() => setMcFilterExpectedCTC("")}><CloseIcon sx={{ fontSize: 13 }} /></IconButton> }}
           />
-          <TextField size="small" label="Notice Period" value={mcFilterNoticePeriod} onChange={(e) => setMcFilterNoticePeriod(e.target.value)}
-            sx={{ width: 140, "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: 12, bgcolor: mcFilterNoticePeriod ? "#e8eaf6" : "#fff" } }}
+          <TextField size="small" label="Notice Period (Days)" value={mcFilterNoticePeriod} onChange={(e) => setMcFilterNoticePeriod(e.target.value)}
+            sx={{ width: 150, "& .MuiOutlinedInput-root": { borderRadius: "8px", fontSize: 12, bgcolor: mcFilterNoticePeriod ? "#e8eaf6" : "#fff" } }}
             InputProps={{ endAdornment: mcFilterNoticePeriod && <IconButton size="small" onClick={() => setMcFilterNoticePeriod("")}><CloseIcon sx={{ fontSize: 13 }} /></IconButton> }}
           />
           <TextField size="small" label="Current Company" value={mcFilterCurrentCompany} onChange={(e) => setMcFilterCurrentCompany(e.target.value)}
@@ -920,12 +920,12 @@ const HrDashboard = () => {
                   { field: "phoneNumber",       headerName: "Phone",              width: 130 },
                   { field: "qualification",     headerName: "Qualification",      width: 140 },
                   { field: "positionName",      headerName: "Position",           width: 160 },
-                  { field: "experience",        headerName: "Experience",         width: 110 },
+                  { field: "experience",        headerName: "Experience (Years)",  width: 150, renderCell: (p) => p.value && p.value !== "N/A" ? `${p.value} Years` : p.value },
                   { field: "currentLocation",   headerName: "Location",           width: 140 },
                   { field: "currentPosition",   headerName: "Current Position",   width: 160 },
-                  { field: "currentCTC",        headerName: "Current CTC",        width: 130 },
-                  { field: "expectedCTC",       headerName: "Expected CTC",       width: 130 },
-                  { field: "noticePeriod",      headerName: "Notice Period",      width: 130 },
+                  { field: "currentCTC",        headerName: "Current Monthly ₹",  width: 150, renderCell: (p) => p.value && p.value !== "N/A" ? `₹${p.value}` : p.value },
+                  { field: "expectedCTC",       headerName: "Expected Monthly ₹", width: 150, renderCell: (p) => p.value && p.value !== "N/A" ? `₹${p.value}` : p.value },
+                  { field: "noticePeriod",      headerName: "Notice Period (Days)", width: 160, renderCell: (p) => p.value && p.value !== "N/A" ? `${p.value} Days` : p.value },
                   { field: "reasonforLeaving",  headerName: "Reason for Leaving", width: 180 },
                   { field: "currentCompany",    headerName: "Current Company",    width: 160 },
                   { field: "remark",            headerName: "Remark",             width: 150 },

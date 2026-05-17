@@ -8,7 +8,7 @@ import {
   Avatar, List, ListItem, ListItemText, ListItemIcon,
   Divider, Chip, Autocomplete, CircularProgress, Tooltip, Checkbox,
   Popover, Grid,
-} from "@mui/material";import { QRCodeSVG } from "qrcode.react";
+} from "@mui/material"; import { QRCodeSVG } from "qrcode.react";
 import {
   Visibility as ViewIcon,
   Work as WorkIcon,
@@ -40,6 +40,7 @@ import Sidebar from "../../components/hr components/HrSidebar";
 import CandidatesForm from "./CandidatesForm";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { ProfessionalResumePreview, generateProfessionalCV } from "../../components/ProfessionalResume";
 
 // Debounce hook
 function useDebounce(value, delay = 500) {
@@ -52,40 +53,40 @@ function useDebounce(value, delay = 500) {
 }
 
 const AllCandidateData = () => {
-  const [candidates, setCandidates]   = useState([]);
-  const [total, setTotal]             = useState(0);
-  const [loading, setLoading]         = useState(false);
+  const [candidates, setCandidates] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 50 });
 
   // Filters
-  const [nameFilter, setNameFilter]               = useState("");
-  const [locationFilter, setLocationFilter]       = useState("");
-  const [positionFilter, setPositionFilter]       = useState("");
-  const [selectedHRs, setSelectedHRs]             = useState([]);
-  const [hrList, setHrList]                       = useState([]);
-  const [experienceRange, setExperienceRange]     = useState({ min: "", max: "" });
-  const [ctcFilter, setCtcFilter]                 = useState({ min: "", max: "" });
+  const [nameFilter, setNameFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [positionFilter, setPositionFilter] = useState("");
+  const [selectedHRs, setSelectedHRs] = useState([]);
+  const [hrList, setHrList] = useState([]);
+  const [experienceRange, setExperienceRange] = useState({ min: "", max: "" });
+  const [ctcFilter, setCtcFilter] = useState({ min: "", max: "" });
   const [noticePeriodFilter, setNoticePeriodFilter] = useState("");
-  const [genderFilter, setGenderFilter]             = useState("");
-  const [phoneFilter, setPhoneFilter]               = useState("");
+  const [genderFilter, setGenderFilter] = useState("");
+  const [phoneFilter, setPhoneFilter] = useState("");
   const [currentPositionFilter, setCurrentPositionFilter] = useState("");
-  const [industryFilter, setIndustryFilter]               = useState("");
-  const [dateRange, setDateRange]                 = useState({ startDate: null, endDate: null });
-  const [positions, setPositions]                 = useState([]);
+  const [industryFilter, setIndustryFilter] = useState("");
+  const [dateRange, setDateRange] = useState({ startDate: null, endDate: null });
+  const [positions, setPositions] = useState([]);
 
-  const dName     = useDebounce(nameFilter);
+  const dName = useDebounce(nameFilter);
   const dLocation = useDebounce(locationFilter);
   const dPosition = useDebounce(positionFilter);
-  const dCreatedBy= useDebounce(''); // kept for compat — HR uses selectedHRs dropdown now
-  const dCtc      = useDebounce(ctcFilter.min);
-  const dCtcMax   = useDebounce(ctcFilter.max);
-  const dNotice   = useDebounce(noticePeriodFilter);
-  const dGender   = useDebounce(genderFilter);
-  const dPhone    = useDebounce(phoneFilter);
-  const dCurPos   = useDebounce(currentPositionFilter);
+  const dCreatedBy = useDebounce(''); // kept for compat — HR uses selectedHRs dropdown now
+  const dCtc = useDebounce(ctcFilter.min);
+  const dCtcMax = useDebounce(ctcFilter.max);
+  const dNotice = useDebounce(noticePeriodFilter);
+  const dGender = useDebounce(genderFilter);
+  const dPhone = useDebounce(phoneFilter);
+  const dCurPos = useDebounce(currentPositionFilter);
   const dIndustry = useDebounce(industryFilter);
-  const dExpMin   = useDebounce(experienceRange.min);
-  const dExpMax   = useDebounce(experienceRange.max);
+  const dExpMin = useDebounce(experienceRange.min);
+  const dExpMax = useDebounce(experienceRange.max);
 
   // Filter accordion open state
   const [openFilters, setOpenFilters] = useState({
@@ -97,34 +98,34 @@ const AllCandidateData = () => {
   const toggleFilter = (key) => setOpenFilters(p => ({ ...p, [key]: !p[key] }));
 
   // Selection for assign
-  const [selectedIds, setSelectedIds]   = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Assign dialog
-  const [assignOpen, setAssignOpen]     = useState(false);
-  const [jobs, setJobs]                 = useState([]);
-  const [jobsLoading, setJobsLoading]   = useState(false);
-  const [selectedJob, setSelectedJob]   = useState(null);
-  const [assigning, setAssigning]       = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [jobs, setJobs] = useState([]);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [assigning, setAssigning] = useState(false);
 
   // View dialog
-  const [openDialog, setOpenDialog]         = useState(false);
+  const [openDialog, setOpenDialog] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
 
   // History dialog
-  const [historyOpen, setHistoryOpen]       = useState(false);
-  const [historyData, setHistoryData]       = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyData, setHistoryData] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Add Candidate Form Dialog state
   const [addCandidateDialogOpen, setAddCandidateDialogOpen] = useState(false);
 
   // ── Send Email Dialog state ─────────────────────────────────────────────────
-  const [emailDialogOpen, setEmailDialogOpen]   = useState(false);
-  const [emailTarget, setEmailTarget]           = useState(null);
-  const [emailSubject, setEmailSubject]         = useState('');
-  const [emailBody, setEmailBody]               = useState('');
-  const [emailSendMeCopy, setEmailSendMeCopy]   = useState(false);
-  const [emailSending, setEmailSending]         = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailTarget, setEmailTarget] = useState(null);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [emailSendMeCopy, setEmailSendMeCopy] = useState(false);
+  const [emailSending, setEmailSending] = useState(false);
 
   // ── Assignment Success Dialog ──────────────────────────────────────────────
   const [assignSuccessDialogOpen, setAssignSuccessDialogOpen] = useState(false);
@@ -140,23 +141,23 @@ const AllCandidateData = () => {
   const closePhonePopover = () => setPhonePopover({ anchor: null, phone: '', name: '' });
 
   // ── WhatsApp Preview Dialog ─────────────────────────────────────────────────
-  const [waDialogOpen, setWaDialogOpen]   = useState(false);
-  const [waCandidate, setWaCandidate]     = useState(null);
-  const [waJob, setWaJob]                 = useState(null);
-  const [waJobList, setWaJobList]         = useState([]);
-  const [waMessage, setWaMessage]         = useState('');
-  const [senderPhone, setSenderPhone]     = useState('');
-  const [waJobLoading, setWaJobLoading]   = useState(false);
+  const [waDialogOpen, setWaDialogOpen] = useState(false);
+  const [waCandidate, setWaCandidate] = useState(null);
+  const [waJob, setWaJob] = useState(null);
+  const [waJobList, setWaJobList] = useState([]);
+  const [waMessage, setWaMessage] = useState('');
+  const [senderPhone, setSenderPhone] = useState('');
+  const [waJobLoading, setWaJobLoading] = useState(false);
 
   const buildWaMessage = (candidate, job, hrName, hrPhone) => {
     const hour = new Date().getHours();
     const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
-    const jobTitle    = job?.jobTitle    || candidate.positionName || "relevant opening";
-    const company     = job?.companyName || '';
+    const jobTitle = job?.jobTitle || candidate.positionName || "relevant opening";
+    const company = job?.companyName || '';
     const jobLocation = job?.jobLocation || '';
-    const salary      = job?.salary      || '';
+    const salary = job?.salary || '';
     return (
-`${greeting} 👋
+      `${greeting} 👋
 ${candidate.name || "there"},
 
 We came across your profile and would like to discuss an exciting job opportunity with you.
@@ -218,120 +219,9 @@ iTalentConnect`
   // ── Profile dialog tab ──────────────────────────────────────────────────────
   const [profileTab, setProfileTab] = useState('profile'); // 'profile' | 'cv'
 
-  // ── Generate & download CV as PDF ──────────────────────────────────────────
+  // ── Generate & download CV as PDF (uses shared professional component) ──
   const handleDownloadCV = async (candidate) => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const W = doc.internal.pageSize.getWidth();
-    const margin = 40;
-    let y = 40;
-
-    // ── Header: Name ──
-    doc.setFillColor(59, 130, 246);
-    doc.rect(margin, y, W - margin * 2, 38, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(26);
-    doc.setTextColor(255, 255, 255);
-    doc.text((candidate.name || 'CANDIDATE').toUpperCase(), margin + 12, y + 27);
-    y += 55;
-
-    // ── Sub-header: gender/age · location · phone · email ──
-    doc.setDrawColor(200, 200, 200);
-    doc.line(margin, y, W - margin, y);
-    y += 14;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(60, 60, 60);
-    const subParts = [
-      candidate.gender ? candidate.gender : null,
-      candidate.currentLocation || null,
-      candidate.phoneNumber || null,
-      candidate.email || null,
-    ].filter(Boolean);
-    doc.text(subParts.join('   •   '), margin, y);
-    y += 6;
-    doc.line(margin, y, W - margin, y);
-    y += 20;
-
-    // ── Career Objective ──
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(40, 40, 40);
-    doc.text('CAREER OBJECTIVE', margin, y);
-    y += 14;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 80);
-    const objective = candidate.remark || candidate.reasonforLeaving ||
-      `I aim to be associated with an organization that gives me the scope to apply my skills and actively work towards the growth of the organization and myself.`;
-    const objLines = doc.splitTextToSize(objective, W - margin * 2);
-    doc.text(objLines, margin, y);
-    y += objLines.length * 13 + 16;
-
-    // ── Education ──
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(40, 40, 40);
-    doc.text('EDUCATION', margin, y);
-    y += 14;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(80, 80, 80);
-    if (candidate.qualification) {
-      doc.text(`Education level: ${candidate.qualification}`, margin, y);
-      y += 13;
-    }
-    y += 10;
-
-    // ── Work Experience ──
-    if (candidate.currentPosition || candidate.currentCompany || candidate.experience) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(40, 40, 40);
-      doc.text('WORK EXPERIENCE', margin, y);
-      y += 14;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(80, 80, 80);
-      if (candidate.currentPosition) { doc.text(`Position: ${candidate.currentPosition}`, margin + 10, y); y += 13; }
-      if (candidate.currentCompany)  { doc.text(`Company: ${candidate.currentCompany}`, margin + 10, y); y += 13; }
-      if (candidate.experience)      { doc.text(`Experience: ${candidate.experience}`, margin + 10, y); y += 13; }
-      if (candidate.currentCTC)      { doc.text(`Current CTC: ₹${candidate.currentCTC} `, margin + 10, y); y += 13; }
-      if (candidate.expectedCTC)     { doc.text(`Expected CTC: ₹${candidate.expectedCTC} `, margin + 10, y); y += 13; }
-      if (candidate.noticePeriod)    { doc.text(`Notice Period: ${candidate.noticePeriod} `, margin + 10, y); y += 13; }
-      y += 10;
-    }
-
-    // ── Skills ──
-    if (candidate.positionName || candidate.currentPosition) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(40, 40, 40);
-      doc.text('SKILLS', margin, y);
-      y += 14;
-      const skills = [candidate.positionName, candidate.currentPosition].filter(Boolean);
-      let sx = margin;
-      skills.forEach(skill => {
-        doc.setFillColor(59, 130, 246);
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        const tw = doc.getTextWidth(skill) + 14;
-        doc.roundedRect(sx, y - 10, tw, 16, 4, 4, 'F');
-        doc.text(skill, sx + 7, y + 1);
-        sx += tw + 8;
-      });
-      y += 22;
-    }
-
-    // ── Footer ──
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(9);
-    doc.setTextColor(120, 120, 120);
-    doc.setFillColor(240, 240, 240);
-    doc.rect(0, doc.internal.pageSize.getHeight() - 28, W, 28, 'F');
-    doc.text('This CV is generated by iTalentConnect from candidate\'s profile', margin, doc.internal.pageSize.getHeight() - 12);
-
-    doc.save(`${(candidate.name || 'candidate').replace(/\s+/g, '_')}_CV.pdf`);
+    await generateProfessionalCV(candidate);
   };
 
   useEffect(() => {
@@ -364,14 +254,14 @@ iTalentConnect`
 
   const handleSendEmail = async () => {
     if (!emailSubject.trim()) { toast.error('Please enter a subject'); return; }
-    if (!emailBody.trim())    { toast.error('Please enter a message'); return; }
+    if (!emailBody.trim()) { toast.error('Please enter a message'); return; }
     setEmailSending(true);
     try {
       const token = sessionStorage.getItem('token');
       await axios.post(`${API_BASE_URL}/email/send-candidate-email`, {
-        to:         emailTarget.email,
-        subject:    emailSubject,
-        body:       emailBody,
+        to: emailTarget.email,
+        subject: emailSubject,
+        body: emailBody,
         sendMeCopy: emailSendMeCopy,
       }, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Email sent successfully!');
@@ -396,25 +286,25 @@ iTalentConnect`
       setLoading(true);
       const token = sessionStorage.getItem("token");
       const params = {
-        page:  paginationModel.page + 1,
+        page: paginationModel.page + 1,
         limit: paginationModel.pageSize,
       };
-      if (dName)      params.name      = dName;
-      if (dLocation)  params.location  = dLocation;
-      if (dPosition)  params.position  = dPosition;
+      if (dName) params.name = dName;
+      if (dLocation) params.location = dLocation;
+      if (dPosition) params.position = dPosition;
       if (selectedHRs.length > 0)
         params.createdBy = selectedHRs.map((h) => h.name).join(",");
-      if (dExpMin)    params.minExp    = dExpMin;
-      if (dExpMax)    params.maxExp    = dExpMax;
-      if (dCtc)       params.minCtc    = dCtc;
-      if (dCtcMax)    params.maxCtc    = dCtcMax;
-      if (dNotice)    params.maxNotice        = dNotice;
-      if (dGender)    params.gender           = dGender;
-      if (dPhone)     params.phone            = dPhone;
-      if (dCurPos)    params.currentPosition  = dCurPos;
-      if (dIndustry)  params.industry         = dIndustry;
+      if (dExpMin) params.minExp = dExpMin;
+      if (dExpMax) params.maxExp = dExpMax;
+      if (dCtc) params.minCtc = dCtc;
+      if (dCtcMax) params.maxCtc = dCtcMax;
+      if (dNotice) params.maxNotice = dNotice;
+      if (dGender) params.gender = dGender;
+      if (dPhone) params.phone = dPhone;
+      if (dCurPos) params.currentPosition = dCurPos;
+      if (dIndustry) params.industry = dIndustry;
       if (dateRange.startDate) params.startDate = dateRange.startDate.toISOString();
-      if (dateRange.endDate)   params.endDate   = dateRange.endDate.toISOString();
+      if (dateRange.endDate) params.endDate = dateRange.endDate.toISOString();
 
       const res = await axios.get(`${API_BASE_URL}/candidate/hr-candidates`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -473,8 +363,8 @@ iTalentConnect`
       const jobList = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data)
-        ? res.data
-        : [];
+          ? res.data
+          : [];
       setJobs(jobList);
     } catch (err) {
       console.error("Error fetching assigned jobs:", err);
@@ -581,7 +471,7 @@ iTalentConnect`
         </Box>
       ),
     },
-     {
+    {
       field: "resumeUpload", headerName: "Resume", width: 90,
       renderCell: (params) => params.value
         ? <a href={params.value} target="_blank" rel="noopener noreferrer">View</a>
@@ -593,19 +483,20 @@ iTalentConnect`
         ? new Date(params.value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
         : "—",
     },
-    { field: "createdBy",       headerName: "Created By",       width: 130 },
-    { field: "name",            headerName: "Name",             width: 150 },
-    { field: "phoneNumber",     headerName: "Phone",            width: 130 },
-    { field: "positionName",    headerName: "Position",         width: 150 },
-    { field: "experience",      headerName: "Experience",       width: 100 },
-    { field: "currentLocation", headerName: "Location",         width: 130 },
+    { field: "createdBy", headerName: "Created By", width: 130 },
+    { field: "name", headerName: "Name", width: 150 },
+    { field: "phoneNumber", headerName: "Phone", width: 130 },
+    { field: "gender", headerName: "Gender", width: 90 },
+    { field: "positionName", headerName: "Position", width: 150 },
+    { field: "experience", headerName: "Experience (Years)", width: 140 },
+    { field: "currentLocation", headerName: "Location", width: 130 },
     { field: "currentPosition", headerName: "Current Position", width: 150 },
-    { field: "currentCTC",      headerName: "Current CTC",      width: 110 },
-    { field: "expectedCTC",     headerName: "Expected CTC",     width: 110 },
-    { field: "noticePeriod",    headerName: "Notice Period",    width: 110 },
-    { field: "currentCompany",  headerName: "Company",          width: 140 },
-    { field: "industry",        headerName: "Industry",         width: 140 },
-    { field: "remark",          headerName: "Remark",           width: 140 },
+    { field: "currentCTC", headerName: "Current CTC (Monthly ₹)", width: 160 },
+    { field: "expectedCTC", headerName: "Expected CTC (Monthly ₹)", width: 160 },
+    { field: "noticePeriod", headerName: "Notice Period (Days)", width: 140 },
+    { field: "currentCompany", headerName: "Company", width: 140 },
+    { field: "industry", headerName: "Industry", width: 140 },
+    { field: "remark", headerName: "Remark", width: 140 },
   ];
 
   // ── Render candidate card (admin panel design) ─────────────────────────────
@@ -662,19 +553,25 @@ iTalentConnect`
             {candidate.experience && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <AccessTime sx={{ fontSize: 13, color: "#64748b" }} />
-                <Typography fontSize={13} color="#475569">{candidate.experience}</Typography>
+                <Typography fontSize={13} color="#475569">{candidate.experience} Years</Typography>
               </Box>
             )}
             {candidate.currentCTC && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
                 <CurrencyRupeeIcon sx={{ fontSize: 13, color: "#64748b" }} />
-                <Typography fontSize={13} color="#475569">{candidate.currentCTC}</Typography>
+                <Typography fontSize={13} color="#475569">{candidate.currentCTC} Monthly</Typography>
               </Box>
             )}
             {candidate.currentLocation && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
                 <LocationIcon sx={{ fontSize: 13, color: "#64748b" }} />
                 <Typography fontSize={13} color="#475569">{candidate.currentLocation}</Typography>
+              </Box>
+            )}
+            {candidate.gender && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.4 }}>
+                <PersonIcon sx={{ fontSize: 13, color: "#64748b" }} />
+                <Typography fontSize={13} color="#475569">{candidate.gender}</Typography>
               </Box>
             )}
           </Box>
@@ -717,12 +614,12 @@ iTalentConnect`
           <Box sx={{ display: "flex", alignItems: "center", gap: 3, mb: 1, ml: "60px", flexWrap: "wrap" }}>
             {candidate.expectedCTC && (
               <Typography fontSize={12.5} color="#64748b">
-                Expected CTC: <strong>{candidate.expectedCTC}</strong>
+                Expected CTC: <strong>₹{candidate.expectedCTC} Monthly</strong>
               </Typography>
             )}
             {(candidate.noticePeriod !== undefined && candidate.noticePeriod !== "") && (
               <Typography fontSize={12.5} color="#64748b">
-                Notice Period: <strong>{candidate.noticePeriod}</strong>
+                Notice Period: <strong>{candidate.noticePeriod} Days</strong>
               </Typography>
             )}
             {candidate.phoneNumber && (
@@ -781,8 +678,8 @@ iTalentConnect`
                   sx={{ bgcolor: candidate.email ? "#eff6ff" : "#f8fafc", border: "1px solid #e2e8f0", width: 32, height: 32, "&:hover": { bgcolor: "#dbeafe" } }}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
                     stroke={candidate.email ? "#3b82f6" : "#cbd5e1"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="4" width="20" height="16" rx="2"/>
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    <rect x="2" y="4" width="20" height="16" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                   </svg>
                 </IconButton>
               </span>
@@ -793,7 +690,7 @@ iTalentConnect`
                   onClick={() => candidate.phoneNumber && openWaDialog(candidate)}
                   sx={{ bgcolor: candidate.phoneNumber ? "#f0fdf4" : "#f8fafc", border: "1px solid #e2e8f0", width: 32, height: 32, "&:hover": { bgcolor: "#dcfce7" } }}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill={candidate.phoneNumber ? "#22c55e" : "#cbd5e1"}>
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
                   </svg>
                 </IconButton>
               </span>
@@ -894,488 +791,508 @@ iTalentConnect`
             "&::-webkit-scrollbar": { width: 4 },
             "&::-webkit-scrollbar-track": { background: "#f8fafc" },
             "&::-webkit-scrollbar-thumb": { background: "#cbd5e1", borderRadius: 3 },
-        }}>
-          {/* Filter Header — sticky */}
-          <Box sx={{
-            px: 2, py: 1.8,
-            borderBottom: "1px solid #e0e7ff",
-            position: "sticky", top: 0, bgcolor: "#fff", zIndex: 10,
-            background: "linear-gradient(135deg, #f8faff 0%, #eef2ff 100%)",
           }}>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: hasActiveFilters ? 1.2 : 0 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Box sx={{ width: 28, height: 28, borderRadius: "8px", bgcolor: "#3f51b5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: "2.5px" }}>
-                    {[0,1,2].map(i => (
-                      <Box key={i} sx={{ width: 12, height: 1.5, bgcolor: "#fff", borderRadius: 1 }} />
-                    ))}
+            {/* Filter Header — sticky */}
+            <Box sx={{
+              px: 2, py: 1.8,
+              borderBottom: "1px solid #e0e7ff",
+              position: "sticky", top: 0, bgcolor: "#fff", zIndex: 10,
+              background: "linear-gradient(135deg, #f8faff 0%, #eef2ff 100%)",
+            }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: hasActiveFilters ? 1.2 : 0 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <Box sx={{ width: 28, height: 28, borderRadius: "8px", bgcolor: "#3f51b5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: "2.5px" }}>
+                      {[0, 1, 2].map(i => (
+                        <Box key={i} sx={{ width: 12, height: 1.5, bgcolor: "#fff", borderRadius: 1 }} />
+                      ))}
+                    </Box>
                   </Box>
+                  <Typography fontWeight={700} fontSize={15} color="#1e293b">Filters</Typography>
+                  {hasActiveFilters && (
+                    <Box sx={{
+                      bgcolor: "#3f51b5", color: "#fff", fontWeight: 700, fontSize: "0.7rem", borderRadius: "10px",
+                      minWidth: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", px: 0.5
+                    }}>
+                      {[nameFilter, locationFilter, positionFilter, experienceRange.min || experienceRange.max,
+                        ctcFilter.min || ctcFilter.max, noticePeriodFilter, genderFilter, phoneFilter,
+                        currentPositionFilter, industryFilter, selectedHRs.length > 0,
+                        dateRange.startDate || dateRange.endDate,
+                      ].filter(Boolean).length}
+                    </Box>
+                  )}
                 </Box>
-                <Typography fontWeight={700} fontSize={15} color="#1e293b">Filters</Typography>
                 {hasActiveFilters && (
-                  <Box sx={{ bgcolor: "#3f51b5", color: "#fff", fontWeight: 700, fontSize: "0.7rem", borderRadius: "10px",
-                    minWidth: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", px: 0.5 }}>
-                    {[nameFilter, locationFilter, positionFilter, experienceRange.min || experienceRange.max,
-                      ctcFilter.min || ctcFilter.max, noticePeriodFilter, genderFilter, phoneFilter,
-                      currentPositionFilter, industryFilter, selectedHRs.length > 0,
-                      dateRange.startDate || dateRange.endDate,
-                    ].filter(Boolean).length}
-                  </Box>
+                  <Button size="small" onClick={handleClearFilters}
+                    sx={{
+                      fontSize: 11, fontWeight: 700, color: "#ef4444", textTransform: "none", minWidth: "auto",
+                      borderRadius: "6px", px: 1, "&:hover": { bgcolor: "#fef2f2" }
+                    }}>
+                    Clear all
+                  </Button>
                 )}
               </Box>
               {hasActiveFilters && (
-                <Button size="small" onClick={handleClearFilters}
-                  sx={{ fontSize: 11, fontWeight: 700, color: "#ef4444", textTransform: "none", minWidth: "auto",
-                    borderRadius: "6px", px: 1, "&:hover": { bgcolor: "#fef2f2" } }}>
+                <Button size="small" onClick={handleClearFilters} sx={{ textTransform: "none", fontSize: 12, minWidth: 0, p: 0.5 }}>
                   Clear all
                 </Button>
               )}
             </Box>
-            {hasActiveFilters && (
-              <Button size="small" onClick={handleClearFilters} sx={{ textTransform: "none", fontSize: 12, minWidth: 0, p: 0.5 }}>
-                Clear all
-              </Button>
-            )}
-          </Box>
 
-          {/* Accordion filter rows */}
-          {[
-            {
-              key: "keywords", label: "Keywords", icon: <SearchIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <TextField fullWidth size="small" placeholder="Search by name..."
-                  value={nameFilter} onChange={(e) => setNameFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                  InputProps={{ endAdornment: nameFilter && (
-                    <IconButton size="small" onClick={() => setNameFilter("")}><ClearIcon sx={{ fontSize: 14 }} /></IconButton>
-                  )}}
-                />
-              ),
-            },
-            {
-              key: "location", label: "Location", icon: <LocationIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <TextField fullWidth size="small" placeholder="e.g. Mumbai, Delhi"
-                  value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                  InputProps={{ endAdornment: locationFilter && (
-                    <IconButton size="small" onClick={() => setLocationFilter("")}><ClearIcon sx={{ fontSize: 14 }} /></IconButton>
-                  )}}
-                />
-              ),
-            },
-            {
-              key: "experience", label: "Experience", icon: <AccessTime sx={{ fontSize: 18 }} />,
-              content: (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <TextField size="small" placeholder="Min" value={experienceRange.min}
-                    onChange={(e) => setExperienceRange(p => ({ ...p, min: e.target.value.replace(/[^0-9.]/g, "") }))}
-                    sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
-                  <Typography fontSize={12} color="#94a3b8">to</Typography>
-                  <TextField size="small" placeholder="Max" value={experienceRange.max}
-                    onChange={(e) => setExperienceRange(p => ({ ...p, max: e.target.value.replace(/[^0-9.]/g, "") }))}
-                    sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
-                </Box>
-              ),
-            },
-            {
-              key: "salary", label: "Salary (CTC)", icon: <CurrencyRupeeIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <TextField size="small" placeholder="Min"
-                    value={ctcFilter.min}
-                    onChange={(e) => setCtcFilter(p => ({ ...p, min: e.target.value.replace(/[^0-9.]/g, "") }))}
-                    sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+            {/* Accordion filter rows */}
+            {[
+              {
+                key: "createdBy", label: "Created By", icon: <PersonIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <Autocomplete multiple size="small" options={hrList} value={selectedHRs}
+                    getOptionLabel={(o) => `${o.name} (${o.role})`}
+                    onChange={(_, val) => setSelectedHRs(val)}
+                    renderInput={(params) => (
+                      <TextField {...params} placeholder="Select HR/Admin"
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => <Chip {...getTagProps({ index })} label={option.name} size="small" key={index} />)
+                    }
                   />
-                  <Typography fontSize={12} color="#94a3b8">–</Typography>
-                  <TextField size="small" placeholder="Max"
-                    value={ctcFilter.max}
-                    onChange={(e) => setCtcFilter(p => ({ ...p, max: e.target.value.replace(/[^0-9.]/g, "") }))}
-                    sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                ),
+              },
+              {
+                key: "dateRange", label: "Date Range", icon: <CalendarTodayIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <LocalizationProvider dateAdapter={AdapterDateFns}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                      <DatePicker label="From Date" value={dateRange.startDate}
+                        onChange={(val) => setDateRange(p => ({ ...p, startDate: val }))}
+                        slotProps={{
+                          textField: {
+                            size: "small", fullWidth: true,
+                            sx: { "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }
+                          }
+                        }} />
+                      <DatePicker label="To Date" value={dateRange.endDate}
+                        onChange={(val) => setDateRange(p => ({ ...p, endDate: val }))}
+                        slotProps={{
+                          textField: {
+                            size: "small", fullWidth: true,
+                            sx: { "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }
+                          }
+                        }} />
+                    </Box>
+                  </LocalizationProvider>
+                ),
+              },
+              {
+                key: "keywords", label: "Keywords", icon: <SearchIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <TextField fullWidth size="small" placeholder="Search by name..."
+                    value={nameFilter} onChange={(e) => setNameFilter(e.target.value)}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                    InputProps={{
+                      endAdornment: nameFilter && (
+                        <IconButton size="small" onClick={() => setNameFilter("")}><ClearIcon sx={{ fontSize: 14 }} /></IconButton>
+                      )
+                    }}
                   />
-                </Box>
-              ),
-            },
-            {
-              key: "position", label: "Position", icon: <AssignIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <Autocomplete
-                  multiple size="small"
-                  options={positions}
-                  value={positionFilter ? [positionFilter] : []}
-                  onChange={(_, val) => setPositionFilter(val[val.length-1] || "")}
-                  renderInput={(params) => (
-                    <TextField {...params} placeholder="Select positions"
-                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
-                  )}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => <Chip {...getTagProps({ index })} label={option} size="small" key={index} />)
-                  }
-                />
-              ),
-            },
-            {
-              key: "createdBy", label: "Created By", icon: <PersonIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <Autocomplete multiple size="small" options={hrList} value={selectedHRs}
-                  getOptionLabel={(o) => `${o.name} (${o.role})`}
-                  onChange={(_, val) => setSelectedHRs(val)}
-                  renderInput={(params) => (
-                    <TextField {...params} placeholder="Select HR/Admin"
-                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
-                  )}
-                  renderTags={(value, getTagProps) =>
-                    value.map((option, index) => <Chip {...getTagProps({ index })} label={option.name} size="small" key={index} />)
-                  }
-                />
-              ),
-            },
-            {
-              key: "noticePeriod", label: "Notice period", icon: <ClearIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <TextField fullWidth size="small" placeholder="Max days (e.g. 30)"
-                  value={noticePeriodFilter} onChange={(e) => setNoticePeriodFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
-              ),
-            },
-            {
-              key: "currentPosition", label: "Current Position", icon: <AssignIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <TextField fullWidth size="small" placeholder="e.g. Accountant"
-                  value={currentPositionFilter} onChange={(e) => setCurrentPositionFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                />
-              ),
-            },
-            {
-              key: "industry", label: "Industry", icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <TextField fullWidth size="small" placeholder="e.g. IT"
-                  value={industryFilter} onChange={(e) => setIndustryFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                />
-              ),
-            },
-            {
-              key: "gender", label: "Gender", icon: <PersonIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <Autocomplete
-                  size="small"
-                  options={["Male", "Female", "Other"]}
-                  value={genderFilter || null}
-                  onChange={(_, val) => setGenderFilter(val || "")}
-                  renderInput={(params) => (
-                    <TextField {...params} placeholder="Select gender"
-                      sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
-                  )}
-                />
-              ),
-            },
-            {
-              key: "phone", label: "Phone Number", icon: <PhoneIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <TextField fullWidth size="small" placeholder="Search by phone..."
-                  value={phoneFilter} onChange={(e) => setPhoneFilter(e.target.value)}
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
-                />
-              ),
-            },
-            {
-              key: "dateRange", label: "Date Range", icon: <CalendarTodayIcon sx={{ fontSize: 18 }} />,
-              content: (
-                <LocalizationProvider dateAdapter={AdapterDateFns}>
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                    <DatePicker label="From Date" value={dateRange.startDate}
-                      onChange={(val) => setDateRange(p => ({ ...p, startDate: val }))}
-                      slotProps={{ textField: { size: "small", fullWidth: true,
-                        sx: { "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } } } }} />
-                    <DatePicker label="To Date" value={dateRange.endDate}
-                      onChange={(val) => setDateRange(p => ({ ...p, endDate: val }))}
-                      slotProps={{ textField: { size: "small", fullWidth: true,
-                        sx: { "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } } } }} />
+                ),
+              },
+              {
+                key: "location", label: "Location", icon: <LocationIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <TextField fullWidth size="small" placeholder="e.g. Mumbai, Delhi"
+                    value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                    InputProps={{
+                      endAdornment: locationFilter && (
+                        <IconButton size="small" onClick={() => setLocationFilter("")}><ClearIcon sx={{ fontSize: 14 }} /></IconButton>
+                      )
+                    }}
+                  />
+                ),
+              },
+              {
+                key: "experience", label: "Experience", icon: <AccessTime sx={{ fontSize: 18 }} />,
+                content: (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <TextField size="small" placeholder="Min" value={experienceRange.min}
+                      onChange={(e) => setExperienceRange(p => ({ ...p, min: e.target.value.replace(/[^0-9.]/g, "") }))}
+                      sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
+                    <Typography fontSize={12} color="#94a3b8">to</Typography>
+                    <TextField size="small" placeholder="Max" value={experienceRange.max}
+                      onChange={(e) => setExperienceRange(p => ({ ...p, max: e.target.value.replace(/[^0-9.]/g, "") }))}
+                      sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
                   </Box>
-                </LocalizationProvider>
-              ),
-            },
-          ].map(({ key, label, icon, content }) => {
-            const isActive = {
-              keywords: !!nameFilter, location: !!locationFilter,
-              experience: !!(experienceRange.min || experienceRange.max),
-              salary: !!(ctcFilter.min || ctcFilter.max),
-              position: !!positionFilter,
-              createdBy: selectedHRs.length > 0,
-              currentPosition: !!currentPositionFilter,
-              industry: !!industryFilter,
-              noticePeriod: !!noticePeriodFilter,
-              gender: !!genderFilter,
-              phone: !!phoneFilter,
-              dateRange: !!(dateRange.startDate || dateRange.endDate),
-            }[key];
-            return (
-            <Box key={key} sx={{ borderBottom: "1px solid #f1f5f9" }}>
-              <Box
-                onClick={() => toggleFilter(key)}
-                sx={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  px: 2, py: 1.5, cursor: "pointer",
-                  bgcolor: isActive ? "#f8faff" : "transparent",
-                  borderLeft: isActive ? "4px solid #3f51b5" : "4px solid transparent",
-                  transition: "all 0.2s ease",
-                  "&:hover": { bgcolor: "#f1f5f9" },
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  {isActive && <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#3f51b5" }} />}
-                  <Typography fontSize={13} fontWeight={isActive ? 700 : 600} color={isActive ? "#3f51b5" : "#1e293b"}>{label}</Typography>
+                ),
+              },
+              {
+                key: "salary", label: "Salary (CTC)", icon: <CurrencyRupeeIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <TextField size="small" placeholder="Min"
+                      value={ctcFilter.min}
+                      onChange={(e) => setCtcFilter(p => ({ ...p, min: e.target.value.replace(/\D/g, "") }))}
+                      sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                    />
+                    <Typography fontSize={12} color="#94a3b8">–</Typography>
+                    <TextField size="small" placeholder="Max"
+                      value={ctcFilter.max}
+                      onChange={(e) => setCtcFilter(p => ({ ...p, max: e.target.value.replace(/\D/g, "") }))}
+                      sx={{ flex: 1, "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                    />
+                  </Box>
+                ),
+              },
+              {
+                key: "position", label: "Position", icon: <AssignIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <Autocomplete
+                    multiple size="small"
+                    options={positions}
+                    value={positionFilter ? [positionFilter] : []}
+                    onChange={(_, val) => setPositionFilter(val[val.length - 1] || "")}
+                    renderInput={(params) => (
+                      <TextField {...params} placeholder="Select positions"
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => <Chip {...getTagProps({ index })} label={option} size="small" key={index} />)
+                    }
+                  />
+                ),
+              },
+
+              {
+                key: "noticePeriod", label: "Notice period", icon: <ClearIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <TextField fullWidth size="small" placeholder="Max days (e.g. 30)"
+                    value={noticePeriodFilter} onChange={(e) => setNoticePeriodFilter(e.target.value.replace(/\D/g, ""))}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
+                ),
+              },
+              {
+                key: "currentPosition", label: "Current Position", icon: <AssignIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <TextField fullWidth size="small" placeholder="e.g. Accountant"
+                    value={currentPositionFilter} onChange={(e) => setCurrentPositionFilter(e.target.value)}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                  />
+                ),
+              },
+              {
+                key: "industry", label: "Industry", icon: <BusinessCenterIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <TextField fullWidth size="small" placeholder="e.g. IT"
+                    value={industryFilter} onChange={(e) => setIndustryFilter(e.target.value)}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                  />
+                ),
+              },
+              {
+                key: "gender", label: "Gender", icon: <PersonIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <Autocomplete
+                    size="small"
+                    options={["Male", "Female", "Other"]}
+                    value={genderFilter || null}
+                    onChange={(_, val) => setGenderFilter(val || "")}
+                    renderInput={(params) => (
+                      <TextField {...params} placeholder="Select gender"
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
+                    )}
+                  />
+                ),
+              },
+              {
+                key: "phone", label: "Phone Number", icon: <PhoneIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <TextField fullWidth size="small" placeholder="Search by phone..."
+                    value={phoneFilter} onChange={(e) => setPhoneFilter(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }}
+                  />
+                ),
+              },
+            ].map(({ key, label, icon, content }) => {
+              const isActive = {
+                keywords: !!nameFilter, location: !!locationFilter,
+                experience: !!(experienceRange.min || experienceRange.max),
+                salary: !!(ctcFilter.min || ctcFilter.max),
+                position: !!positionFilter,
+                createdBy: selectedHRs.length > 0,
+                currentPosition: !!currentPositionFilter,
+                industry: !!industryFilter,
+                noticePeriod: !!noticePeriodFilter,
+                gender: !!genderFilter,
+                phone: !!phoneFilter,
+                dateRange: !!(dateRange.startDate || dateRange.endDate),
+              }[key];
+              return (
+                <Box key={key} sx={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <Box
+                    onClick={() => toggleFilter(key)}
+                    sx={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      px: 2, py: 1.5, cursor: "pointer",
+                      bgcolor: isActive ? "#f8faff" : "transparent",
+                      borderLeft: isActive ? "4px solid #3f51b5" : "4px solid transparent",
+                      transition: "all 0.2s ease",
+                      "&:hover": { bgcolor: "#f1f5f9" },
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      {isActive && <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "#3f51b5" }} />}
+                      <Typography fontSize={13} fontWeight={isActive ? 700 : 600} color={isActive ? "#3f51b5" : "#1e293b"}>{label}</Typography>
+                    </Box>
+                    <Typography fontSize={16} color="#94a3b8" sx={{
+                      transform: openFilters[key] ? "rotate(180deg)" : "rotate(0deg)",
+                      transition: "transform 0.2s ease",
+                      lineHeight: 1,
+                    }}>
+                      ⌄
+                    </Typography>
+                  </Box>
+                  {openFilters[key] && (
+                    <Box sx={{ px: 2, pb: 1.5, pt: 0.5 }}>
+                      {content}
+                    </Box>
+                  )}
                 </Box>
-                <Typography fontSize={16} color="#94a3b8" sx={{
-                  transform: openFilters[key] ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s ease",
-                  lineHeight: 1,
-                }}>
-                  ⌄
-                </Typography>
-              </Box>
-              {openFilters[key] && (
-                <Box sx={{ px: 2, pb: 1.5, pt: 0.5 }}>
-                  {content}
-                </Box>
-              )}
-            </Box>
-          );})}
-        </Box>
-
-        {/* Right Content Area */}
-        <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-
-          {/* Content with padding */}
-          <Box sx={{ flexGrow: 1, overflow: "auto", p: 3 }}>
-
-          {/* ── Top bar: count + view toggle + action buttons (admin style) ── */}
-          <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            {/* Left: count + view toggle */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 600 }}>
-                {total.toLocaleString()} candidates
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>View:</Typography>
-                <IconButton size="small" onClick={() => setViewMode("card")}
-                  sx={{
-                    bgcolor: viewMode === "card" ? "#3f51b5" : "#e8eaf6",
-                    color: viewMode === "card" ? "#fff" : "#3f51b5",
-                    borderRadius: "8px",
-                    '&:hover': { bgcolor: viewMode === "card" ? "#3949ab" : "#c5cae9" },
-                  }}>
-                  <ViewModuleIcon fontSize="small" />
-                </IconButton>
-                <IconButton size="small" onClick={() => setViewMode("table")}
-                  sx={{
-                    bgcolor: viewMode === "table" ? "#3f51b5" : "#e8eaf6",
-                    color: viewMode === "table" ? "#fff" : "#3f51b5",
-                    borderRadius: "8px",
-                    '&:hover': { bgcolor: viewMode === "table" ? "#3949ab" : "#c5cae9" },
-                  }}>
-                  <ViewListIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            </Box>
-
-            {/* Right: action buttons */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <Button
-                variant="contained" size="small"
-                startIcon={<PersonAddIcon />}
-                onClick={() => setAddCandidateDialogOpen(true)}
-                sx={{
-                  bgcolor: "#10b981", color: "#fff", fontWeight: 600,
-                  borderRadius: "8px", textTransform: "none",
-                  "&:hover": { bgcolor: "#059669" },
-                  boxShadow: "0 2px 8px rgba(16,185,129,0.3)",
-                }}
-              >
-                Add Candidate
-              </Button>
-              <Button
-                variant="contained" size="small"
-                startIcon={<AssignIcon />}
-                onClick={handleOpenAssign}
-                disabled={selectedIds.length === 0}
-                sx={{
-                  bgcolor: selectedIds.length > 0 ? "#3f51b5" : "#e0e0e0",
-                  color: selectedIds.length > 0 ? "#fff" : "#9e9e9e",
-                  fontWeight: 600, borderRadius: "8px", textTransform: "none",
-                  "&:hover": { bgcolor: selectedIds.length > 0 ? "#3949ab" : "#e0e0e0" },
-                  "&.Mui-disabled": { bgcolor: "#e0e0e0", color: "#9e9e9e" },
-                  boxShadow: selectedIds.length > 0 ? "0 2px 8px rgba(63,81,181,0.3)" : "none",
-                }}
-              >
-                {selectedIds.length > 0 ? `Assign (${selectedIds.length})` : "Assign Candidate"}
-              </Button>
-            </Box>
+              );
+            })}
           </Box>
 
-            {viewMode === "card" ? (
-              <Box>
-              {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-                  <CircularProgress sx={{ color: '#3f51b5' }} />
+          {/* Right Content Area */}
+          <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+
+            {/* Content with padding */}
+            <Box sx={{ flexGrow: 1, p: 3, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+              {/* ── Top bar: count + view toggle + action buttons (admin style) ── */}
+              <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {/* Left: count + view toggle */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 600 }}>
+                    {total.toLocaleString()} candidates
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>View:</Typography>
+                    <IconButton size="small" onClick={() => setViewMode("card")}
+                      sx={{
+                        bgcolor: viewMode === "card" ? "#3f51b5" : "#e8eaf6",
+                        color: viewMode === "card" ? "#fff" : "#3f51b5",
+                        borderRadius: "8px",
+                        '&:hover': { bgcolor: viewMode === "card" ? "#3949ab" : "#c5cae9" },
+                      }}>
+                      <ViewModuleIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton size="small" onClick={() => setViewMode("table")}
+                      sx={{
+                        bgcolor: viewMode === "table" ? "#3f51b5" : "#e8eaf6",
+                        color: viewMode === "table" ? "#fff" : "#3f51b5",
+                        borderRadius: "8px",
+                        '&:hover': { bgcolor: viewMode === "table" ? "#3949ab" : "#c5cae9" },
+                      }}>
+                      <ViewListIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Box>
-              ) : candidates.length === 0 ? (
-                <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#fff', borderRadius: '14px', border: '1px solid #e8eaf6' }}>
-                  <Typography color="text.secondary">No candidates found</Typography>
+
+                {/* Right: action buttons */}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Button
+                    variant="contained" size="small"
+                    startIcon={<PersonAddIcon />}
+                    onClick={() => setAddCandidateDialogOpen(true)}
+                    sx={{
+                      bgcolor: "#10b981", color: "#fff", fontWeight: 600,
+                      borderRadius: "8px", textTransform: "none",
+                      "&:hover": { bgcolor: "#059669" },
+                      boxShadow: "0 2px 8px rgba(16,185,129,0.3)",
+                    }}
+                  >
+                    Add Candidate
+                  </Button>
+                  <Button
+                    variant="contained" size="small"
+                    startIcon={<AssignIcon />}
+                    onClick={handleOpenAssign}
+                    disabled={selectedIds.length === 0}
+                    sx={{
+                      bgcolor: selectedIds.length > 0 ? "#3f51b5" : "#e0e0e0",
+                      color: selectedIds.length > 0 ? "#fff" : "#9e9e9e",
+                      fontWeight: 600, borderRadius: "8px", textTransform: "none",
+                      "&:hover": { bgcolor: selectedIds.length > 0 ? "#3949ab" : "#e0e0e0" },
+                      "&.Mui-disabled": { bgcolor: "#e0e0e0", color: "#9e9e9e" },
+                      boxShadow: selectedIds.length > 0 ? "0 2px 8px rgba(63,81,181,0.3)" : "none",
+                    }}
+                  >
+                    {selectedIds.length > 0 ? `Assign (${selectedIds.length})` : "Assign Candidate"}
+                  </Button>
+                </Box>
+              </Box>
+
+              {viewMode === "card" ? (
+                <Box sx={{ flexGrow: 1, overflow: 'auto', pb: 2 }}>
+                  {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                      <CircularProgress sx={{ color: '#3f51b5' }} />
+                    </Box>
+                  ) : candidates.length === 0 ? (
+                    <Box sx={{ textAlign: 'center', py: 8, bgcolor: '#fff', borderRadius: '14px', border: '1px solid #e8eaf6' }}>
+                      <Typography color="text.secondary">No candidates found</Typography>
+                    </Box>
+                  ) : (
+                    <>
+                      {/* Select All bar */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, px: 1, width: "fit-content", ml: 4 }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.length === candidates.length && candidates.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedIds(candidates.map(c => c.id));
+                            else setSelectedIds([]);
+                          }}
+                          style={{ width: 18, height: 18, cursor: 'pointer' }}
+                        />
+                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
+                          {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select all'}
+                        </Typography>
+                      </Box>
+                      {candidates.map(renderCandidateCard)}
+                      {/* Pagination */}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, px: 1, width: "fit-content", minWidth: "920px", ml: 4 }}>
+                        <Typography variant="caption" sx={{ color: '#64748b' }}>
+                          Showing {paginationModel.page * paginationModel.pageSize + 1}–{Math.min((paginationModel.page + 1) * paginationModel.pageSize, total)} of {total} records
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={paginationModel.page === 0}
+                            onClick={() => setPaginationModel(p => ({ ...p, page: p.page - 1 }))}
+                            sx={{ borderRadius: '8px', textTransform: 'none', borderColor: '#c5cae9', color: '#3f51b5' }}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={(paginationModel.page + 1) * paginationModel.pageSize >= total}
+                            onClick={() => setPaginationModel(p => ({ ...p, page: p.page + 1 }))}
+                            sx={{ borderRadius: '8px', textTransform: 'none', borderColor: '#c5cae9', color: '#3f51b5' }}
+                          >
+                            Next
+                          </Button>
+                        </Box>
+                      </Box>
+                    </>
+                  )}
                 </Box>
               ) : (
-                <>
-                  {/* Select All bar */}
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, px: 1, width: "fit-content", ml: 4 }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.length === candidates.length && candidates.length > 0}
-                      onChange={(e) => {
-                        if (e.target.checked) setSelectedIds(candidates.map(c => c.id));
-                        else setSelectedIds([]);
-                      }}
-                      style={{ width: 18, height: 18, cursor: 'pointer' }}
-                    />
-                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
-                      {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select all'}
-                    </Typography>
-                  </Box>
-                  {candidates.map(renderCandidateCard)}
-                  {/* Pagination */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2, px: 1, width: "fit-content", minWidth: "920px", ml: 4 }}>
-                    <Typography variant="caption" sx={{ color: '#64748b' }}>
-                      Showing {paginationModel.page * paginationModel.pageSize + 1}–{Math.min((paginationModel.page + 1) * paginationModel.pageSize, total)} of {total} records
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={paginationModel.page === 0}
-                        onClick={() => setPaginationModel(p => ({ ...p, page: p.page - 1 }))}
-                        sx={{ borderRadius: '8px', textTransform: 'none', borderColor: '#c5cae9', color: '#3f51b5' }}
-                      >
-                        Previous
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={(paginationModel.page + 1) * paginationModel.pageSize >= total}
-                        onClick={() => setPaginationModel(p => ({ ...p, page: p.page + 1 }))}
-                        sx={{ borderRadius: '8px', textTransform: 'none', borderColor: '#c5cae9', color: '#3f51b5' }}
-                      >
-                        Next
-                      </Button>
+                <Box sx={{
+                  flexGrow: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  bgcolor: "#fff",
+                  border: "1px solid #e8eaf6",
+                  borderRadius: "16px",
+                  overflow: "hidden",
+                  boxShadow: "0 4px 20px rgba(63,81,181,0.08)",
+                }}>
+                  {/* Table header bar */}
+                  <Box sx={{
+                    px: 3, py: 1.5,
+                    background: "linear-gradient(135deg, #e8eaf6, #f3f4fd)",
+                    borderBottom: "1px solid #c5cae9",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                  }}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Box sx={{ width: 4, height: 18, bgcolor: "#3f51b5", borderRadius: 2 }} />
+                      <Typography variant="subtitle2" fontWeight={700} color="#3f51b5" textTransform="uppercase" letterSpacing="0.06em">
+                        All Candidates
+                      </Typography>
                     </Box>
+                    <Chip
+                      label={`${total} records`}
+                      size="small"
+                      sx={{ bgcolor: "#e8eaf6", color: "#3f51b5", fontWeight: 700, fontSize: "0.75rem" }}
+                    />
                   </Box>
-                </>
+
+                  <DataGrid
+                    rows={candidates}
+                    columns={columns}
+                    rowCount={total}
+                    loading={loading}
+                    paginationMode="server"
+                    paginationModel={paginationModel}
+                    onPaginationModelChange={setPaginationModel}
+                    pageSizeOptions={[25, 50, 100]}
+                    checkboxSelection
+                    rowSelectionModel={selectedIds}
+                    onRowSelectionModelChange={(ids) => setSelectedIds(ids)}
+                    disableRowSelectionOnClick
+                    sx={{
+                      border: "none",
+                      height: "calc(100% - 52px)",
+                      "& .MuiDataGrid-columnHeaders": {
+                        background: "linear-gradient(135deg, #e8eaf6, #f3f4fd)",
+                        borderBottom: "2px solid #c5cae9",
+                      },
+                      "& .MuiDataGrid-columnHeaderTitle": {
+                        fontWeight: 700,
+                        color: "#3f51b5",
+                        fontSize: "0.78rem",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                      },
+                      "& .MuiDataGrid-cell": {
+                        borderBottom: "1px solid #f0f2ff",
+                        fontSize: "0.83rem",
+                        color: "#334155",
+                        "&:focus": { outline: "none" },
+                      },
+                      "& .MuiDataGrid-row:hover": { bgcolor: "#f5f6ff" },
+                      "& .MuiDataGrid-row.Mui-selected": {
+                        bgcolor: "#e8eaf6",
+                        "&:hover": { bgcolor: "#dce1f5" },
+                      },
+                      "& .MuiDataGrid-footerContainer": {
+                        borderTop: "1px solid #e8eaf6",
+                        bgcolor: "#f5f6ff",
+                      },
+                      "& .MuiCheckbox-root.Mui-checked": {
+                        color: "#3f51b5",
+                      },
+                      "& .MuiDataGrid-virtualScroller::-webkit-scrollbar": { height: 7, width: 7 },
+                      "& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb": {
+                        background: "#9fa8da", borderRadius: 4,
+                      },
+                    }}
+                  />
+                </Box>
               )}
             </Box>
-          ) : (
-            <Box sx={{
-              bgcolor: "#fff",
-              border: "1px solid #e8eaf6",
-              borderRadius: "16px",
-              overflow: "hidden",
-              boxShadow: "0 4px 20px rgba(63,81,181,0.08)",
-              height: "calc(100vh - 380px)",
-            }}>
-              {/* Table header bar */}
-              <Box sx={{
-                px: 3, py: 1.5,
-                background: "linear-gradient(135deg, #e8eaf6, #f3f4fd)",
-                borderBottom: "1px solid #c5cae9",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-              }}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Box sx={{ width: 4, height: 18, bgcolor: "#3f51b5", borderRadius: 2 }} />
-                  <Typography variant="subtitle2" fontWeight={700} color="#3f51b5" textTransform="uppercase" letterSpacing="0.06em">
-                    All Candidates
-                  </Typography>
-                </Box>
-                <Chip
-                  label={`${total} records`}
-                  size="small"
-                  sx={{ bgcolor: "#e8eaf6", color: "#3f51b5", fontWeight: 700, fontSize: "0.75rem" }}
-                />
-              </Box>
-
-              <DataGrid
-                rows={candidates}
-                columns={columns}
-                rowCount={total}
-                loading={loading}
-                paginationMode="server"
-                paginationModel={paginationModel}
-                onPaginationModelChange={setPaginationModel}
-                pageSizeOptions={[25, 50, 100]}
-                checkboxSelection
-                rowSelectionModel={selectedIds}
-                onRowSelectionModelChange={(ids) => setSelectedIds(ids)}
-                disableRowSelectionOnClick
-                sx={{
-                  border: "none",
-                  height: "calc(100% - 52px)",
-                  "& .MuiDataGrid-columnHeaders": {
-                    background: "linear-gradient(135deg, #e8eaf6, #f3f4fd)",
-                    borderBottom: "2px solid #c5cae9",
-                  },
-                  "& .MuiDataGrid-columnHeaderTitle": {
-                    fontWeight: 700,
-                    color: "#3f51b5",
-                    fontSize: "0.78rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                  },
-                  "& .MuiDataGrid-cell": {
-                    borderBottom: "1px solid #f0f2ff",
-                    fontSize: "0.83rem",
-                    color: "#334155",
-                    "&:focus": { outline: "none" },
-                  },
-                  "& .MuiDataGrid-row:hover": { bgcolor: "#f5f6ff" },
-                  "& .MuiDataGrid-row.Mui-selected": {
-                    bgcolor: "#e8eaf6",
-                    "&:hover": { bgcolor: "#dce1f5" },
-                  },
-                  "& .MuiDataGrid-footerContainer": {
-                    borderTop: "1px solid #e8eaf6",
-                    bgcolor: "#f5f6ff",
-                  },
-                  "& .MuiCheckbox-root.Mui-checked": {
-                    color: "#3f51b5",
-                  },
-                  "& .MuiDataGrid-virtualScroller::-webkit-scrollbar": { height: 7, width: 7 },
-                  "& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb": {
-                    background: "#9fa8da", borderRadius: 4,
-                  },
-                }}
-              />
-            </Box>
-          )}
-        </Box>
-      </Box>
+          </Box>
         </Box>  {/* end filter+content row */}
       </Box>    {/* end main content area */}
 
       {/* ── Assign Dialog ── */}
-      <Dialog 
-        open={assignOpen} 
-        onClose={() => setAssignOpen(false)} 
-        maxWidth="sm" 
+      <Dialog
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        maxWidth="sm"
         fullWidth
-        PaperProps={{ 
-          sx: { 
+        PaperProps={{
+          sx: {
             borderRadius: '20px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-          } 
+          }
         }}
       >
-        <DialogTitle 
-          sx={{ 
+        <DialogTitle
+          sx={{
             background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
-            color: "#fff", 
+            color: "#fff",
             fontWeight: 800,
             fontSize: '1.5rem',
             p: 3,
@@ -1398,11 +1315,11 @@ iTalentConnect`
               onChange={(_, val) => setSelectedJob(val)}
               getOptionLabel={(o) => `${o.jobTitle || "—"} — ${o.companyName || "—"}`}
               renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Select Job Position" 
-                  variant="outlined" 
-                  fullWidth 
+                <TextField
+                  {...params}
+                  label="Select Job Position"
+                  variant="outlined"
+                  fullWidth
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '12px',
@@ -1416,10 +1333,10 @@ iTalentConnect`
             />
           )}
           {selectedJob && (
-            <Box 
-              mt={2} 
-              p={2.5} 
-              sx={{ 
+            <Box
+              mt={2}
+              p={2.5}
+              sx={{
                 background: 'linear-gradient(135deg, rgba(63,81,181,0.1) 0%, rgba(92,107,192,0.1) 100%)',
                 borderRadius: '12px',
                 border: '2px solid rgba(63,81,181,0.3)',
@@ -1440,10 +1357,10 @@ iTalentConnect`
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, gap: 1.5 }}>
-          <Button 
-            onClick={() => setAssignOpen(false)} 
-            variant="outlined" 
-            sx={{ 
+          <Button
+            onClick={() => setAssignOpen(false)}
+            variant="outlined"
+            sx={{
               borderRadius: '12px',
               textTransform: "none",
               fontWeight: 600,
@@ -1458,12 +1375,12 @@ iTalentConnect`
           >
             Cancel
           </Button>
-          <Button 
-            onClick={handleAssign} 
-            variant="contained" 
+          <Button
+            onClick={handleAssign}
+            variant="contained"
             disabled={!selectedJob || assigning}
             startIcon={assigning ? <CircularProgress size={16} color="inherit" /> : <AssignIcon />}
-            sx={{ 
+            sx={{
               borderRadius: '12px',
               textTransform: "none",
               fontWeight: 700,
@@ -1567,22 +1484,22 @@ iTalentConnect`
       </Dialog>
 
       {/* ── History Dialog ── */}
-      <Dialog 
-        open={historyOpen} 
-        onClose={() => setHistoryOpen(false)} 
-        maxWidth="md" 
+      <Dialog
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        maxWidth="md"
         fullWidth
-        PaperProps={{ 
-          sx: { 
+        PaperProps={{
+          sx: {
             borderRadius: '20px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-          } 
+          }
         }}
       >
-        <DialogTitle 
-          sx={{ 
+        <DialogTitle
+          sx={{
             background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
-            color: "#fff", 
+            color: "#fff",
             fontWeight: 800,
             fontSize: '1.5rem',
             p: 3,
@@ -1598,23 +1515,23 @@ iTalentConnect`
           ) : historyData ? (
             <Box>
               {/* Candidate summary */}
-              <Box 
-                display="flex" 
-                alignItems="center" 
-                gap={2} 
-                mb={3} 
+              <Box
+                display="flex"
+                alignItems="center"
+                gap={2}
+                mb={3}
                 p={2.5}
-                sx={{ 
+                sx={{
                   background: 'linear-gradient(135deg, rgba(63,81,181,0.1) 0%, rgba(92,107,192,0.1) 100%)',
                   borderRadius: '16px',
                   border: '2px solid rgba(63,81,181,0.3)',
                 }}
               >
-                <Avatar 
-                  sx={{ 
+                <Avatar
+                  sx={{
                     background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
-                    width: 56, 
-                    height: 56, 
+                    width: 56,
+                    height: 56,
                     fontWeight: 700,
                     fontSize: '1.5rem',
                   }}
@@ -1627,9 +1544,9 @@ iTalentConnect`
                     {historyData.candidate?.phoneNumber} · {historyData.candidate?.positionName}
                   </Typography>
                 </Box>
-                <Chip 
+                <Chip
                   label={`${historyData.totalApplications} application(s)`}
-                  sx={{ 
+                  sx={{
                     background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
                     color: '#fff',
                     fontWeight: 700,
@@ -1639,9 +1556,9 @@ iTalentConnect`
 
               {/* Applications list */}
               {historyData.applications.length === 0 ? (
-                <Box 
-                  sx={{ 
-                    textAlign: 'center', 
+                <Box
+                  sx={{
+                    textAlign: 'center',
                     py: 6,
                     background: 'rgba(63,81,181,0.05)',
                     borderRadius: '12px',
@@ -1653,11 +1570,11 @@ iTalentConnect`
                 </Box>
               ) : (
                 historyData.applications.map((app) => (
-                  <Box 
-                    key={app._id} 
-                    mb={2} 
+                  <Box
+                    key={app._id}
+                    mb={2}
                     p={2.5}
-                    sx={{ 
+                    sx={{
                       border: "2px solid rgba(63,81,181,0.2)",
                       borderRadius: '16px',
                       background: 'rgba(255,255,255,0.8)',
@@ -1722,10 +1639,10 @@ iTalentConnect`
           ) : null}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button 
-            onClick={() => setHistoryOpen(false)} 
-            variant="outlined" 
-            sx={{ 
+          <Button
+            onClick={() => setHistoryOpen(false)}
+            variant="outlined"
+            sx={{
               borderRadius: '12px',
               textTransform: "none",
               fontWeight: 600,
@@ -1744,309 +1661,240 @@ iTalentConnect`
       </Dialog>
 
       {/* ── View Detail Dialog ── */}
-      <Dialog 
-        open={openDialog} 
+      <Dialog
+        open={openDialog}
         onClose={() => { setOpenDialog(false); setSelectedCandidate(null); }}
-        maxWidth="lg" 
-        fullWidth 
-        PaperProps={{ 
-          sx: { 
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
             borderRadius: '16px',
             boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
             maxHeight: '92vh',
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
-          } 
+          }
         }}
       >
         {selectedCandidate && (
           <>
             {/* Single scrollable content — header + tabs + body all scroll together */}
-            <DialogContent sx={{ p: 0, bgcolor: '#f8fafc', overflowY: 'auto', flex: 1,
+            <DialogContent sx={{
+              p: 0, bgcolor: '#f8fafc', overflowY: 'auto', flex: 1,
               '&::-webkit-scrollbar': { width: 6 },
               '&::-webkit-scrollbar-track': { background: '#f1f5f9' },
               '&::-webkit-scrollbar-thumb': { background: '#c7d2fe', borderRadius: 3 },
             }}>
 
-            {/* Header with Avatar + Name */}
-            <Box sx={{ display: 'flex', p: 3, borderBottom: '1px solid #e8eaf6', bgcolor: '#fff' }}>
-              <Avatar 
-                sx={{ 
-                  width: 80, height: 80, 
-                  bgcolor: '#e8eaf6', color: '#3f51b5',
-                  fontWeight: 700, fontSize: '2rem',
-                  mr: 2.5,
-                }}
-              >
-                {selectedCandidate.name?.charAt(0)?.toUpperCase() || "C"}
-              </Avatar>
-              <Box sx={{ flexGrow: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
-                  <Typography variant="h5" fontWeight={700} color="#1e293b">
-                    {selectedCandidate.name || "—"}
-                  </Typography>
-                  <IconButton size="small" sx={{ color: '#3f51b5' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-                    </svg>
-                  </IconButton>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 1, flexWrap: 'wrap' }}>
-                  {selectedCandidate.experience && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <AccessTime sx={{ fontSize: 16, color: '#64748b' }} />
-                      <Typography fontSize={14} color="#475569">{selectedCandidate.experience}</Typography>
-                    </Box>
-                  )}
-                  {selectedCandidate.currentCTC && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <CurrencyRupeeIcon sx={{ fontSize: 16, color: '#64748b' }} />
-                      <Typography fontSize={14} color="#475569">₹{selectedCandidate.currentCTC}</Typography>
-                    </Box>
-                  )}
-                  {selectedCandidate.currentLocation && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <LocationIcon sx={{ fontSize: 16, color: '#64748b' }} />
-                      <Typography fontSize={14} color="#475569">{selectedCandidate.currentLocation}</Typography>
-                    </Box>
-                  )}
-                </Box>
-                <Box sx={{ mb: 1.5 }}>
-                  <Typography fontSize={13} color="#94a3b8" mb={0.3}>Current</Typography>
-                  <Typography fontSize={14} fontWeight={600} color="#1e293b">
-                    {selectedCandidate.currentPosition || "—"} 
-                    {selectedCandidate.currentCompany && ` at ${selectedCandidate.currentCompany}`}
-                  </Typography>
-                </Box>
-                {selectedCandidate.positionName && (
+              {/* Header with Avatar + Name */}
+              <Box sx={{ display: 'flex', p: 3, borderBottom: '1px solid #e8eaf6', bgcolor: '#fff' }}>
+                <Avatar
+                  sx={{
+                    width: 80, height: 80,
+                    bgcolor: '#e8eaf6', color: '#3f51b5',
+                    fontWeight: 700, fontSize: '2rem',
+                    mr: 2.5,
+                  }}
+                >
+                  {selectedCandidate.name?.charAt(0)?.toUpperCase() || "C"}
+                </Avatar>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+                    <Typography variant="h5" fontWeight={700} color="#1e293b">
+                      {selectedCandidate.name || "—"}
+                    </Typography>
+                    <IconButton size="small" sx={{ color: '#3f51b5' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </IconButton>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 1, flexWrap: 'wrap' }}>
+                    {selectedCandidate.experience && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <AccessTime sx={{ fontSize: 16, color: '#64748b' }} />
+                        <Typography fontSize={14} color="#475569">{selectedCandidate.experience} Years</Typography>
+                      </Box>
+                    )}
+                    {selectedCandidate.currentCTC && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <CurrencyRupeeIcon sx={{ fontSize: 16, color: '#64748b' }} />
+                        <Typography fontSize={14} color="#475569">₹{selectedCandidate.currentCTC} Monthly</Typography>
+                      </Box>
+                    )}
+                    {selectedCandidate.currentLocation && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <LocationIcon sx={{ fontSize: 16, color: '#64748b' }} />
+                        <Typography fontSize={14} color="#475569">{selectedCandidate.currentLocation}</Typography>
+                      </Box>
+                    )}
+                  </Box>
                   <Box sx={{ mb: 1.5 }}>
-                    <Typography fontSize={13} color="#94a3b8" mb={0.3}>Highest degree</Typography>
-                    <Typography fontSize={14} fontWeight={600} color="#1e293b">{selectedCandidate.positionName}</Typography>
+                    <Typography fontSize={13} color="#94a3b8" mb={0.3}>Current</Typography>
+                    <Typography fontSize={14} fontWeight={600} color="#1e293b">
+                      {selectedCandidate.currentPosition || "—"}
+                      {selectedCandidate.currentCompany && ` at ${selectedCandidate.currentCompany}`}
+                    </Typography>
                   </Box>
-                )}
-                <Box sx={{ display: 'flex', gap: 1.5, mt: 2 }}>
-                  <Button variant="outlined" size="small" onClick={(e) => openPhonePopover(e, selectedCandidate)}
-                    sx={{ textTransform: 'none', borderRadius: '6px', fontSize: 13, borderColor: '#3f51b5', color: '#3f51b5' }}>
-                    View phone number
-                  </Button>
-                  <Button variant="outlined" size="small" component="a" href={`tel:${selectedCandidate.phoneNumber}`}
-                    startIcon={<PhoneIcon sx={{ fontSize: 14 }} />}
-                    sx={{ textTransform: 'none', borderRadius: '6px', fontSize: 13, borderColor: '#64748b', color: '#475569' }}>
-                    Call candidate
-                  </Button>
-                  {selectedCandidate.phoneNumber && (
-                    <Button variant="outlined" size="small"
-                      onClick={() => openWaDialog(selectedCandidate)}
-                      sx={{ textTransform: 'none', borderRadius: '6px', fontSize: 13, borderColor: '#22c55e', color: '#22c55e' }}>
-                      WhatsApp
+                  {selectedCandidate.positionName && (
+                    <Box sx={{ mb: 1.5 }}>
+                      <Typography fontSize={13} color="#94a3b8" mb={0.3}>Highest degree</Typography>
+                      <Typography fontSize={14} fontWeight={600} color="#1e293b">{selectedCandidate.positionName}</Typography>
+                    </Box>
+                  )}
+                  <Box sx={{ display: 'flex', gap: 1.5, mt: 2 }}>
+                    <Button variant="outlined" size="small" onClick={(e) => openPhonePopover(e, selectedCandidate)}
+                      sx={{ textTransform: 'none', borderRadius: '6px', fontSize: 13, borderColor: '#3f51b5', color: '#3f51b5' }}>
+                      View phone number
                     </Button>
+                    <Button variant="outlined" size="small" component="a" href={`tel:${selectedCandidate.phoneNumber}`}
+                      startIcon={<PhoneIcon sx={{ fontSize: 14 }} />}
+                      sx={{ textTransform: 'none', borderRadius: '6px', fontSize: 13, borderColor: '#64748b', color: '#475569' }}>
+                      Call candidate
+                    </Button>
+                    {selectedCandidate.phoneNumber && (
+                      <Button variant="outlined" size="small"
+                        onClick={() => openWaDialog(selectedCandidate)}
+                        sx={{ textTransform: 'none', borderRadius: '6px', fontSize: 13, borderColor: '#22c55e', color: '#22c55e' }}>
+                        WhatsApp
+                      </Button>
+                    )}
+                  </Box>
+                  {selectedCandidate.email && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 1.5 }}>
+                      <Typography fontSize={13} color="#64748b">{selectedCandidate.email}</Typography>
+                      <Chip label="Verified phone & email" size="small" sx={{ height: 20, fontSize: 11, bgcolor: '#f0fdf4', color: '#166534' }} />
+                    </Box>
                   )}
                 </Box>
-                {selectedCandidate.email && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 1.5 }}>
-                    <Typography fontSize={13} color="#64748b">{selectedCandidate.email}</Typography>
-                    <Chip label="Verified phone & email" size="small" sx={{ height: 20, fontSize: 11, bgcolor: '#f0fdf4', color: '#166534' }} />
+              </Box>
+
+              {/* Tabs */}
+              <Box sx={{ display: 'flex', borderBottom: '1px solid #e8eaf6', bgcolor: '#f8fafc', px: 3 }}>
+                <Button onClick={() => setProfileTab('profile')}
+                  sx={{
+                    textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: 0, py: 1.5,
+                    color: profileTab === 'profile' ? '#3f51b5' : '#64748b',
+                    borderBottom: profileTab === 'profile' ? '2px solid #3f51b5' : '2px solid transparent',
+                  }}>
+                  Profile detail
+                </Button>
+                <Button onClick={() => setProfileTab('cv')}
+                  sx={{
+                    textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: 0, py: 1.5, ml: 3,
+                    color: profileTab === 'cv' ? '#3f51b5' : '#64748b',
+                    borderBottom: profileTab === 'cv' ? '2px solid #3f51b5' : '2px solid transparent',
+                  }}>
+                  Attached CV
+                </Button>
+              </Box>
+
+              {/* Tab content */}
+              <Box sx={{ p: 3 }}>
+
+                {/* ── PROFILE DETAIL TAB ── */}
+                {profileTab === 'profile' && (<>
+                  {/* Work Summary */}
+                  {(selectedCandidate.currentPosition || selectedCandidate.experience) && (
+                    <Box sx={{ mb: 3, p: 2.5, bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px' }}>
+                      <Typography fontSize={15} fontWeight={700} color="#1e293b" mb={1.5}>Work summary</Typography>
+                      <Typography fontSize={14} color="#475569" lineHeight={1.7}>
+                        {selectedCandidate.currentPosition && `${selectedCandidate.currentPosition} `}
+                        {selectedCandidate.experience && `with ${selectedCandidate.experience} years experience `}
+                        {selectedCandidate.currentCompany && `at ${selectedCandidate.currentCompany}. `}
+                        {selectedCandidate.reasonforLeaving && `Reason for leaving: ${selectedCandidate.reasonforLeaving}`}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Key Skills */}
+                  {(selectedCandidate.positionName || selectedCandidate.currentPosition) && (
+                    <Box sx={{ mb: 3, p: 2.5, bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px' }}>
+                      <Typography fontSize={15} fontWeight={700} color="#1e293b" mb={1.5}>Key skills</Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {[selectedCandidate.positionName, selectedCandidate.currentPosition, selectedCandidate.experience ? `${selectedCandidate.experience} exp` : null]
+                          .filter(Boolean)
+                          .map((skill, i) => (
+                            <Chip key={i} label={skill} size="small"
+                              sx={{ bgcolor: '#fef3c7', color: '#92400e', fontWeight: 600, fontSize: 13, height: 28, borderRadius: '6px' }} />
+                          ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* Details Grid */}
+                  <Grid container spacing={2}>
+                    {[
+                      { label: 'Expected CTC', value: selectedCandidate.expectedCTC ? `₹${selectedCandidate.expectedCTC} Monthly` : null },
+                      { label: 'Notice Period', value: selectedCandidate.noticePeriod ? `${selectedCandidate.noticePeriod} Days` : null },
+                      { label: 'Current Company', value: selectedCandidate.currentCompany },
+                      { label: 'Current Position', value: selectedCandidate.currentPosition },
+                    ].filter(item => item.value).map(({ label, value }) => (
+                      <Grid item xs={12} md={6} key={label}>
+                        <Box sx={{ p: 2, bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '10px' }}>
+                          <Typography fontSize={12} color="#94a3b8" mb={0.4}>{label}</Typography>
+                          <Typography fontSize={14} fontWeight={600} color="#1e293b">{value}</Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+
+                  {selectedCandidate.remark && (
+                    <Box sx={{ mt: 2, p: 2.5, bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px' }}>
+                      <Typography fontSize={15} fontWeight={700} color="#1e293b" mb={1}>Remarks</Typography>
+                      <Typography fontSize={14} color="#475569">{selectedCandidate.remark}</Typography>
+                    </Box>
+                  )}
+                </>)}
+
+                {/* ── ATTACHED CV TAB ── */}
+                {profileTab === 'cv' && (
+                  <Box>
+                    {selectedCandidate.resumeUpload && selectedCandidate.resumeUpload.startsWith('http') ? (
+                      /* Has valid uploaded CV — show it */
+                      <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+                          <Button variant="contained" size="small" startIcon={<ResumeIcon />}
+                            component="a" href={selectedCandidate.resumeUpload} target="_blank" rel="noopener noreferrer"
+                            sx={{ textTransform: 'none', borderRadius: '8px', fontSize: 13, fontWeight: 600, bgcolor: '#3f51b5' }}>
+                            Download CV
+                          </Button>
+                        </Box>
+                        <Box sx={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', bgcolor: '#ffffff' }}>
+                          {selectedCandidate.resumeUpload.toLowerCase().endsWith('.pdf') ? (
+                            <iframe
+                              src={`${selectedCandidate.resumeUpload}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                              width="100%"
+                              height="900px"
+                              style={{ border: 'none', display: 'block', backgroundColor: '#ffffff' }}
+                              title="Resume Preview"
+                            />
+                          ) : (
+                            <iframe
+                              src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedCandidate.resumeUpload)}&embedded=true`}
+                              width="100%" height="900px" style={{ border: 'none', backgroundColor: '#ffffff' }} title="Resume Preview"
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                    ) : (
+                      /* No CV — show generated CV preview + download */
+                      <Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Typography fontSize={14} color="#64748b">No CV uploaded. A professional resume has been generated from candidate data.</Typography>
+                          <Button variant="contained" size="small" startIcon={<ResumeIcon />}
+                            onClick={() => handleDownloadCV(selectedCandidate)}
+                            sx={{ textTransform: 'none', borderRadius: '8px', fontSize: 13, fontWeight: 600, bgcolor: '#1e3a5f', flexShrink: 0, '&:hover': { bgcolor: '#2c5282' } }}>
+                            Download Resume PDF
+                          </Button>
+                        </Box>
+                        <ProfessionalResumePreview candidate={selectedCandidate} />
+                      </Box>
+                    )}
                   </Box>
                 )}
-              </Box>
-            </Box>
-
-            {/* Tabs */}
-            <Box sx={{ display: 'flex', borderBottom: '1px solid #e8eaf6', bgcolor: '#f8fafc', px: 3 }}>
-              <Button onClick={() => setProfileTab('profile')}
-                sx={{ textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: 0, py: 1.5,
-                  color: profileTab === 'profile' ? '#3f51b5' : '#64748b',
-                  borderBottom: profileTab === 'profile' ? '2px solid #3f51b5' : '2px solid transparent',
-                }}>
-                Profile detail
-              </Button>
-              <Button onClick={() => setProfileTab('cv')}
-                sx={{ textTransform: 'none', fontWeight: 600, fontSize: 14, borderRadius: 0, py: 1.5, ml: 3,
-                  color: profileTab === 'cv' ? '#3f51b5' : '#64748b',
-                  borderBottom: profileTab === 'cv' ? '2px solid #3f51b5' : '2px solid transparent',
-                }}>
-                Attached CV
-              </Button>
-            </Box>
-
-            {/* Tab content */}
-            <Box sx={{ p: 3 }}>
-
-              {/* ── PROFILE DETAIL TAB ── */}
-              {profileTab === 'profile' && (<>
-              {/* Work Summary */}
-              {(selectedCandidate.currentPosition || selectedCandidate.experience) && (
-                <Box sx={{ mb: 3, p: 2.5, bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px' }}>
-                  <Typography fontSize={15} fontWeight={700} color="#1e293b" mb={1.5}>Work summary</Typography>
-                  <Typography fontSize={14} color="#475569" lineHeight={1.7}>
-                    {selectedCandidate.currentPosition && `${selectedCandidate.currentPosition} `}
-                    {selectedCandidate.experience && `with ${selectedCandidate.experience} experience `}
-                    {selectedCandidate.currentCompany && `at ${selectedCandidate.currentCompany}. `}
-                    {selectedCandidate.reasonforLeaving && `Reason for leaving: ${selectedCandidate.reasonforLeaving}`}
-                  </Typography>
-                </Box>
-              )}
-
-              {/* Key Skills */}
-              {(selectedCandidate.positionName || selectedCandidate.currentPosition) && (
-                <Box sx={{ mb: 3, p: 2.5, bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px' }}>
-                  <Typography fontSize={15} fontWeight={700} color="#1e293b" mb={1.5}>Key skills</Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {[selectedCandidate.positionName, selectedCandidate.currentPosition, selectedCandidate.experience ? `${selectedCandidate.experience} exp` : null]
-                      .filter(Boolean)
-                      .map((skill, i) => (
-                        <Chip key={i} label={skill} size="small"
-                          sx={{ bgcolor: '#fef3c7', color: '#92400e', fontWeight: 600, fontSize: 13, height: 28, borderRadius: '6px' }} />
-                      ))}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Details Grid */}
-              <Grid container spacing={2}>
-                {[
-                  { label: 'Expected CTC', value: selectedCandidate.expectedCTC ? `₹${selectedCandidate.expectedCTC}` : null },
-                  { label: 'Notice Period', value: selectedCandidate.noticePeriod ? `${selectedCandidate.noticePeriod} ` : null },
-                  { label: 'Current Company', value: selectedCandidate.currentCompany },
-                  { label: 'Current Position', value: selectedCandidate.currentPosition },
-                ].filter(item => item.value).map(({ label, value }) => (
-                  <Grid item xs={12} md={6} key={label}>
-                    <Box sx={{ p: 2, bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '10px' }}>
-                      <Typography fontSize={12} color="#94a3b8" mb={0.4}>{label}</Typography>
-                      <Typography fontSize={14} fontWeight={600} color="#1e293b">{value}</Typography>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
-
-              {selectedCandidate.remark && (
-                <Box sx={{ mt: 2, p: 2.5, bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px' }}>
-                  <Typography fontSize={15} fontWeight={700} color="#1e293b" mb={1}>Remarks</Typography>
-                  <Typography fontSize={14} color="#475569">{selectedCandidate.remark}</Typography>
-                </Box>
-              )}
-              </>)}
-
-              {/* ── ATTACHED CV TAB ── */}
-              {profileTab === 'cv' && (
-                <Box>
-                  {selectedCandidate.resumeUpload && selectedCandidate.resumeUpload.startsWith('http') ? (
-                    /* Has valid uploaded CV — show it */
-                    <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
-                        <Button variant="contained" size="small" startIcon={<ResumeIcon />}
-                          component="a" href={selectedCandidate.resumeUpload} target="_blank" rel="noopener noreferrer"
-                          sx={{ textTransform: 'none', borderRadius: '8px', fontSize: 13, fontWeight: 600, bgcolor: '#3f51b5' }}>
-                          Download CV
-                        </Button>
-                      </Box>
-                      <Box sx={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', bgcolor: '#ffffff' }}>
-                        {selectedCandidate.resumeUpload.toLowerCase().endsWith('.pdf') ? (
-                          <iframe
-                            src={`${selectedCandidate.resumeUpload}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                            width="100%"
-                            height="900px"
-                            style={{ border: 'none', display: 'block', backgroundColor: '#ffffff' }}
-                            title="Resume Preview"
-                          />
-                        ) : (
-                          <iframe
-                            src={`https://docs.google.com/viewer?url=${encodeURIComponent(selectedCandidate.resumeUpload)}&embedded=true`}
-                            width="100%" height="900px" style={{ border: 'none', backgroundColor: '#ffffff' }} title="Resume Preview"
-                          />
-                        )}
-                      </Box>
-                    </Box>
-                  ) : (
-                    /* No CV — show generated CV preview + download */
-                    <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                        <Typography fontSize={14} color="#64748b">No CV uploaded. A CV has been generated from candidate data.</Typography>
-                        <Button variant="contained" size="small" startIcon={<ResumeIcon />}
-                          onClick={() => handleDownloadCV(selectedCandidate)}
-                          sx={{ textTransform: 'none', borderRadius: '8px', fontSize: 13, fontWeight: 600, bgcolor: '#3f51b5', flexShrink: 0 }}>
-                          Download Generated CV
-                        </Button>
-                      </Box>
-
-                      {/* CV Preview — matches the Apna-style format */}
-                      <Box sx={{ bgcolor: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
-                        {/* Name header */}
-                        <Box sx={{ bgcolor: '#3b82f6', px: 3, py: 2 }}>
-                          <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: 28, letterSpacing: 2, textTransform: 'uppercase' }}>
-                            {selectedCandidate.name || 'CANDIDATE'}
-                          </Typography>
-                        </Box>
-
-                        {/* Sub-header */}
-                        <Box sx={{ px: 3, py: 1.5, borderBottom: '1px solid #e0e0e0' }}>
-                          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-                            {selectedCandidate.gender && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><PersonIcon sx={{ fontSize: 14, color: '#3b82f6' }} /><Typography fontSize={13} color="#475569">{selectedCandidate.gender}</Typography></Box>}
-                            {selectedCandidate.currentLocation && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><LocationIcon sx={{ fontSize: 14, color: '#3b82f6' }} /><Typography fontSize={13} color="#475569">{selectedCandidate.currentLocation}</Typography></Box>}
-                            {selectedCandidate.phoneNumber && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><PhoneIcon sx={{ fontSize: 14, color: '#3b82f6' }} /><Typography fontSize={13} color="#475569">{selectedCandidate.phoneNumber}</Typography></Box>}
-                            {selectedCandidate.email && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><ResumeIcon sx={{ fontSize: 14, color: '#3b82f6' }} /><Typography fontSize={13} color="#475569">{selectedCandidate.email}</Typography></Box>}
-                          </Box>
-                        </Box>
-
-                        <Box sx={{ px: 3, py: 2 }}>
-                          {/* Career Objective */}
-                          <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, color: '#1e293b', mb: 0.8, textTransform: 'uppercase' }}>Career Objective</Typography>
-                          <Typography fontSize={13} color="#475569" lineHeight={1.7} mb={2.5}>
-                            {selectedCandidate.remark || selectedCandidate.reasonforLeaving ||
-                              'I aim to be associated with an organization that gives me the scope to apply my skills and actively work towards the growth of the organization and myself.'}
-                          </Typography>
-
-                          {/* Education */}
-                          <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, color: '#1e293b', mb: 0.8, textTransform: 'uppercase' }}>Education</Typography>
-                          <Typography fontSize={13} color="#64748b" mb={0.4}>Education level: {selectedCandidate.qualification || 'Graduate'}</Typography>
-                          {selectedCandidate.qualification && (
-                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2.5 }}>
-                              <Box sx={{ width: 28, height: 28, bgcolor: '#3b82f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, mt: 0.3 }}>
-                                <Typography fontSize={11} color="#fff" fontWeight={700}>🎓</Typography>
-                              </Box>
-                              <Box>
-                                <Typography fontSize={13} fontWeight={700} color="#1e293b">{selectedCandidate.qualification}</Typography>
-                              </Box>
-                            </Box>
-                          )}
-
-                          {/* Work Experience */}
-                          {(selectedCandidate.currentPosition || selectedCandidate.currentCompany) && (<>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, color: '#1e293b', mb: 0.8, textTransform: 'uppercase' }}>Work Experience</Typography>
-                            <Box sx={{ mb: 2.5 }}>
-                              {selectedCandidate.currentPosition && <Typography fontSize={13} color="#475569">Position: <strong>{selectedCandidate.currentPosition}</strong></Typography>}
-                              {selectedCandidate.currentCompany && <Typography fontSize={13} color="#475569">Company: <strong>{selectedCandidate.currentCompany}</strong></Typography>}
-                              {selectedCandidate.experience && <Typography fontSize={13} color="#475569">Experience: <strong>{selectedCandidate.experience}</strong></Typography>}
-                              {selectedCandidate.currentCTC && <Typography fontSize={13} color="#475569">Current CTC: <strong>₹{selectedCandidate.currentCTC}</strong></Typography>}
-                              {selectedCandidate.expectedCTC && <Typography fontSize={13} color="#475569">Expected CTC: <strong>₹{selectedCandidate.expectedCTC}</strong></Typography>}
-                              {selectedCandidate.noticePeriod && <Typography fontSize={13} color="#475569">Notice Period: <strong>{selectedCandidate.noticePeriod} </strong></Typography>}
-                            </Box>
-                          </>)}
-
-                          {/* Skills */}
-                          {(selectedCandidate.positionName || selectedCandidate.currentPosition) && (<>
-                            <Typography sx={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, color: '#1e293b', mb: 1, textTransform: 'uppercase' }}>Skills</Typography>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2.5 }}>
-                              {[selectedCandidate.positionName, selectedCandidate.currentPosition].filter(Boolean).map((s, i) => (
-                                <Box key={i} sx={{ bgcolor: '#3b82f6', color: '#fff', px: 1.5, py: 0.4, borderRadius: '6px', fontSize: 12, fontWeight: 600 }}>{s}</Box>
-                              ))}
-                            </Box>
-                          </>)}
-                        </Box>
-
-                        {/* Footer */}
-                        <Box sx={{ bgcolor: '#f1f5f9', px: 3, py: 1, borderTop: '1px solid #e0e0e0' }}>
-                          <Typography fontSize={11} color="#94a3b8" fontStyle="italic">
-                            This CV is generated by iTalentConnect from candidate's profile
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
-              )}
-            </Box>       {/* end tab content */}
+              </Box>       {/* end tab content */}
             </DialogContent>  {/* end single scroll */}
 
             <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#fff', flexShrink: 0 }}>
@@ -2118,7 +1966,7 @@ iTalentConnect`
 
         <DialogContent sx={{ p: 0, bgcolor: '#f8fafc', overflow: 'auto' }}>
           <Box sx={{ p: 2 }}>
-            <CandidatesForm 
+            <CandidatesForm
               userId={sessionStorage.getItem('userId')}
               onSuccess={() => {
                 setAddCandidateDialogOpen(false);
@@ -2310,7 +2158,7 @@ iTalentConnect`
                 onClick={() => { navigator.clipboard.writeText(phonePopover.phone); }}
                 sx={{ color: '#3f51b5' }}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                  <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                 </svg>
               </IconButton>
             </Tooltip>
@@ -2352,7 +2200,7 @@ iTalentConnect`
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{ width: 38, height: 38, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#fff">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
               </svg>
             </Box>
             <Box>
@@ -2427,10 +2275,10 @@ iTalentConnect`
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
                   <Typography fontSize={12.5} color="#1e293b"><strong>Title:</strong> {waJob.jobTitle}</Typography>
-                  {waJob.companyName  && <Typography fontSize={12.5} color="#1e293b"><strong>Company:</strong> {waJob.companyName}</Typography>}
-                  {waJob.jobLocation  && <Typography fontSize={12.5} color="#1e293b"><strong>Location:</strong> {waJob.jobLocation}</Typography>}
-                  {waJob.salary       && <Typography fontSize={12.5} color="#1e293b"><strong>Salary:</strong> {waJob.salary}</Typography>}
-                  {waJob.experience   && <Typography fontSize={12.5} color="#1e293b"><strong>Experience:</strong> {waJob.experience}</Typography>}
+                  {waJob.companyName && <Typography fontSize={12.5} color="#1e293b"><strong>Company:</strong> {waJob.companyName}</Typography>}
+                  {waJob.jobLocation && <Typography fontSize={12.5} color="#1e293b"><strong>Location:</strong> {waJob.jobLocation}</Typography>}
+                  {waJob.salary && <Typography fontSize={12.5} color="#1e293b"><strong>Salary:</strong> {waJob.salary}</Typography>}
+                  {waJob.experience && <Typography fontSize={12.5} color="#1e293b"><strong>Experience:</strong> {waJob.experience}</Typography>}
                 </Box>
               </Box>
             )}
@@ -2518,7 +2366,7 @@ iTalentConnect`
             size="medium"
             startIcon={
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#fff">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z" />
               </svg>
             }
             sx={{

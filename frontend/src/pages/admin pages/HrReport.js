@@ -1532,8 +1532,8 @@ const HrReport = () => {
                 <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}  label="Job Location" value={job.jobLocation} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Job Timing"   value={job.jobTiming} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Education"    value={job.education} />
-                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Experience"   value={job.experience} />
-                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Salary"       value={job.salary} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Experience (Years)"   value={job.experience} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Monthly Salary (₹)"   value={job.salary} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Gender"       value={job.gender} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="Week Off"     value={job.weekOff} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}        label="No. of Requirements" value={job.numberOfRequirements != null ? String(job.numberOfRequirements) : ''} />
@@ -1754,15 +1754,15 @@ const HrReport = () => {
                 <DetailRow icon={<PhoneIcon sx={{ fontSize: 18 }} />}        label="Phone"             value={c.candidatePhone} />
                 <DetailRow icon={<EmailIcon sx={{ fontSize: 18 }} />}        label="Email"             value={c.candidateEmail} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Position"          value={c.positionName} />
-                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Experience"        value={c.experience} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Experience (Years)"        value={c.experience ? `${c.experience} Years` : ''} />
                 <DetailRow icon={<LocationOnIcon sx={{ fontSize: 18 }} />}   label="Current Location"  value={c.currentLocation} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Current Position"  value={c.currentPosition} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Current Company"   value={c.currentCompany} />
-                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Current CTC"       value={c.currentCTC} />
-                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Expected CTC"      value={c.expectedCTC} />
-                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Notice Period"     value={c.noticePeriod} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Current Monthly ₹"       value={c.currentCTC ? `₹${c.currentCTC}` : ''} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Expected Monthly ₹"      value={c.expectedCTC ? `₹${c.expectedCTC}` : ''} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Notice Period (Days)"     value={c.noticePeriod ? `${c.noticePeriod} Days` : ''} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Qualification"     value={c.qualification} />
-                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Salary Offered"    value={c.salaryOffered} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Offered Monthly ₹"    value={c.salaryOffered ? `₹${c.salaryOffered}` : ''} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Selection Status"  value={c.selectionStatus} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Selection Date"    value={c.selectionDate ? formatDate(c.selectionDate) : ''} />
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />}         label="Joining Date"      value={c.joiningDate ? formatDate(c.joiningDate) : ''} />
@@ -1828,7 +1828,7 @@ const HrReport = () => {
                   <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Trail Days" value={String(c.trailDays)} />
                 )}
                 <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Remarks 2"            value={c.remarks2} />
-                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Offered Salary"       value={c.offeredSalary} />
+                <DetailRow icon={<WorkIcon sx={{ fontSize: 18 }} />} label="Offered Monthly ₹"       value={c.offeredSalary ? `₹${c.offeredSalary}` : ''} />
                 {c.offeredStatus && (
                   <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
                     <Box sx={{ color: '#9fa8da', mt: 0.2 }}><WorkIcon sx={{ fontSize: 18 }} /></Box>

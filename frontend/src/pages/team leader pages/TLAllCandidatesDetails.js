@@ -337,12 +337,12 @@ const AdminCandidateList = () => {
     { field: "name", headerName: "Name", width: 150 },
     { field: "phoneNumber", headerName: "Phone", width: 180 },
     { field: "positionName", headerName: "Position", width: 150 },
-    { field: "experience", headerName: "Experience", width: 150 },
+    { field: "experience", headerName: "Experience (Years)", width: 160 },
     { field: "currentLocation", headerName: "Current Location", width: 180 },
     { field: "currentPosition", headerName: "Current Position", width: 180 },
-    { field: "currentCTC", headerName: "Current CTC", width: 150 },
-    { field: "expectedCTC", headerName: "Expected CTC", width: 150 },
-    { field: "noticePeriod", headerName: "Notice Period", width: 150 },
+    { field: "currentCTC", headerName: "Current Monthly ₹", width: 160 },
+    { field: "expectedCTC", headerName: "Expected Monthly ₹", width: 160 },
+    { field: "noticePeriod", headerName: "Notice Period (Days)", width: 160 },
     { field: "reasonforLeaving", headerName: "Reason For Leaving", width: 200 },
     { field: "currentCompany", headerName: "Current Company", width: 180 },
     { field: "remark", headerName: "Remark", width: 150 },
@@ -523,8 +523,8 @@ const AdminCandidateList = () => {
                   <ListItem>
                     <ListItemIcon><CurrencyRupeeIcon color="action" /></ListItemIcon>
                     <ListItemText 
-                      primary="Current CTC" 
-                      secondary={selectedCandidate.currentCTC ? `${selectedCandidate.currentCTC} LPA` : 'N/A'} 
+                      primary="Current Monthly ₹" 
+                      secondary={selectedCandidate.currentCTC ? `₹${selectedCandidate.currentCTC}` : 'N/A'} 
                     />
                   </ListItem>
                 </List>
@@ -535,15 +535,15 @@ const AdminCandidateList = () => {
                   <ListItem>
                     <ListItemIcon><PersonIcon color="action" /></ListItemIcon>
                     <ListItemText 
-                      primary="Experience" 
-                      secondary={selectedCandidate.experience ? `${selectedCandidate.experience} years` : 'N/A'} 
+                      primary="Experience (Years)" 
+                      secondary={selectedCandidate.experience ? `${selectedCandidate.experience} Years` : 'N/A'} 
                     />
                   </ListItem>
                   <ListItem>
                     <ListItemIcon><NoticeIcon color="action" /></ListItemIcon>
                     <ListItemText 
-                      primary="Notice Period" 
-                      secondary={selectedCandidate.noticePeriod || 'N/A'} 
+                      primary="Notice Period (Days)" 
+                      secondary={selectedCandidate.noticePeriod ? `${selectedCandidate.noticePeriod} Days` : 'N/A'} 
                     />
                   </ListItem>
                   <ListItem>
@@ -556,8 +556,8 @@ const AdminCandidateList = () => {
                   <ListItem>
                     <ListItemIcon><CurrencyRupeeIcon color="action" /></ListItemIcon>
                     <ListItemText 
-                      primary="Expected CTC" 
-                      secondary={selectedCandidate.expectedCTC ? `${selectedCandidate.expectedCTC} LPA` : 'N/A'} 
+                      primary="Expected Monthly ₹" 
+                      secondary={selectedCandidate.expectedCTC ? `₹${selectedCandidate.expectedCTC}` : 'N/A'} 
                     />
                   </ListItem>
                 </List>
@@ -787,8 +787,8 @@ const AdminCandidateList = () => {
                   <ListItem>
                     <ListItemIcon><MoneyIcon color="action" /></ListItemIcon>
                     <ListItemText 
-                      primary="Current CTC" 
-                      secondary={selectedCandidate.currentCTC ? `${selectedCandidate.currentCTC} LPA` : 'N/A'} 
+                      primary="Current Monthly ₹" 
+                      secondary={selectedCandidate.currentCTC ? `₹${selectedCandidate.currentCTC}` : 'N/A'} 
                     />
                   </ListItem>
                 </List>
@@ -1068,59 +1068,56 @@ const AdminCandidateList = () => {
         </FilterSection>
 
         {/* EXPERIENCE */}
-        <FilterSection title="Experience (Years)">
+        <FilterSection 
+          title="Experience (Years)"
+          showClear={experienceRange.min || experienceRange.max}
+          onClear={() => setExperienceRange({ min: '', max: '' })}
+        >
           <Box display="flex" gap={1}>
             <TextField
               size="small"
               placeholder="Min"
               fullWidth
               value={experienceRange.min}
-              onChange={(e) =>
-                setExperienceRange({ ...experienceRange, min: e.target.value })
-              }
+              onChange={handleExperienceChange('min')}
             />
             <TextField
               size="small"
               placeholder="Max"
               fullWidth
               value={experienceRange.max}
-              onChange={(e) =>
-                setExperienceRange({ ...experienceRange, max: e.target.value })
-              }
+              onChange={handleExperienceChange('max')}
             />
           </Box>
         </FilterSection>
 
-        {/* LOCATION */}
-        <FilterSection title="Location">
-          <TextField
-            size="small"
-            fullWidth
-            placeholder="e.g. Mumbai"
-            value={locationFilter}
-            onChange={(e) => setLocationFilter(e.target.value)}
-          />
-        </FilterSection>
-
         {/* CTC */}
-        <FilterSection title="Current CTC (LPA)">
+        <FilterSection 
+          title="Current Monthly ₹"
+          showClear={ctcFilter}
+          onClear={() => setCtcFilter('')}
+        >
           <TextField
             size="small"
             fullWidth
-            placeholder="e.g. 6.5"
+            placeholder="Min ₹"
             value={ctcFilter}
-            onChange={(e) => setCtcFilter(e.target.value)}
+            onChange={(e) => setCtcFilter(e.target.value.replace(/\D/g, ''))}
           />
         </FilterSection>
 
         {/* NOTICE PERIOD */}
-        <FilterSection title="Notice Period (Days)">
+        <FilterSection 
+          title="Notice Period (Days)"
+          showClear={noticePeriodFilter}
+          onClear={() => setNoticePeriodFilter('')}
+        >
           <TextField
             size="small"
             fullWidth
-            placeholder="e.g. 30"
+            placeholder="Max Days"
             value={noticePeriodFilter}
-            onChange={(e) => setNoticePeriodFilter(e.target.value)}
+            onChange={(e) => setNoticePeriodFilter(e.target.value.replace(/\D/g, ''))}
           />
         </FilterSection>
 

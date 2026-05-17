@@ -293,10 +293,10 @@ const PlacedData = () => {
     },
     {
       field: 'salaryOffered',
-      headerName: 'Salary Offered',
+      headerName: 'Salary Offered Monthly (₹)',
       width: 150,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
+        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? `₹${params.value}` : 'N/A'}</Typography>
       ),
     },
     {
@@ -325,10 +325,10 @@ const PlacedData = () => {
     },
     {
       field: 'noticePeriod',
-      headerName: 'Notice Period',
+      headerName: 'Notice Period (Days)',
       width: 150,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
+        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? `${params.value} Days` : 'N/A'}</Typography>
       ),
     },
 
@@ -399,10 +399,10 @@ const PlacedData = () => {
     },
     {
       field: 'experience',
-      headerName: 'Experience',
+      headerName: 'Experience (Years)',
       width: 150,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
+        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? `${params.value} Years` : 'N/A'}</Typography>
       ),
     },
     {
@@ -415,18 +415,18 @@ const PlacedData = () => {
     },
     {
       field: 'currentCTC',
-      headerName: 'Current CTC',
+      headerName: 'Current Monthly ₹',
       width: 150,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
+        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? `₹${params.value}` : 'N/A'}</Typography>
       ),
     },
     {
       field: 'expectedCTC',
-      headerName: 'Expected CTC',
+      headerName: 'Expected Monthly ₹',
       width: 150,
       renderCell: (params) => (
-        <Typography sx={{ fontSize: '0.875rem' }}>{params.value || 'N/A'}</Typography>
+        <Typography sx={{ fontSize: '0.875rem' }}>{params.value ? `₹${params.value}` : 'N/A'}</Typography>
       ),
     },
     {
