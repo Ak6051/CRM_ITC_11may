@@ -109,6 +109,6 @@ const addMultipleCandidates = async (req, res) => {
 };
 
 
-module.exports = { 
-  addMultipleCandidates, 
+module.exports = {
+  addMultipleCandidates,
 };

@@ -1,49 +1,9 @@
 const { uploadToS3 } = require('../middleware/gcsMulter');
 const Candidate = require('../models/candidateModal');
+const CandidateApplication = require('../models/CandidateApplication.model');
+const JobOpenings = require('../models/jobopennings.modal');
 const mongoose = require('mongoose');
 
-// ── Experience Format Converter ────────────────────────────────────────────
-// Converts user-friendly format to compact format (e.g., "2 Years" → "2y")
-const convertExperienceFormat = (experience) => {
-  if (!experience || typeof experience !== 'string') return experience;
-  
-  const exp = experience.trim();
-  
-  // Already in compact format
-  if (/^\d+y(\s+\d+m)?$|^\d+-\d+y$|^\d+\+y$|^\d+-?\d*m$|^Fresher$/i.test(exp)) {
-    return exp;
-  }
-  
-  // Convert "Fresher" (case insensitive)
-  if (/^fresher$/i.test(exp)) return 'Fresher';
-  
-  // Convert "X+ Years" → "X+y"
-  const plusYearsMatch = exp.match(/^(\d+)\+?\s*Years?$/i);
-  if (plusYearsMatch) return `${plusYearsMatch[1]}+y`;
-  
-  // Convert "X-Y Years" → "X-Yy"
-  const rangeYearsMatch = exp.match(/^(\d+)\s*-\s*(\d+)\s*Years?$/i);
-  if (rangeYearsMatch) return `${rangeYearsMatch[1]}-${rangeYearsMatch[2]}y`;
-  
-  // Convert "X Year(s) Y Month(s)" → "Xy Ym"
-  const yearMonthMatch = exp.match(/^(\d+)\s*Years?\s+(\d+)\s*Months?$/i);
-  if (yearMonthMatch) return `${yearMonthMatch[1]}y ${yearMonthMatch[2]}m`;
-  
-  // Convert "X Year(s)" → "Xy"
-  const yearsMatch = exp.match(/^(\d+)\s*Years?$/i);
-  if (yearsMatch) return `${yearsMatch[1]}y`;
-  
-  // Convert "X Month(s)" → "Xm"
-  const monthsMatch = exp.match(/^(\d+)\s*Months?$/i);
-  if (monthsMatch) return `${monthsMatch[1]}m`;
-  
-  // Convert "X-Y Months" → "X-Ym"
-  const rangeMonthsMatch = exp.match(/^(\d+)\s*-\s*(\d+)\s*Months?$/i);
-  if (rangeMonthsMatch) return `${rangeMonthsMatch[1]}-${rangeMonthsMatch[2]}m`;
-  
-  // Return as-is if no pattern matches
-  return exp;
-};
 
 // Create single candidate — saves to Candidate model
 const createCandidates = async (req, res) => {
@@ -68,22 +28,24 @@ const createCandidates = async (req, res) => {
     }
 
     const jobData = {
-      candidateName:  typeof req.body.name === 'string' ? req.body.name.trim() : String(req.body.name || '').trim(),
+      candidateName: typeof req.body.name === 'string' ? req.body.name.trim() : String(req.body.name || '').trim(),
       candidateEmail: typeof req.body.email === 'string' ? req.body.email.trim() : String(req.body.email || '').trim(),
       candidatePhone: phoneNumber,
-      positionName:    req.body.positionName    || '',
-      qualification:   req.body.qualification   || '',
-      experience:      convertExperienceFormat(req.body.experience) || '',
+      positionName: req.body.positionName || '',
+      qualification: req.body.qualification || '',
+      experience: Number(req.body.experience) || 0,
       currentLocation: req.body.currentLocation || '',
       preferredLocation: req.body.preferredLocation || '',
       currentPosition: req.body.currentPosition || '',
-      currentCTC:      req.body.currentCTC      || '',
-      expectedCTC:     req.body.expectedCTC     || '',
-      noticePeriod:    req.body.noticePeriod    || '',
-      reasonforLeaving:req.body.reasonforLeaving|| '',
-      currentCompany:  req.body.currentCompany  || '',
-      remark:          req.body.remark          || '',
-      createdBy:       req.user._id,
+      currentCTC: Number(req.body.currentCTC) || 0,
+      expectedCTC: Number(req.body.expectedCTC) || 0,
+      noticePeriod: Number(req.body.noticePeriod) || 0,
+      reasonforLeaving: req.body.reasonforLeaving || '',
+      currentCompany: req.body.currentCompany || '',
+      industry: req.body.industry || '',
+      gender: req.body.gender || '',
+      remark: req.body.remark || '',
+      createdBy: req.user._id,
     };
 
     if (req.file) {
@@ -93,6 +55,35 @@ const createCandidates = async (req, res) => {
 
     const newCandidate = new Candidate(jobData);
     await newCandidate.save();
+
+    // ── Handle direct assignment if assignedJobId is provided ──
+    if (req.body.assignedJobId) {
+      const job = await JobOpenings.findById(req.body.assignedJobId).lean();
+      if (job) {
+        const app = new CandidateApplication({
+          candidateId: newCandidate._id,
+          jobId: job._id,
+          positionName: job.jobTitle || '',
+          createdBy: req.user._id,
+          createdByName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+          assignedBy: req.user._id,
+          assignedAt: new Date(),
+          paymentStatus: 'Pending',
+        });
+        await app.save();
+
+        // Update the candidate's assignment info
+        await Candidate.findByIdAndUpdate(newCandidate._id, {
+          $set: {
+            jobId: job._id,
+            assignedTo: req.user._id,
+            assignedPosition: job._id,
+            assignedBy: req.user._id,
+            assignedAt: new Date(),
+          },
+        });
+      }
+    }
 
     res.status(201).json({ message: 'Candidate created successfully', job: newCandidate });
   } catch (error) {
@@ -139,22 +130,24 @@ const bulkUploadCandidates = async (req, res) => {
       }
 
       newCandidates.push({
-        candidateName:   typeof c.name === 'string' ? c.name.trim() : String(c.name || '').trim(),
-        candidateEmail:  typeof c.email === 'string' ? c.email.trim() : String(c.email || '').trim(),
-        candidatePhone:  phone,
-        positionName:    c.positionName    || '',
-        qualification:   c.qualification   || '',
-        experience:      convertExperienceFormat(c.experience) || '',
+        candidateName: typeof c.name === 'string' ? c.name.trim() : String(c.name || '').trim(),
+        candidateEmail: typeof c.email === 'string' ? c.email.trim() : String(c.email || '').trim(),
+        candidatePhone: phone,
+        positionName: c.positionName || '',
+        qualification: c.qualification || '',
+        experience: Number(c.experience) || 0,
         currentLocation: c.currentLocation || '',
         preferredLocation: c.preferredLocation || '',
         currentPosition: c.currentPosition || '',
-        currentCTC:      c.currentCTC      || '',
-        expectedCTC:     c.expectedCTC     || '',
-        noticePeriod:    c.noticePeriod    || '',
-        reasonforLeaving:c.reasonforLeaving|| '',
-        currentCompany:  c.currentCompany  || '',
-        remark:          c.remark          || '',
-        createdBy:       userId,
+        currentCTC: Number(c.currentCTC) || 0,
+        expectedCTC: Number(c.expectedCTC) || 0,
+        noticePeriod: Number(c.noticePeriod) || 0,
+        reasonforLeaving: c.reasonforLeaving || '',
+        currentCompany: c.currentCompany || '',
+        industry: c.industry || '',
+        gender: c.gender || '',
+        remark: c.remark || '',
+        createdBy: userId,
       });
     }
 
@@ -220,6 +213,43 @@ const updateCandidate = async (req, res) => {
       return res.status(404).json({ message: 'Candidate not found' });
     }
 
+    // ── Handle direct assignment if assignedJobId is provided ──
+    if (req.body.assignedJobId) {
+      const job = await JobOpenings.findById(req.body.assignedJobId).lean();
+      if (job) {
+        // Check if application already exists
+        const existingApp = await CandidateApplication.findOne({
+          candidateId: updatedCandidate._id,
+          jobId: job._id,
+        });
+
+        if (!existingApp) {
+          const app = new CandidateApplication({
+            candidateId: updatedCandidate._id,
+            jobId: job._id,
+            positionName: job.jobTitle || '',
+            createdBy: req.user._id,
+            createdByName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim(),
+            assignedBy: req.user._id,
+            assignedAt: new Date(),
+            paymentStatus: 'Pending',
+          });
+          await app.save();
+
+          // Update the candidate's assignment info
+          await Candidate.findByIdAndUpdate(updatedCandidate._id, {
+            $set: {
+              jobId: job._id,
+              assignedTo: req.user._id,
+              assignedPosition: job._id,
+              assignedBy: req.user._id,
+              assignedAt: new Date(),
+            },
+          });
+        }
+      }
+    }
+
     res.status(200).json(updatedCandidate);
   } catch (error) {
     console.error('Error updating candidate:', error);
@@ -260,10 +290,10 @@ const getMyCandidate = async (req, res) => {
 
     const mapped = candidates.map(c => ({
       ...c._doc,
-      name:        c.candidateName  || '',
-      email:       c.candidateEmail || '',
+      name: c.candidateName || '',
+      email: c.candidateEmail || '',
       phoneNumber: c.candidatePhone || '',
-      resumeLink:  c.resumeLink     || '',
+      resumeLink: c.resumeLink || '',
     }));
 
     res.status(200).json(mapped);
@@ -280,9 +310,9 @@ const getCombinedCandidates = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const page  = Math.max(1, parseInt(req.query.page)  || 1);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
-    const skip  = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
     const { name, location, createdBy, position, currentPosition, industry, startDate, endDate, minExp, maxExp, minCtc, maxCtc, maxNotice, phone, gender } = req.query;
 
@@ -327,126 +357,50 @@ const getCombinedCandidates = async (req, res) => {
       filterQuery.createdBy = { $in: effectiveCreatedByIds };
     }
 
-    if (name)            filterQuery.candidateName   = { $regex: name,            $options: 'i' };
-    if (location)        filterQuery.currentLocation = { $regex: location,        $options: 'i' };
-    if (position)        filterQuery.positionName    = { $regex: position,        $options: 'i' };
+    if (name) filterQuery.candidateName = { $regex: name, $options: 'i' };
+    if (location) filterQuery.currentLocation = { $regex: location, $options: 'i' };
+    if (position) filterQuery.positionName = { $regex: position, $options: 'i' };
     if (currentPosition) filterQuery.currentPosition = { $regex: currentPosition, $options: 'i' };
-    if (industry)        filterQuery.industry        = { $regex: industry,        $options: 'i' };
-    if (phone)           filterQuery.candidatePhone  = { $regex: phone,           $options: 'i' };
-    if (gender)          filterQuery.gender          = { $regex: `^${gender.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
+    if (industry) filterQuery.industry = { $regex: industry, $options: 'i' };
+    if (phone) filterQuery.candidatePhone = { $regex: phone, $options: 'i' };
+    if (gender) filterQuery.gender = { $regex: `^${gender.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
     if (startDate || endDate) {
       filterQuery.createdAt = {};
       if (startDate) filterQuery.createdAt.$gte = new Date(startDate);
-      if (endDate)   filterQuery.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
+      if (endDate) filterQuery.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
     }
 
-    // ── Helper: extract leading number from a string ────────────────────────
-    // "2 Years" → 2, "6 Months" → 0.5, "Fresher" → 0, "3-5 Years" → 3,
-    // "1 Year 6 Months" → 1.5, "2.40 LPA" → 2.40, "0-6 Months" → 0
-    const parseExpToYears = (fieldRef) => ({
-      $let: {
-        vars: {
-          raw: { $toLower: { $ifNull: [fieldRef, ''] } },
-        },
-        in: {
-          $switch: {
-            branches: [
-              // "fresher" → 0
-              { case: { $regexMatch: { input: '$$raw', regex: /^fresher$/i } }, then: 0 },
-              // "X Year(s) Y Month(s)" → X + Y/12
-              {
-                case: { $regexMatch: { input: '$$raw', regex: /(\d+)\s*year.*?(\d+)\s*month/i } },
-                then: {
-                  $add: [
-                    { $convert: { input: { $arrayElemAt: [{ $regexFind: { input: '$$raw', regex: /(\d+)\s*year/i } }, 0] }, to: 'double', onError: 0, onNull: 0 } },
-                    { $divide: [{ $convert: { input: { $arrayElemAt: [{ $regexFind: { input: '$$raw', regex: /(\d+)\s*month/i } }, 0] }, to: 'double', onError: 0, onNull: 0 } }, 12] },
-                  ],
-                },
-              },
-              // "X-Y Years" → X (lower bound)
-              { case: { $regexMatch: { input: '$$raw', regex: /(\d+)\s*-\s*\d+\s*year/i } }, then: { $convert: { input: { $arrayElemAt: [{ $split: ['$$raw', '-'] }, 0] }, to: 'double', onError: 0, onNull: 0 } } },
-              // "X+ Years" or "X Years" → X
-              { case: { $regexMatch: { input: '$$raw', regex: /(\d+).*year/i } }, then: { $convert: { input: { $arrayElemAt: [{ $regexFind: { input: '$$raw', regex: /\d+/ } }, 0] }, to: 'double', onError: 0, onNull: 0 } } },
-              // "X-Y Months" → X/12
-              { case: { $regexMatch: { input: '$$raw', regex: /(\d+)\s*-\s*\d+\s*month/i } }, then: { $divide: [{ $convert: { input: { $arrayElemAt: [{ $split: ['$$raw', '-'] }, 0] }, to: 'double', onError: 0, onNull: 0 } }, 12] } },
-              // "X Months" → X/12
-              { case: { $regexMatch: { input: '$$raw', regex: /(\d+)\s*month/i } }, then: { $divide: [{ $convert: { input: { $arrayElemAt: [{ $regexFind: { input: '$$raw', regex: /\d+/ } }, 0] }, to: 'double', onError: 0, onNull: 0 } }, 12] } },
-            ],
-            // fallback: try extracting leading number directly
-            default: { $convert: { input: { $ifNull: [{ $getField: { field: 'match', input: { $regexFind: { input: '$$raw', regex: /[\d.]+/ } } } }, '0'] }, to: 'double', onError: 0, onNull: 0 } },
-          },
-        },
-      },
-    });
-
-    // Helper: extract leading number from CTC strings ("2.40 LPA" → 2.40, "₹20000" → 20000)
-    const parseCTCToNum = (fieldRef) => ({
-      $convert: {
-        input: { $ifNull: [{ $getField: { field: 'match', input: { $regexFind: { input: { $ifNull: [fieldRef, '0'] }, regex: /[\d.]+/ } } } }, '0'] },
-        to: 'double', onError: 0, onNull: 0,
-      },
-    });
-
-    // Numeric filters (applied after $project via $expr)
+    // Numeric filters (applied directly since fields are now Numbers)
     const numericFilters = [];
-    if (minExp) numericFilters.push({ $gte: [parseExpToYears('$experience'), parseFloat(minExp)] });
-    if (maxExp) numericFilters.push({ $lte: [parseExpToYears('$experience'), parseFloat(maxExp)] });
-    if (minCtc) numericFilters.push({ $gte: [parseCTCToNum('$currentCTC'), parseFloat(minCtc)] });
-    if (maxCtc) numericFilters.push({ $lte: [parseCTCToNum('$currentCTC'), parseFloat(maxCtc)] });
-    // noticePeriod filter — extract leading number from strings like "30 Days", "Immediate" (=0), "1 Week" (=7)
-    if (maxNotice) {
-      const maxN = parseInt(maxNotice);
-      // Use $and to safely combine with existing filterQuery without overwriting $or
-      const noticeCondition = {
-        $or: [
-          { noticePeriod: { $regex: /^immediate$/i } },
-          {
-            $expr: {
-              $lte: [
-                {
-                  $convert: {
-                    input: { $arrayElemAt: [{ $split: [{ $ifNull: ['$noticePeriod', '0'] }, ' '] }, 0] },
-                    to: 'double',
-                    onError: 999,
-                    onNull: 999,
-                  },
-                },
-                maxN,
-              ],
-            },
-          },
-        ],
-      };
-      if (filterQuery.$and) {
-        filterQuery.$and.push(noticeCondition);
-      } else {
-        filterQuery.$and = [noticeCondition];
-      }
-    }
+    if (minExp) numericFilters.push({ $gte: ["$experience", parseFloat(minExp)] });
+    if (maxExp) numericFilters.push({ $lte: ["$experience", parseFloat(maxExp)] });
+    if (minCtc) numericFilters.push({ $gte: ["$currentCTC", parseFloat(minCtc)] });
+    if (maxCtc) numericFilters.push({ $lte: ["$currentCTC", parseFloat(maxCtc)] });
+    if (maxNotice) numericFilters.push({ $lte: ["$noticePeriod", parseFloat(maxNotice)] });
 
     const pipeline = [
       { $match: filterQuery },
       {
         $project: {
           _id: 1, createdBy: 1, createdAt: 1,
-          name:            { $ifNull: ['$candidateName',   ''] },
-          phoneNumber:     { $ifNull: ['$candidatePhone',  ''] },
-          email:           { $ifNull: ['$candidateEmail',  ''] },
-          gender:          { $ifNull: ['$gender',          ''] },
-          positionName:    { $ifNull: ['$positionName',    ''] },
-          experience:      { $ifNull: ['$experience',      ''] },
+          name: { $ifNull: ['$candidateName', ''] },
+          phoneNumber: { $ifNull: ['$candidatePhone', ''] },
+          email: { $ifNull: ['$candidateEmail', ''] },
+          gender: { $ifNull: ['$gender', ''] },
+          positionName: { $ifNull: ['$positionName', ''] },
+          experience: { $ifNull: ['$experience', ''] },
           currentLocation: { $ifNull: ['$currentLocation', ''] },
           preferredLocation: { $ifNull: ['$preferredLocation', ''] },
           currentPosition: { $ifNull: ['$currentPosition', ''] },
-          currentCTC:      { $ifNull: ['$currentCTC',      ''] },
-          expectedCTC:     { $ifNull: ['$expectedCTC',     ''] },
-          noticePeriod:    { $ifNull: ['$noticePeriod',    ''] },
-          reasonforLeaving:{ $ifNull: ['$reasonforLeaving',''] },
-          currentCompany:  { $ifNull: ['$currentCompany',  ''] },
-          industry:        { $ifNull: ['$industry',        ''] },
-          remark:          { $ifNull: ['$remark',          ''] },
-          resumeUpload:    { $ifNull: ['$resumeLink',      ''] },
-          qualification:   { $ifNull: ['$qualification',   ''] },
+          currentCTC: { $ifNull: ['$currentCTC', ''] },
+          expectedCTC: { $ifNull: ['$expectedCTC', ''] },
+          noticePeriod: { $ifNull: ['$noticePeriod', ''] },
+          reasonforLeaving: { $ifNull: ['$reasonforLeaving', ''] },
+          currentCompany: { $ifNull: ['$currentCompany', ''] },
+          industry: { $ifNull: ['$industry', ''] },
+          remark: { $ifNull: ['$remark', ''] },
+          resumeUpload: { $ifNull: ['$resumeLink', ''] },
+          qualification: { $ifNull: ['$qualification', ''] },
         },
       },
     ];
@@ -470,7 +424,7 @@ const getCombinedCandidates = async (req, res) => {
     const [result] = await Candidate.aggregate(pipeline, { allowDiskUse: true });
 
     const total = result.metadata[0]?.total || 0;
-    const data  = result.data.map(row => ({
+    const data = result.data.map(row => ({
       ...row,
       id: row._id,
       createdBy: userMap[row.createdBy?.toString()] || '',
