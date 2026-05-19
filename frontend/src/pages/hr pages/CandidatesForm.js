@@ -240,7 +240,7 @@ const CandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = false
       email: !formData.email.trim(),
       positionName: !formData.positionName.trim(),
       qualification: !formData.qualification.trim(),
-      experience: !formData.experience.trim(),
+      experience: !String(formData.experience).trim(),
       currentLocation: !formData.currentLocation.trim(),
       currentPosition: !formData.currentPosition.trim(),
       currentCTC: !String(formData.currentCTC).trim(),
@@ -412,6 +412,13 @@ const CandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = false
         if (missing.length) {
           rowErrors.push(`Row ${i + 2}: missing ${missing.join(', ')}`);
         } else {
+          // Check for valid phone number (must be 10 digits after non-digits are stripped)
+          const rawPhone = String(row.phoneNumber);
+          const cleanedPhone = rawPhone.replace(/\D/g, '').slice(-10);
+          if (!cleanedPhone || cleanedPhone.length !== 10) {
+            rowErrors.push(`Row ${i + 2}: phoneNumber must be a valid 10-digit number (found "${rawPhone}")`);
+          }
+
           // Check for numeric validity in specific fields
           const numericFields = ['currentCTC', 'expectedCTC', 'experience', 'noticePeriod'];
           numericFields.forEach(field => {
@@ -440,26 +447,44 @@ const CandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = false
         return;
       }
 
-      const processedData = jsonData.map(row => ({
-        ...row,
-        currentCTC: row.currentCTC != null ? Number(String(row.currentCTC).replace(/\D/g, '')) : row.currentCTC,
-        expectedCTC: row.expectedCTC != null ? Number(String(row.expectedCTC).replace(/\D/g, '')) : row.expectedCTC,
-        experience: row.experience != null ? Number(String(row.experience).replace(/\D/g, '')) : row.experience,
-        noticePeriod: row.noticePeriod != null ? Number(String(row.noticePeriod).replace(/\D/g, '')) : row.noticePeriod,
-      }));
+      const processedData = jsonData.map(row => {
+        const rawPhone = row.phoneNumber != null ? String(row.phoneNumber) : '';
+        const cleanedPhone = rawPhone.replace(/\D/g, '').slice(-10);
 
-      // ── Filter out rows missing phoneNumber (duplicate guard) ────────────
-      const validData = processedData.filter((row) => row.phoneNumber && String(row.phoneNumber).trim() !== "");
-      const invalidDataCount = processedData.length - validData.length;
+        return {
+          ...row,
+          phoneNumber: cleanedPhone,
+          currentCTC: row.currentCTC != null ? Number(String(row.currentCTC).replace(/\D/g, '')) : row.currentCTC,
+          expectedCTC: row.expectedCTC != null ? Number(String(row.expectedCTC).replace(/\D/g, '')) : row.expectedCTC,
+          experience: row.experience != null ? Number(String(row.experience).replace(/\D/g, '')) : row.experience,
+          noticePeriod: row.noticePeriod != null ? Number(String(row.noticePeriod).replace(/\D/g, '')) : row.noticePeriod,
+        };
+      });
+
+      // ── Filter out duplicate phone numbers within the sheet itself (self-de-duplication) ──
+      const validData = [];
+      const seenPhones = new Set();
+      let duplicateSheetCount = 0;
+
+      processedData.forEach((row) => {
+        if (row.phoneNumber && row.phoneNumber.length === 10) {
+          if (seenPhones.has(row.phoneNumber)) {
+            duplicateSheetCount++;
+          } else {
+            seenPhones.add(row.phoneNumber);
+            validData.push(row);
+          }
+        }
+      });
 
       if (validData.length === 0) {
-        toast.error("❌ All rows missing phone number. Cannot import.", { position: "top-right", autoClose: 5000 });
+        toast.error("❌ All rows missing valid 10-digit phone number. Cannot import.", { position: "top-right", autoClose: 5000 });
         setShowConfirmDialog(false);
         return;
       }
 
-      if (invalidDataCount > 0) {
-        toast.warn(`⚠️ ${invalidDataCount} rows skipped due to missing phone number`, {
+      if (duplicateSheetCount > 0) {
+        toast.warn(`⚠️ ${duplicateSheetCount} duplicate candidates inside the sheet were skipped.`, {
           position: "top-right", autoClose: 4000,
           style: { backgroundColor: "#fff8e1", color: "#ff6f00" },
         });

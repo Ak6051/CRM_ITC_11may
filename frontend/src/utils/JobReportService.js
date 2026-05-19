@@ -148,6 +148,20 @@ export const createSale = async (jobData ,isMultipart = false) => {
     }
   };
   
+  export const updateJobApproval = async (jobId, status) => {
+    try {
+      const response = await axios.put(`${API_URL}/update-approval/${jobId}`, { status }, {
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem('token')}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating job approval:', error);
+      throw error;
+    }
+  };
+  
 
 export const fetchHRUsers = async () => {
     const response = await axios.get(`${API_BASE_URL}/hr/hr-users`);

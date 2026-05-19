@@ -18,6 +18,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/sales components/SalesNavbar';
 import Sidebar from '../../components/sales components/Sidebar';
 import { API_BASE_URL } from '../../config/api.config';
@@ -42,22 +43,38 @@ const emptyForm = {
   agreementStartDate: '', agreementEndDate: '',
   invoiceNumber: '', paymentMode: '', paymentRemark: '',
   tokenAmount: '',
+  gstUpload: '',
+  agreementUpload: '',
+  leadId: '',
 };
 const emptyFiles = { gstUpload: null, agreementUpload: null, tokenUpload: null, otherDocumentUpload: null };
 
-function FileUploadField({ label, fieldName, file, onChange }) {
+function FileUploadField({ label, fieldName, file, existingUrl, onChange }) {
   const inputId = `req-file-${fieldName}`;
   return (
     <Box sx={{ p: 2, bgcolor: '#f8f9ff', borderRadius: '10px', border: '1px solid #e8eaf6' }}>
       <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 1 }}>
         {label}
       </Typography>
+      {existingUrl && !file && (
+        <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#fff', borderRadius: '8px', border: '1px solid #e8eaf6' }}>
+          <DescriptionIcon fontSize="small" sx={{ color: '#3f51b5' }} />
+          <Typography variant="caption" sx={{ flexGrow: 1, color: '#334155' }} noWrap>
+            Fetched from Lead
+          </Typography>
+          <Tooltip title="View">
+            <IconButton size="small" onClick={() => window.open(existingUrl, '_blank')}>
+              <VisibilityIcon fontSize="small" sx={{ color: '#3f51b5' }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
       <input type="file" id={inputId} accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
         onChange={e => onChange(fieldName, e.target.files[0] || null)} />
       <label htmlFor={inputId}>
         <Button variant="outlined" component="span" fullWidth size="small" startIcon={<CloudUploadIcon />}
           sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', fontSize: '0.8rem', textTransform: 'none' }}>
-          {file ? file.name : 'Upload PDF / Image'}
+          {file ? file.name : (existingUrl ? 'Replace File' : 'Upload PDF / Image')}
         </Button>
       </label>
       <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}>
@@ -94,6 +111,49 @@ export default function SalesCompanyCreate() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.state?.leadData) {
+      const lead = location.state.leadData;
+      setForm({
+        companyName: lead.companyName || '',
+        industries: lead.industry || '',
+        companyAddress: lead.fullAddress || '',
+        area: '',
+        city: lead.city || '',
+        state: lead.state || '',
+        country: lead.country || '',
+        pincode: '',
+        contactPerson: lead.leadName || '',
+        contactPersonDesignation: lead.designation || '',
+        contactNumber: lead.mobileNumber || '',
+        email: lead.email || '',
+        contactPerson2: '',
+        contactPerson2Designation: '',
+        contactNumber2: '',
+        email2: '',
+        websiteUrl: lead.websiteUrl || '',
+        gpsLocation: '',
+        agreementStartDate: '',
+        agreementEndDate: '',
+        invoiceNumber: '',
+        paymentMode: '',
+        paymentRemark: '',
+        tokenAmount: '',
+        gstUpload: lead.gstUpload || '',
+        agreementUpload: lead.agreementUpload || '',
+        leadId: lead._id || '',
+      });
+      setFiles(emptyFiles);
+      setIsResubmit(false);
+      setDialogOpen(true);
+      // Clear location state so refreshing doesn't open the dialog again
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -123,6 +183,10 @@ export default function SalesCompanyCreate() {
     if (!form.companyName.trim()) { toast.error('Company name is required'); return; }
     if (form.tokenAmount !== '' && isNaN(Number(form.tokenAmount))) {
       toast.error('Token amount must be a number'); return;
+    }
+    if (!form.agreementUpload && !files.agreementUpload) {
+      toast.error('Agreement document is required!');
+      return;
     }
     setSaving(true);
     try {
@@ -454,8 +518,8 @@ export default function SalesCompanyCreate() {
                 </Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} sm={4}><FileUploadField label="GST Upload" fieldName="gstUpload" file={files.gstUpload} onChange={handleFile} /></Grid>
-            <Grid item xs={12} sm={4}><FileUploadField label="Signed Agreement Upload" fieldName="agreementUpload" file={files.agreementUpload} onChange={handleFile} /></Grid>
+            <Grid item xs={12} sm={4}><FileUploadField label="GST Upload" fieldName="gstUpload" file={files.gstUpload} existingUrl={form.gstUpload} onChange={handleFile} /></Grid>
+            <Grid item xs={12} sm={4}><FileUploadField label="Signed Agreement Upload" fieldName="agreementUpload" file={files.agreementUpload} existingUrl={form.agreementUpload} onChange={handleFile} /></Grid>
             <Grid item xs={12} sm={4}><FileUploadField label="Other Document Upload" fieldName="otherDocumentUpload" file={files.otherDocumentUpload} onChange={handleFile} /></Grid>
             {/* Agreement dates */}
             <Grid item xs={12} sm={6}>

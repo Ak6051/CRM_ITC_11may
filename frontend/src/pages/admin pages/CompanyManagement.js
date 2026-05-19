@@ -402,9 +402,9 @@ export default function CompanyManagement() {
   // ── save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     const errs = validateCompanyForm(
-      { ...form, _agreementFile: files.agreementUpload || editCompany?.agreementUpload },
+      { ...form, _agreementFile: files.agreementUpload || editCompany?.agreementUpload || approveRequest?.agreementUpload },
       companies,
-      editCompany?._id
+      editCompany?._id || (approveRequest ? 'exists' : null)
     );
     if (Object.keys(errs).length) { setFormErrors(errs); return; }
 
@@ -1400,10 +1400,10 @@ export default function CompanyManagement() {
             </Grid>
 
             <Grid item xs={12} sm={4}>
-              <FileUploadField label="GST Upload" fieldName="gstUpload" file={files.gstUpload} existingUrl={editCompany?.gstUpload} onChange={handleFile} />
+              <FileUploadField label="GST Upload" fieldName="gstUpload" file={files.gstUpload} existingUrl={editCompany?.gstUpload || approveRequest?.gstUpload} onChange={handleFile} />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <FileUploadField label="Signed Agreement Upload *" fieldName="agreementUpload" file={files.agreementUpload} existingUrl={editCompany?.agreementUpload} onChange={handleFile} />
+              <FileUploadField label="Signed Agreement Upload *" fieldName="agreementUpload" file={files.agreementUpload} existingUrl={editCompany?.agreementUpload || approveRequest?.agreementUpload} onChange={handleFile} />
               {formErrors.agreementUpload && (
                 <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block', pl: 0.5 }}>
                   {formErrors.agreementUpload}
@@ -1411,7 +1411,7 @@ export default function CompanyManagement() {
               )}
             </Grid>
             <Grid item xs={12} sm={4}>
-              <FileUploadField label="Other Document Upload" fieldName="otherDocumentUpload" file={files.otherDocumentUpload} existingUrl={editCompany?.otherDocumentUpload} onChange={handleFile} />
+              <FileUploadField label="Other Document Upload" fieldName="otherDocumentUpload" file={files.otherDocumentUpload} existingUrl={editCompany?.otherDocumentUpload || approveRequest?.otherDocumentUpload} onChange={handleFile} />
             </Grid>
             {/* Agreement dates */}
             <Grid item xs={12} sm={6}>
@@ -1491,7 +1491,7 @@ export default function CompanyManagement() {
             {/* Bank → show token upload */}
             {form.paymentMode === 'Bank' && (
               <Grid item xs={12} sm={6}>
-                <FileUploadField label="Token Payment Upload" fieldName="tokenUpload" file={files.tokenUpload} existingUrl={editCompany?.tokenUpload} onChange={handleFile} />
+                <FileUploadField label="Token Payment Upload" fieldName="tokenUpload" file={files.tokenUpload} existingUrl={editCompany?.tokenUpload || approveRequest?.tokenUpload} onChange={handleFile} />
               </Grid>
             )}
 

@@ -11,8 +11,10 @@ import {
   Modal,
   Link,
   Snackbar,
-  Alert,  
+  Alert,
   Tooltip,
+  Drawer,
+  Chip,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 
@@ -32,6 +34,8 @@ import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import BusinessIcon from '@mui/icons-material/Business';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Autocomplete } from '@mui/material';
 import axios from 'axios';
 import { API_BASE_URL, SOCKET_URL } from '../../config/api.config';
@@ -70,24 +74,24 @@ const JobReportDialog = ({ open, onClose }) => {
   }, [open]);
 
   const reportColumns = [
-    { field: 'companyName',          headerName: 'Company Name',          width: 180 },
-    { field: 'jobTitle',             headerName: 'Job Title',             width: 150 },
-    { field: 'numberOfRequirements', headerName: 'Requirements',          width: 130 },
-    { field: 'salary',               headerName: 'Salary',                width: 130 },
-    { field: 'jobTiming',            headerName: 'Job Timing',            width: 150 },
-    { field: 'jobLocation',          headerName: 'Job Location',          width: 140 },
-    { field: 'education',            headerName: 'Education',             width: 130 },
-    { field: 'experience',           headerName: 'Experience',            width: 120 },
-    { field: 'gender',               headerName: 'Gender',                width: 100 },
-    { field: 'requiredSkills',       headerName: 'Required Skills',       width: 180 },
-    { field: 'keyResponsibility',    headerName: 'Key Responsibility',    width: 200 },
-    { field: 'industries',           headerName: 'Industries',            width: 140 },
-    { field: 'contactName',          headerName: 'Contact Name',          width: 140 },
-    { field: 'email',                headerName: 'Email',                 width: 180 },
-    { field: 'phoneNumber',          headerName: 'Phone',                 width: 130 },
-    { field: 'response',             headerName: 'Response',              width: 130 },
-    { field: 'benefits',             headerName: 'Benefits',              width: 140 },
-    { field: 'remarks',              headerName: 'Remarks',               width: 160 },
+    { field: 'companyName', headerName: 'Company Name', width: 180 },
+    { field: 'jobTitle', headerName: 'Job Title', width: 150 },
+    { field: 'numberOfRequirements', headerName: 'Requirements', width: 130 },
+    { field: 'salary', headerName: 'Salary', width: 130 },
+    { field: 'jobTiming', headerName: 'Job Timing', width: 150 },
+    { field: 'jobLocation', headerName: 'Job Location', width: 140 },
+    { field: 'education', headerName: 'Education', width: 130 },
+    { field: 'experience', headerName: 'Experience', width: 120 },
+    { field: 'gender', headerName: 'Gender', width: 100 },
+    { field: 'requiredSkills', headerName: 'Required Skills', width: 180 },
+    { field: 'keyResponsibility', headerName: 'Key Responsibility', width: 200 },
+    { field: 'industries', headerName: 'Industries', width: 140 },
+    { field: 'contactName', headerName: 'Contact Name', width: 140 },
+    { field: 'email', headerName: 'Email', width: 180 },
+    { field: 'phoneNumber', headerName: 'Phone', width: 130 },
+    { field: 'response', headerName: 'Response', width: 130 },
+    { field: 'benefits', headerName: 'Benefits', width: 140 },
+    { field: 'remarks', headerName: 'Remarks', width: 160 },
     {
       field: 'agreementSigned', headerName: 'Agreement', width: 130,
       renderCell: (p) => {
@@ -232,8 +236,8 @@ const JobOpeningsDashboard = () => {
     experience: '',
     salary: '',
     jobLocation: '',
-    jobTiming:'',
-    gender:'',
+    jobTiming: '',
+    gender: '',
     remarks: '',
     agreementSigned: null,
     //description: '',
@@ -266,18 +270,18 @@ const JobOpeningsDashboard = () => {
     email: '',
     phoneNumber: ''
   });
-const [selectedSale, setSelectedSale] = useState(null);
-const [rescheduleDate, setRescheduleDate] = useState('');
-const [rescheduleReason, setRescheduleReason] = useState('');
+  const [selectedSale, setSelectedSale] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
 
-const [reminderMessage, setReminderMessage] = useState('');
-const [reminderDate, setReminderDate] = useState(null);
-const [reminderList, setReminderList] = useState([]);
-const [openSnackbar, setOpenSnackbar] = useState(false);
-const [snackbarMessage, setSnackbarMessage] = useState('');
-const [jobReportOpen, setJobReportOpen] = useState(false);
+  const [reminderMessage, setReminderMessage] = useState('');
+  const [reminderDate, setReminderDate] = useState(null);
+  const [reminderList, setReminderList] = useState([]);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [jobReportOpen, setJobReportOpen] = useState(false);
+  const [detailPanel, setDetailPanel] = useState({ open: false, row: null, view: 'company' });
   const [fileError, setFileError] = useState('');
-
   const shownReminders = useRef(new Set());
 
   useEffect(() => {
@@ -350,42 +354,42 @@ const [jobReportOpen, setJobReportOpen] = useState(false);
 
 
 
-const handleCloseSnackbar = (event, reason) => {
-  if (reason === 'clickaway') return;
-  setOpenSnackbar(false);
-};
+  const handleCloseSnackbar = (event, reason) => {
+    if (reason === 'clickaway') return;
+    setOpenSnackbar(false);
+  };
 
-const handleOpenRescheduleDialog = (row) => {
-  setSelectedSale(row);
-  setOpenReschedule(true);
-};
+  const handleOpenRescheduleDialog = (row) => {
+    setSelectedSale(row);
+    setOpenReschedule(true);
+  };
 
-const handleSubmitReschedule = async () => {
-  try {
-    const token = sessionStorage.getItem('token'); // Get token from sessionStorage
+  const handleSubmitReschedule = async () => {
+    try {
+      const token = sessionStorage.getItem('token'); // Get token from sessionStorage
 
-    await axios.post(
-      `${API_BASE_URL}/panel/reschedule`,
-      {
-        salesId: selectedSale._id,
-        newDate: rescheduleDate,
-        reason: rescheduleReason
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`, // Add token in Authorization header
+      await axios.post(
+        `${API_BASE_URL}/panel/reschedule`,
+        {
+          salesId: selectedSale._id,
+          newDate: rescheduleDate,
+          reason: rescheduleReason
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Add token in Authorization header
+          }
         }
-      }
-    );
+      );
 
-    toast.success('Meeting Rescheduled!');
-    setOpenReschedule(false);
-    getJobData(); // re-fetch the updated list
-  } catch (err) {
-    console.error(err);
-    toast.error('Failed to reschedule');
-  }
-};
+      toast.success('Meeting Rescheduled!');
+      setOpenReschedule(false);
+      getJobData(); // re-fetch the updated list
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to reschedule');
+    }
+  };
 
 
 
@@ -469,7 +473,7 @@ const handleSubmitReschedule = async () => {
   const validateFileSize = (file) => {
     const maxSizeMB = 1;
     const maxSizeBytes = maxSizeMB * 1024 * 1024; // 1MB in bytes
-    
+
     if (file.size > maxSizeBytes) {
       setFileError(`File size exceeds ${maxSizeMB}MB`);
       toast.error(`File size should not exceed ${maxSizeMB}MB`);
@@ -565,9 +569,9 @@ const handleSubmitReschedule = async () => {
     setProgress(20); // Start fake progress
     setError(false);
     setDone(false);
-  
+
     const token = sessionStorage.getItem('token');
-  
+
     const conversionData = {
       ...selectedConvertRow,
       _id: selectedConvertRow._id,
@@ -576,7 +580,7 @@ const handleSubmitReschedule = async () => {
       descriptionFile: selectedConvertRow.descriptionFile || '',
       companyId: selectedConvertRow.companyId,
     };
-  
+
     try {
       const response = await fetch(`${API_BASE_URL}/panel/sales-convert`, {
         method: 'POST',
@@ -586,9 +590,9 @@ const handleSubmitReschedule = async () => {
         },
         body: JSON.stringify(conversionData),
       });
-  
+
       setProgress(70);
-  
+
       if (!response.ok) {
         const errorData = await response.json();
         toast.error(errorData.message || 'Conversion failed');
@@ -597,12 +601,12 @@ const handleSubmitReschedule = async () => {
         resetConversionStates();
         return;
       }
-  
+
       const result = await response.json();
       toast.success('Conversion successful!');
       setProgress(100);
       setDone(true);
-  
+
       setTimeout(() => {
         setVerifyModalOpen(false);
         resetConversionStates();
@@ -615,7 +619,7 @@ const handleSubmitReschedule = async () => {
       resetConversionStates();
     }
   };
-  
+
 
 
 
@@ -668,23 +672,23 @@ const handleSubmitReschedule = async () => {
       setSelectedId(data._id || data.id);
       setFormData({
         companyName: data?.companyName || '',
-        companyId:   data?.companyId ? Number(data.companyId) : '',
-        branchId:    data?.branchId   || '',
-        branchName:  data?.branchName || '',
-        jobTitle:             data?.jobTitle             || '',
-        jobLocation:          data?.jobLocation          || '',
+        companyId: data?.companyId ? Number(data.companyId) : '',
+        branchId: data?.branchId || '',
+        branchName: data?.branchName || '',
+        jobTitle: data?.jobTitle || '',
+        jobLocation: data?.jobLocation || '',
         numberOfRequirements: data?.numberOfRequirements || '',
-        jobTiming:            data?.jobTiming            || '',
-        education:            data?.education            || '',
-        gender:               data?.gender               || '',
-        salary:               data?.salary               || '',
-        experience:           data?.experience           || '',
-        requiredSkills:       data?.requiredSkills       || '',
-        keyResponsibility:    data?.keyResponsibility    || '',
-        benefits:             data?.benefits             || '',
-        response:             data?.response             || '',
-        remarks:              data?.remarks              || '',
-        descriptionFile:      null,
+        jobTiming: data?.jobTiming || '',
+        education: data?.education || '',
+        gender: data?.gender || '',
+        salary: data?.salary || '',
+        experience: data?.experience || '',
+        requiredSkills: data?.requiredSkills || '',
+        keyResponsibility: data?.keyResponsibility || '',
+        benefits: data?.benefits || '',
+        response: data?.response || '',
+        remarks: data?.remarks || '',
+        descriptionFile: data?.descriptionFile || null,
       });
       // Restore branch selection
       if (data.branchId) {
@@ -695,13 +699,27 @@ const handleSubmitReschedule = async () => {
         setSelectedBranch(null);
       }
 
-      // Parse existing jobTiming into start/end parts
-      if (data.jobTiming && data.jobTiming.includes(' - ')) {
-        const [start, end] = data.jobTiming.split(' - ');
-        setJobTimingStart(start.trim());
-        setJobTimingEnd(end.trim());
+      // Parse existing jobTiming into start/end parts (handles "9:00 AM - 6:00 PM", "9:30am to 6:30pm", "9:00-6:00" etc.)
+      if (data.jobTiming) {
+        const timing = data.jobTiming.trim();
+        // Try splitting by ' - ', ' to ', '-' (in priority order)
+        let parts = null;
+        if (timing.includes(' - ')) {
+          parts = timing.split(' - ');
+        } else if (timing.toLowerCase().includes(' to ')) {
+          parts = timing.toLowerCase().split(' to ');
+        } else if (timing.includes('-')) {
+          parts = timing.split('-');
+        }
+        if (parts && parts.length >= 2) {
+          setJobTimingStart(parts[0].trim());
+          setJobTimingEnd(parts[1].trim());
+        } else {
+          setJobTimingStart(timing);
+          setJobTimingEnd('');
+        }
       } else {
-        setJobTimingStart(data.jobTiming || '');
+        setJobTimingStart('');
         setJobTimingEnd('');
       }
     } else {
@@ -746,8 +764,8 @@ const handleSubmitReschedule = async () => {
       experience: '',
       salary: '',
       jobLocation: '',
-      jobTiming:'',
-      gender:'',
+      jobTiming: '',
+      gender: '',
       remarks: '',
       agreementSigned: null,
       //description: '',
@@ -782,7 +800,7 @@ const handleSubmitReschedule = async () => {
     }
 
     const errors = { ...validationErrors };
-    
+
     // Validate email format
     if (name === 'email' && value) {
       if (!validateEmail(value)) {
@@ -791,7 +809,7 @@ const handleSubmitReschedule = async () => {
         delete errors.email;
       }
     }
-    
+
     // // Validate phone number format
     // if (name === 'phoneNumber' && value) {
     //   if (!validatePhoneNumber(value)) {
@@ -800,7 +818,7 @@ const handleSubmitReschedule = async () => {
     //     delete errors.phoneNumber;
     //   }
     // }
-    
+
     setValidationErrors(errors);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -840,13 +858,14 @@ const handleSubmitReschedule = async () => {
 
     // Validate required fields
     const newErrors = {};
-    if (!formData.companyName)          newErrors.companyName          = true;
-    if (!formData.jobTitle?.trim())     newErrors.jobTitle             = true;
-    if (!formData.jobLocation?.trim())  newErrors.jobLocation          = true;
+    if (!formData.companyName) newErrors.companyName = true;
+    if (!formData.jobTitle?.trim()) newErrors.jobTitle = true;
+    if (!formData.jobLocation?.trim()) newErrors.jobLocation = true;
     if (!formData.numberOfRequirements) newErrors.numberOfRequirements = true;
-    if (!formData.experience?.trim())   newErrors.experience           = true;
-    if (!formData.education?.trim())    newErrors.education            = true;
-    if (!formData.requiredSkills?.trim())newErrors.requiredSkills       = true;
+    if (!formData.experience?.trim()) newErrors.experience = true;
+    if (!formData.education?.trim()) newErrors.education = true;
+    if (!formData.requiredSkills?.trim()) newErrors.requiredSkills = true;
+    if (!formData.descriptionFile) newErrors.descriptionFile = true;
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       toast.error('Please fill in all required fields');
@@ -957,10 +976,10 @@ const handleSubmitReschedule = async () => {
     setIsImporting(true);
     setImportProgress(10);
     const toastId = toast.loading('Starting import process...');
-    
+
     try {
       const token = sessionStorage.getItem('token');
-      
+
       // Simulate progress
       const updateProgress = (progress) => {
         setImportProgress(progress);
@@ -970,7 +989,7 @@ const handleSubmitReschedule = async () => {
           autoClose: false
         });
       };
-      
+
       // Update progress every 500ms
       const progressInterval = setInterval(() => {
         setImportProgress(prev => {
@@ -991,7 +1010,7 @@ const handleSubmitReschedule = async () => {
 
       clearInterval(progressInterval);
       setImportProgress(100);
-      
+
       if (response.ok) {
         await getJobData();
         toast.update(toastId, {
@@ -1019,52 +1038,52 @@ const handleSubmitReschedule = async () => {
     }
   };
 
-    const jobTemplateHeaders = [
-      'companyName',
-      'jobTitle',
-      'numberOfRequirements',
-      'salary',
-      'jobTiming',
-      'jobLocation',
-      'education',
-      'experience',
-      'websiteURL',
-      'industries',
-      'phoneNumber',
-      'response',
-      'benefits',
-      'contactName',
-      'email',
-      'companyAddress',
-      'gender',
-      'keyResponsibility',
-      'requiredSkills',
-      'remarks',
-      // â›”ï¸ excluded: assignedHR, agreementSigned, descriptionFile, companyId
-    ];
-    
-  
-    const handleDownloadJobTemplate = () => {
-      const worksheetData = [jobTemplateHeaders]; // Header row only
-      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'JobTemplate');
-    
-      XLSX.writeFile(workbook, 'job_import_template.xlsx');
-    };
-    
+  const jobTemplateHeaders = [
+    'companyName',
+    'jobTitle',
+    'numberOfRequirements',
+    'salary',
+    'jobTiming',
+    'jobLocation',
+    'education',
+    'experience',
+    'websiteURL',
+    'industries',
+    'phoneNumber',
+    'response',
+    'benefits',
+    'contactName',
+    'email',
+    'companyAddress',
+    'gender',
+    'keyResponsibility',
+    'requiredSkills',
+    'remarks',
+    // â›”ï¸ excluded: assignedHR, agreementSigned, descriptionFile, companyId
+  ];
 
 
-    const columns = [
+  const handleDownloadJobTemplate = () => {
+    const worksheetData = [jobTemplateHeaders]; // Header row only
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'JobTemplate');
+
+    XLSX.writeFile(workbook, 'job_import_template.xlsx');
+  };
+
+
+
+  const columns = [
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 200,
+      width: 150,
       renderCell: (params) => (
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Button 
-            variant="outlined" 
-            size="small" 
+          <Button
+            variant="outlined"
+            size="small"
             onClick={(e) => {
               e.stopPropagation();
               handleOpen(params.row);
@@ -1086,23 +1105,69 @@ const handleSubmitReschedule = async () => {
         </div>
       )
     },
-
-    { 
-      field: 'companyName', 
-      headerName: 'Company / Branch', 
-      width: 260,
-      renderCell: (params) => (
-        <Tooltip title={params.value || ''} arrow>
-          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {params.value}
-          </div>
-        </Tooltip>
-      )
+    {
+      field: 'approvalStatus',
+      headerName: 'Status',
+      width: 130,
+      renderCell: (params) => {
+        const status = params.row.approvalStatus || 'Approved';
+        let color = 'warning';
+        let label = 'Pending';
+        if (status === 'Approved') {
+          color = 'success';
+          label = 'Accepted';
+        } else if (status === 'Rejected') {
+          color = 'error';
+          label = 'Rejected';
+        }
+        return <Chip label={label} color={color} size="small" variant="outlined" />;
+      }
     },
 
-    { 
-      field: 'jobTitle', 
-      headerName: 'Job Title', 
+    {
+      field: 'companyName',
+      headerName: 'Company / Branch',
+      width: 160,
+      renderCell: (params) => {
+        const row = params.row;
+        const hasBranch = !!row.branchName || !!row.br_branchName;
+        const branchDisplayName = row.branchName || row.br_branchName;
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%', overflow: 'hidden' }}>
+            <Tooltip title="Click to view company details" arrow>
+              <span
+                onClick={(e) => { e.stopPropagation(); setDetailPanel({ open: true, row, view: 'company' }); }}
+                style={{
+                  color: '#3f51b5', fontWeight: 600, fontSize: '0.82rem',
+                  cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  textDecoration: 'underline', textDecorationStyle: 'dotted',
+                }}
+              >
+                {row.companyName || '—'}
+              </span>
+            </Tooltip>
+            {hasBranch && (
+              <Tooltip title="Click to view branch details" arrow>
+                <Chip
+                  label={branchDisplayName}
+                  size="small"
+                  onClick={(e) => { e.stopPropagation(); setDetailPanel({ open: true, row, view: 'branch' }); }}
+                  sx={{
+                    bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 700,
+                    fontSize: '0.62rem', height: 18, cursor: 'pointer', flexShrink: 0,
+                    '&:hover': { bgcolor: '#c8e6c9' },
+                  }}
+                />
+              </Tooltip>
+            )}
+          </Box>
+        );
+      }
+    },
+
+    {
+      field: 'jobTitle',
+      headerName: 'Job Title',
       width: 150,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
@@ -1113,10 +1178,10 @@ const handleSubmitReschedule = async () => {
       )
     },
 
-    { 
-      field: 'numberOfRequirements', 
-      headerName: 'No. of Requirements', 
-      width: 170,
+    {
+      field: 'numberOfRequirements',
+      headerName: 'No. of Requirements',
+      width: 100,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -1126,9 +1191,48 @@ const handleSubmitReschedule = async () => {
       )
     },
 
-    { 
-      field: 'salary', 
-      headerName: 'Salary', 
+    {
+      field: 'salary',
+      headerName: 'Salary',
+      width: 100,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
+      field: 'jobTiming',
+      headerName: 'Job Timing',
+      width: 100,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
+      field: 'jobLocation',
+      headerName: 'Job Location',
+      width: 100,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
+      field: 'education',
+      headerName: 'Education',
       width: 150,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
@@ -1139,48 +1243,9 @@ const handleSubmitReschedule = async () => {
       )
     },
 
-    { 
-      field: 'jobTiming', 
-      headerName: 'Job Timing', 
-      width: 150,
-      renderCell: (params) => (
-        <Tooltip title={params.value || ''} arrow>
-          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {params.value}
-          </div>
-        </Tooltip>
-      )
-    },
-
-    { 
-      field: 'jobLocation', 
-      headerName: 'Job Location', 
-      width: 150,
-      renderCell: (params) => (
-        <Tooltip title={params.value || ''} arrow>
-          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {params.value}
-          </div>
-        </Tooltip>
-      )
-    },
-
-    { 
-      field: 'education', 
-      headerName: 'Education', 
-      width: 150,
-      renderCell: (params) => (
-        <Tooltip title={params.value || ''} arrow>
-          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {params.value}
-          </div>
-        </Tooltip>
-      )
-    },
-
-    { 
-      field: 'experience', 
-      headerName: 'Experience', 
+    {
+      field: 'experience',
+      headerName: 'Experience',
       width: 150,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
@@ -1206,6 +1271,8 @@ const handleSubmitReschedule = async () => {
         );
       }
     },
+
+
 
     {
       field: 'response',
@@ -1233,9 +1300,9 @@ const handleSubmitReschedule = async () => {
       )
     },
 
-    { 
-      field: 'keyResponsibility', 
-      headerName: 'Key Responsibility', 
+    {
+      field: 'keyResponsibility',
+      headerName: 'Key Responsibility',
       width: 200,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
@@ -1245,10 +1312,10 @@ const handleSubmitReschedule = async () => {
         </Tooltip>
       )
     },
-    
-    { 
-      field: 'requiredSkills', 
-      headerName: 'Required Skills', 
+
+    {
+      field: 'requiredSkills',
+      headerName: 'Required Skills',
       width: 200,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
@@ -1272,13 +1339,13 @@ const handleSubmitReschedule = async () => {
               View PDF
             </a>
           </Tooltip>
-        ) : <span>â€”</span>;
+        ) : <span>-</span>;
       },
     },
 
-    { 
-      field: 'remarks', 
-      headerName: 'Remarks', 
+    {
+      field: 'remarks',
+      headerName: 'Remarks',
       width: 150,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
@@ -1294,7 +1361,7 @@ const handleSubmitReschedule = async () => {
       headerName: 'Rescheduled Date',
       width: 180,
       renderCell: (params) => {
-        if (!params.value) return 'â€”';
+        if (!params.value) return '-';
         const date = new Date(params.value);
         const formattedDate = date.toLocaleString();
         return (
@@ -1306,10 +1373,10 @@ const handleSubmitReschedule = async () => {
         );
       },
     },
-    
-    { 
-      field: 'rescheduleReason', 
-      headerName: 'Reschedule Reason', 
+
+    {
+      field: 'rescheduleReason',
+      headerName: 'Reschedule Reason',
       width: 200,
       renderCell: (params) => (
         <Tooltip title={params.value || ''} arrow>
@@ -1320,26 +1387,6 @@ const handleSubmitReschedule = async () => {
       )
     },
 
-    {
-      field: 'convert',
-      headerName: 'Convert',
-      width: 120,
-      renderCell: (params) => (
-        <button
-          style={{
-            backgroundColor: '#43a047',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            padding: '4px 10px',
-            cursor: 'pointer',
-          }}
-          onClick={() => handleConvert(params.row)}
-        >
-          Convert
-        </button>
-      )
-    },
 
     {
       field: 'reschedule',
@@ -1355,7 +1402,7 @@ const handleSubmitReschedule = async () => {
         </Button>
       )
     },
-    
+
   ];
 
 
@@ -1456,7 +1503,7 @@ const handleSubmitReschedule = async () => {
             </Box>
 
 
-            {/* â”€â”€ Job Opening Modal (Admin-style) â”€â”€ */}
+            {/* ── Job Opening Modal (Admin-style) ── */}
             <Modal open={open} onClose={null} disableEscapeKeyDown aria-labelledby="sales-job-form-modal">
               <Box component="form" onSubmit={handleSubmit} sx={{
                 position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
@@ -1477,7 +1524,8 @@ const handleSubmitReschedule = async () => {
                   </IconButton>
                 </Box>
 
-                <Grid container spacing={3} sx={{ flexGrow: 1, overflowY: 'auto', p: 3,
+                <Grid container spacing={3} sx={{
+                  flexGrow: 1, overflowY: 'auto', p: 3,
                   '&::-webkit-scrollbar': { width: 6 },
                   '&::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 3 },
                 }}>
@@ -1488,9 +1536,9 @@ const handleSubmitReschedule = async () => {
                     <Autocomplete
                       options={companyOptions || []}
                       getOptionLabel={(option) =>
-                        option ? `${option.companyName}${option.companyId ? ` (ID: ${option.companyId})` : ''}` : ''
+                        option ? option.companyName : ''
                       }
-                      value={companyOptions.find(c => c.companyId === formData.companyId) || null}
+                      value={companyOptions.find(c => c.companyId === formData.companyId) || (formData.companyName ? { companyName: formData.companyName, companyId: formData.companyId } : null)}
                       onChange={(e, value) => {
                         if (value) {
                           setFormData(prev => ({ ...prev, companyName: value.companyName, companyId: value.companyId }));
@@ -1511,7 +1559,7 @@ const handleSubmitReschedule = async () => {
                           <Box>
                             <Typography variant="body2" fontWeight={600}>{option.companyName}</Typography>
                             <Typography variant="caption" color="text.secondary">
-                              ID: {option.companyId}{option.city ? ` â€¢ ${option.city}` : ''}{option.industries ? ` â€¢ ${option.industries}` : ''}
+                              {[option.city, option.industries].filter(Boolean).join(' • ')}
                             </Typography>
                           </Box>
                         </li>
@@ -1536,7 +1584,7 @@ const handleSubmitReschedule = async () => {
                           }}
                           renderInput={(params) => (
                             <TextField {...params} label="Select Branch"
-                              helperText={!formData.companyId ? 'Select a company first' : !hasBranches ? 'No branches for this company' : 'Optional â€” select a branch'}
+                              helperText={!formData.companyId ? 'Select a company first' : !hasBranches ? 'No branches for this company' : 'Optional - select a branch'}
                               sx={{ '& .MuiOutlinedInput-root': { bgcolor: !hasBranches ? '#f5f5f5' : undefined } }} />
                           )}
                           renderOption={(props, option) => (
@@ -1544,7 +1592,7 @@ const handleSubmitReschedule = async () => {
                               <Box>
                                 <Typography variant="body2" fontWeight={600}>{option.branchName}</Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {[option.city, option.area].filter(Boolean).join(' â€¢ ')}
+                                  {[option.city, option.area].filter(Boolean).join(' • ')}
                                 </Typography>
                               </Box>
                             </li>
@@ -1578,7 +1626,18 @@ const handleSubmitReschedule = async () => {
                             <TextField
                               label="Start Time"
                               type="time"
-                              value={jobTimingStart ? (() => { const [h,m] = jobTimingStart.split(':'); const hh = parseInt(h); return `${String(hh > 12 ? hh - 12 : hh || 12).padStart(2,'0')}:${m}`; })() : ''}
+                              value={jobTimingStart ? (() => {
+                                // Parse "9:00am", "9:00 AM", "09:00AM", "9:30pm" etc. to 24h "HH:MM"
+                                const cleaned = jobTimingStart.trim().toLowerCase();
+                                const match = cleaned.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/);
+                                if (!match) return '';
+                                let hh = parseInt(match[1]);
+                                const mm = match[2];
+                                const period = match[3];
+                                if (period === 'pm' && hh < 12) hh += 12;
+                                if (period === 'am' && hh === 12) hh = 0;
+                                return `${String(hh).padStart(2, '0')}:${mm}`;
+                              })() : ''}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (!val) { setJobTimingStart(''); return; }
@@ -1597,7 +1656,17 @@ const handleSubmitReschedule = async () => {
                             <TextField
                               label="End Time"
                               type="time"
-                              value={jobTimingEnd ? (() => { const [h,m] = jobTimingEnd.split(':'); const hh = parseInt(h); return `${String(hh > 12 ? hh - 12 : hh || 12).padStart(2,'0')}:${m}`; })() : ''}
+                              value={jobTimingEnd ? (() => {
+                                const cleaned = jobTimingEnd.trim().toLowerCase();
+                                const match = cleaned.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/);
+                                if (!match) return '';
+                                let hh = parseInt(match[1]);
+                                const mm = match[2];
+                                const period = match[3];
+                                if (period === 'pm' && hh < 12) hh += 12;
+                                if (period === 'am' && hh === 12) hh = 0;
+                                return `${String(hh).padStart(2, '0')}:${mm}`;
+                              })() : ''}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (!val) { setJobTimingEnd(''); return; }
@@ -1641,12 +1710,38 @@ const handleSubmitReschedule = async () => {
 
                     <Grid container spacing={2}>
                       <Grid item xs={6}>
-                        <TextField label="Salary" name="salary" value={formData.salary} onChange={handleChange} fullWidth />
+                        <TextField
+                          label="Salary (Monthly)"
+                          name="salary"
+                          value={formData.salary}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || /^\d*$/.test(val)) {
+                              handleChange({ target: { name: 'salary', value: val } });
+                            }
+                          }}
+                          fullWidth
+                          inputProps={{ inputMode: 'numeric', pattern: '\\d*' }}
+                        />
                       </Grid>
                       <Grid item xs={6}>
-                        <TextField label="Experience *" name="experience" value={formData.experience}
-                          onChange={(e) => { handleChange(e); if (errors.experience) setErrors(p => ({ ...p, experience: false })); }}
-                          fullWidth error={!!errors.experience} helperText={errors.experience ? 'Required' : ''} required />
+                        <TextField
+                          label="Experience (Year) *"
+                          name="experience"
+                          value={formData.experience}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '' || /^\d*$/.test(val)) {
+                              handleChange({ target: { name: 'experience', value: val } });
+                              if (errors.experience) setErrors(p => ({ ...p, experience: false }));
+                            }
+                          }}
+                          fullWidth
+                          error={!!errors.experience}
+                          helperText={errors.experience ? 'Required' : ''}
+                          required
+                          inputProps={{ inputMode: 'numeric', pattern: '\\d*' }}
+                        />
                       </Grid>
                     </Grid>
                   </Grid>
@@ -1670,8 +1765,12 @@ const handleSubmitReschedule = async () => {
 
                     {/* Job Description PDF */}
                     <Box>
-                      <Typography mb={1} variant="body2" fontWeight={600}>Job Description PDF:</Typography>
-                      <Button variant="outlined" component="label" startIcon={<CheckCircleIcon sx={{ display: 'none' }} />}>
+                      <Typography mb={1} variant="body2" fontWeight={600} color={errors.descriptionFile ? 'error' : 'inherit'}>
+                        Job Description PDF: *
+                      </Typography>
+                      <Button variant="outlined" component="label" startIcon={<CheckCircleIcon sx={{ display: 'none' }} />}
+                        color={errors.descriptionFile ? 'error' : 'primary'}
+                        sx={{ borderColor: errors.descriptionFile ? 'red' : undefined }}>
                         Upload PDF
                         <input type="file" hidden accept=".pdf,.doc,.docx"
                           onChange={(e) => {
@@ -1680,9 +1779,15 @@ const handleSubmitReschedule = async () => {
                               toast.error('File size exceeds 5MB');
                             } else {
                               setFormData(p => ({ ...p, descriptionFile: file }));
+                              if (errors.descriptionFile) setErrors(p => ({ ...p, descriptionFile: false }));
                             }
                           }} />
                       </Button>
+                      {errors.descriptionFile && (
+                        <Typography variant="caption" color="error" display="block" mt={0.5}>
+                          Job Description PDF is required
+                        </Typography>
+                      )}
                       {formData.descriptionFile instanceof File && (
                         <Typography variant="body2" color="text.secondary" mt={0.5}>{formData.descriptionFile.name}</Typography>
                       )}
@@ -1697,8 +1802,10 @@ const handleSubmitReschedule = async () => {
                 </Grid>
 
                 {/* Footer */}
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
-                  px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff', gap: 2 }}>
+                <Box sx={{
+                  display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
+                  px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff', gap: 2
+                }}>
                   {loading && <LinearProgress sx={{ flex: 1 }} />}
                   {success && (
                     <Box display="flex" alignItems="center" gap={1}>
@@ -1713,9 +1820,11 @@ const handleSubmitReschedule = async () => {
                     Close
                   </Button>
                   <Button type="submit" variant="contained" disabled={loading}
-                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700,
+                    sx={{
+                      borderRadius: '8px', textTransform: 'none', fontWeight: 700,
                       background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)',
-                      '&:hover': { background: 'linear-gradient(135deg, #303f9f, #3f51b5)' } }}>
+                      '&:hover': { background: 'linear-gradient(135deg, #303f9f, #3f51b5)' }
+                    }}>
                     {loading ? (editMode ? 'Updating...' : 'Creating...') : editMode ? 'Update Job Opening' : 'Add Job Opening'}
                   </Button>
                 </Box>
@@ -1726,41 +1835,257 @@ const handleSubmitReschedule = async () => {
             <JobReportDialog open={jobReportOpen} onClose={() => setJobReportOpen(false)} />
 
             <Dialog open={openReschedule} onClose={() => setOpenReschedule(false)}>
-  <DialogTitle>Reschedule Meeting</DialogTitle>
-  <DialogContent>
-  <TextField
-  label="New Date & Time"
-  type="datetime-local"
-  fullWidth
-  InputLabelProps={{ shrink: true }}
-  value={rescheduleDate}
-  onChange={(e) => setRescheduleDate(e.target.value)}
-  sx={{ my: 2 }}
-/>
+              <DialogTitle>Reschedule Meeting</DialogTitle>
+              <DialogContent>
+                <TextField
+                  label="New Date & Time"
+                  type="datetime-local"
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  sx={{ my: 2 }}
+                />
 
-    <TextField
-      label="Reason"
-      fullWidth
-      multiline
-      rows={3}
-      value={rescheduleReason}
-      onChange={(e) => setRescheduleReason(e.target.value)}
-    />
-  </DialogContent>
-  <DialogActions>
-    <Button onClick={() => setOpenReschedule(false)}>Cancel</Button>
-    <Button onClick={handleSubmitReschedule} variant="contained">Submit</Button>
-  </DialogActions>
-</Dialog>
+                <TextField
+                  label="Reason"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setOpenReschedule(false)}>Cancel</Button>
+                <Button onClick={handleSubmitReschedule} variant="contained">Submit</Button>
+              </DialogActions>
+            </Dialog>
 
-<div style={{ position: 'fixed', top: '80px', right: '20px', zIndex: 1000 }}>
-  {reminderList.map((reminder) => (
-    <Alert key={reminder._id} severity="info" sx={{ mb: 1 }}>
-      Reminder: {reminder.message} (Due: {new Date(reminder.remindAt).toDateString()})
-    </Alert>
-  ))}
-</div>
+            <div style={{ position: 'fixed', top: '80px', right: '20px', zIndex: 1000 }}>
+              {reminderList.map((reminder) => (
+                <Alert key={reminder._id} severity="info" sx={{ mb: 1 }}>
+                  Reminder: {reminder.message} (Due: {new Date(reminder.remindAt).toDateString()})
+                </Alert>
+              ))}
+            </div>
 
+            {/* ── Company / Branch Detail Drawer ── */}
+            <Drawer
+              anchor="right"
+              open={detailPanel.open}
+              onClose={() => setDetailPanel({ open: false, row: null, view: 'company' })}
+              PaperProps={{
+                sx: {
+                  width: 380,
+                  borderRadius: '16px 0 0 16px',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                },
+              }}
+            >
+              {detailPanel.row && (() => {
+                const row = detailPanel.row;
+
+                // Lookup company by companyId from CompanyCreate
+                const companyObj = companyOptions.find(c => Number(c.companyId) === Number(row.companyId)) || null;
+
+                // Lookup branch by branchId or branchName
+                const branchObj = companyObj?.branches?.find(b => b._id === row.branchId || b.branchName === row.branchName) || null;
+
+                const isCompany = detailPanel.view === 'company';
+                const hasBranch = !!row.branchName || !!row.br_branchName;
+
+                // ── Data to display (CompanyCreate -> backend co_ fields -> row's own fields) ──
+                const title = isCompany
+                  ? (companyObj?.companyName || row.companyName)
+                  : (branchObj?.branchName || row.br_branchName || row.branchName);
+                const subtitle = isCompany
+                  ? `Company ID: ${companyObj?.companyId || row.companyId || '-'}`
+                  : `Branch of ${companyObj?.companyName || row.companyName}`;
+                const address = isCompany
+                  ? (companyObj?.companyAddress || row.co_companyAddress || row.companyAddress)
+                  : (branchObj?.branchAddress || row.br_branchAddress);
+                const area = isCompany
+                  ? (companyObj?.area || row.co_area)
+                  : (branchObj?.area || row.br_area);
+                const city = isCompany
+                  ? (companyObj?.city || row.co_city)
+                  : (branchObj?.city || row.br_city);
+                const contact = isCompany
+                  ? (companyObj?.contactPerson || row.co_contactPerson || row.contactName)
+                  : (branchObj?.contactPerson || row.br_contactPerson);
+                const phone = isCompany
+                  ? (companyObj?.contactNumber2 || companyObj?.contactNumber || row.co_contactNumber2 || row.phoneNumber)
+                  : (branchObj?.contactNumber || row.br_contactNumber);
+                const email = isCompany
+                  ? (companyObj?.email || row.co_email || row.email)
+                  : (branchObj?.email || row.br_email);
+                const website = isCompany
+                  ? (companyObj?.websiteUrl || row.co_websiteUrl || row.websiteURL)
+                  : null;
+                const gps = isCompany
+                  ? (companyObj?.gpsLocation || row.co_gpsLocation)
+                  : (branchObj?.gpsLocation || row.br_gpsLocation);
+                const industries = isCompany
+                  ? (companyObj?.industries || row.co_industries || row.industries)
+                  : null;
+                const gst = isCompany
+                  ? (companyObj?.gstUpload || row.co_gstUpload)
+                  : null;
+                const agreement = isCompany
+                  ? (companyObj?.agreementUpload || row.co_agreementUpload || row.agreementSigned)
+                  : null;
+                const token = isCompany
+                  ? (companyObj?.tokenAmount || row.co_tokenAmount)
+                  : null;
+
+                const DetailRow = ({ icon, label, value, link }) => {
+                  if (!value && value !== 0) return null;
+                  return (
+                    <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                      <Typography sx={{ fontSize: '1rem', minWidth: 22, mt: 0.1 }}>{icon}</Typography>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>
+                          {label}
+                        </Typography>
+                        {link ? (
+                          <a href={link.startsWith('http') ? link : `https://${link}`} target="_blank" rel="noreferrer"
+                            style={{ color: '#3f51b5', fontSize: '0.85rem', fontWeight: 500, wordBreak: 'break-all' }}>
+                            {value}
+                          </a>
+                        ) : (
+                          <Typography variant="body2" sx={{ color: '#1e293b', fontWeight: 500, wordBreak: 'break-word' }}>
+                            {value}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                };
+
+                return (
+                  <>
+                    {/* Header */}
+                    <Box sx={{
+                      background: isCompany
+                        ? 'linear-gradient(135deg, #1e1e2f, #2d2d44)'
+                        : 'linear-gradient(135deg, #1b5e20, #2e7d32)',
+                      px: 3, py: 2.5,
+                      display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                      flexShrink: 0,
+                    }}>
+                      <Box display="flex" alignItems="center" gap={1.5}>
+                        <Box sx={{
+                          width: 44, height: 44, borderRadius: '12px',
+                          bgcolor: 'rgba(255,255,255,0.15)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          <BusinessIcon sx={{ color: isCompany ? '#FFD700' : '#a5d6a7', fontSize: 24 }} />
+                        </Box>
+                        <Box>
+                          <Typography variant="subtitle1" fontWeight={800} color="#fff" lineHeight={1.2}
+                            sx={{ wordBreak: 'break-word' }}>
+                            {title || '—'}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                            {subtitle}
+                          </Typography>
+                          {!isCompany && (
+                            <Chip label="Branch" size="small"
+                              sx={{ mt: 0.5, bgcolor: 'rgba(165,214,167,0.25)', color: '#a5d6a7', fontWeight: 700, fontSize: '0.68rem', height: 18 }} />
+                          )}
+                        </Box>
+                      </Box>
+                      <IconButton size="small" onClick={() => setDetailPanel({ open: false, row: null, view: 'company' })}
+                        sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.1)', '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' }, flexShrink: 0 }}>
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+
+                    {/* Toggle tabs (only when job has a branch) */}
+                    {hasBranch && (
+                      <Box sx={{ display: 'flex', borderBottom: '2px solid #e8eaf6', bgcolor: '#f8f9ff' }}>
+                        {['company', 'branch'].map(v => (
+                          <Box key={v} onClick={() => setDetailPanel(p => ({ ...p, view: v }))}
+                            sx={{
+                              flex: 1, py: 1.2, textAlign: 'center', cursor: 'pointer',
+                              fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.06em',
+                              color: detailPanel.view === v ? '#3f51b5' : '#9fa8da',
+                              borderBottom: detailPanel.view === v ? '2px solid #3f51b5' : '2px solid transparent',
+                              mb: '-2px', transition: 'all 0.2s',
+                              '&:hover': { color: '#3f51b5' },
+                            }}>
+                            {v === 'company' ? '🏢 Company' : '🏪 Branch'}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+
+                    {/* Body */}
+                    <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2 }}>
+                      <DetailRow icon="🏭" label="Industries" value={industries} />
+                      <DetailRow icon="📍" label="Address" value={address} />
+                      <DetailRow icon="🏙️" label="City" value={city} />
+                      <DetailRow icon="📌" label="Area" value={area} />
+                      <DetailRow icon="👤" label="Contact" value={contact} />
+                      <DetailRow icon="📞" label="Phone" value={phone} />
+                      <DetailRow icon="✉️" label="Email" value={email} />
+                      <DetailRow icon="🌐" label="Website" value={website} link={website} />
+                      {gps && (
+                        <Box sx={{ display: 'flex', gap: 1.5, py: 1, borderBottom: '1px solid #f0f2ff' }}>
+                          <Typography sx={{ fontSize: '1rem', minWidth: 22, mt: 0.1 }}>🗺️</Typography>
+                          <Box>
+                            <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block' }}>
+                              GPS Location
+                            </Typography>
+                            <a href={gps} target="_blank" rel="noreferrer"
+                              style={{ color: '#3f51b5', fontSize: '0.85rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              Open in Maps <OpenInNewIcon sx={{ fontSize: 14 }} />
+                            </a>
+                          </Box>
+                        </Box>
+                      )}
+                      {token != null && (
+                        <DetailRow icon="💰" label="Token Amount" value={`₹${token}`} />
+                      )}
+                      {/* Document links */}
+                      {(gst || agreement) && (
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="caption" sx={{ color: '#9fa8da', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 1 }}>
+                            Documents
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                            {gst && (
+                              <Button size="small" variant="outlined" href={gst} target="_blank" rel="noreferrer"
+                                sx={{ borderRadius: '8px', fontSize: '0.75rem', borderColor: '#9fa8da', color: '#3f51b5', textTransform: 'none' }}>
+                                📄 GST
+                              </Button>
+                            )}
+                            {agreement && (
+                              <Button size="small" variant="outlined" href={agreement} target="_blank" rel="noreferrer"
+                                sx={{ borderRadius: '8px', fontSize: '0.75rem', borderColor: '#9fa8da', color: '#388e3c', textTransform: 'none' }}>
+                                📄 Agreement
+                              </Button>
+                            )}
+                          </Box>
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* Footer */}
+                    <Box sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f8f9ff', flexShrink: 0 }}>
+                      <Button fullWidth variant="outlined" onClick={() => setDetailPanel({ open: false, row: null, view: 'company' })}
+                        sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', fontWeight: 600, textTransform: 'none' }}>
+                        Close
+                      </Button>
+                    </Box>
+                  </>
+                );
+              })()}
+            </Drawer>
 
           </Box>
         </Box>

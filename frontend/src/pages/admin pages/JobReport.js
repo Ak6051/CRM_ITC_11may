@@ -55,7 +55,8 @@ import {
   updateSale,
   fetchHRUsers,
   fetchTLUsers,
-  isTokenValid
+  isTokenValid,
+  updateJobApproval
 } from '../../utils/JobReportService';
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
@@ -140,6 +141,9 @@ const JobReport = () => {
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Approval Workflow State
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [uploadToastId, setUploadToastId] = useState(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -183,6 +187,9 @@ const JobReport = () => {
   // ── Hold Job dialog ───────────────────────────────────────────────────────
   const [holdDialog, setHoldDialog] = useState({ open: false, jobId: null, jobTitle: '' });
   const [holdReasonInput, setHoldReasonInput] = useState('');
+
+  // ── Review Job state ───────────────────────────────────────────────────────
+  const [reviewJob, setReviewJob] = useState(null);
 
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const filterPopoverOpen = Boolean(filterAnchorEl);
@@ -684,7 +691,10 @@ const JobReport = () => {
     const salaryMatch = selectedSalaries.length === 0 || selectedSalaries.some(s => sale.salary != null && String(sale.salary).toLowerCase().includes(String(s).toLowerCase()));
 
     // Return true only if all conditions are met
-    return companyMatch && assignedMatch && jobTitleMatch && hrMatch && areaMatch && jobLocationMatch && noOfReqMatch && jobTimingMatch && educationMatch && experienceMatch && genderMatch && skillsMatch && salaryMatch;
+    // Also, only show Approved jobs in the main grid
+    const isApproved = !sale.approvalStatus || (sale.approvalStatus !== 'Pending' && sale.approvalStatus !== 'Rejected');
+
+    return companyMatch && assignedMatch && jobTitleMatch && hrMatch && areaMatch && jobLocationMatch && noOfReqMatch && jobTimingMatch && educationMatch && experienceMatch && genderMatch && skillsMatch && salaryMatch && isApproved;
   });
 
   // Extract unique areas from sales data
@@ -816,6 +826,28 @@ const JobReport = () => {
       }
     }
   };
+
+  const handleApproveJob = async (jobId) => {
+    try {
+      await updateJobApproval(jobId, 'Approved');
+      toast.success('Job Approved successfully');
+      getSales(); // Refresh the list
+    } catch (err) {
+      toast.error('Failed to approve job');
+    }
+  };
+
+  const handleRejectJob = async (jobId) => {
+    try {
+      await updateJobApproval(jobId, 'Rejected');
+      toast.success('Job Rejected');
+      getSales(); // Refresh the list
+    } catch (err) {
+      toast.error('Failed to reject job');
+    }
+  };
+
+  const pendingJobsList = sales.filter(s => s.approvalStatus === 'Pending');
 
   useEffect(() => {
     console.log('Current sales state:', sales); // Debug log for sales state
@@ -2111,6 +2143,11 @@ const JobReport = () => {
 
             {/* ── Action buttons row ── */}
             <Box sx={{ px: 3, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1, borderBottom: '1px solid #f1f5f9', flexWrap: 'wrap' }}>
+              <Button variant="contained" onClick={() => setApprovalModalOpen(true)} size="small"
+                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, bgcolor: '#f43f5e', color: '#fff', '&:hover': { bgcolor: '#e11d48' }, px: 2, height: 34, whiteSpace: 'nowrap' }}
+              >
+                Approvals {pendingJobsList.length > 0 && `(${pendingJobsList.length})`}
+              </Button>
               <Button variant="contained" onClick={handleAddNew} size="small"
                 sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)', color: '#fff', boxShadow: '0 2px 8px rgba(63,81,181,0.3)', '&:hover': { background: 'linear-gradient(135deg, #303f9f, #3f51b5)' }, px: 2, height: 34, whiteSpace: 'nowrap' }}
               >+ Post New Opening</Button>
@@ -2789,22 +2826,23 @@ const JobReport = () => {
                       />
                     </Grid>
                     <Grid item xs={6}>
-                      <FormControl fullWidth error={errors.experience} required>
-                        <InputLabel>Experience *</InputLabel>
-                        <Select
-                          value={formData.experience}
-                          label="Experience *"
-                          onChange={(e) => {
-                            setFormData(prev => ({ ...prev, experience: e.target.value }));
+                      <TextField
+                        label="Experience (Year) *"
+                        name="experience"
+                        value={formData.experience}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '' || /^\d*$/.test(val)) {
+                            setFormData(prev => ({ ...prev, experience: val }));
                             if (errors.experience) setErrors(p => ({ ...p, experience: false }));
-                          }}
-                        >
-                          {experienceOptions.map(opt => (
-                            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                          ))}
-                        </Select>
-                        {errors.experience && <FormHelperText>Required</FormHelperText>}
-                      </FormControl>
+                          }
+                        }}
+                        fullWidth
+                        error={!!errors.experience}
+                        helperText={errors.experience ? 'Required' : ''}
+                        required
+                        inputProps={{ inputMode: 'numeric', pattern: '\\d*' }}
+                      />
                     </Grid>
                   </Grid>
 
@@ -3484,6 +3522,240 @@ const JobReport = () => {
           );
         })()}
       </Drawer>
+
+      {/* ── Pending Approvals Modal ── */}
+      <Dialog open={approvalModalOpen} onClose={() => setApprovalModalOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '16px', bgcolor: '#f9f9f9' } }}>
+        <DialogTitle sx={{ background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)', color: '#fff', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Pending Sales Approvals
+          <IconButton onClick={() => setApprovalModalOpen(false)} sx={{ color: '#fff' }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {pendingJobsList.length === 0 ? (
+            <Typography variant="body1" color="text.secondary" textAlign="center" mt={3}>
+              No pending job approvals.
+            </Typography>
+          ) : (
+            <Grid container spacing={2}>
+              {pendingJobsList.map((job) => (
+                <Grid item xs={12} key={job._id}>
+                  <Card sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight={700} color="#3f51b5">{job.jobTitle}</Typography>
+                      <Typography variant="body2" color="text.secondary">Company: {job.companyName}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Location: {job.jobLocation || 'N/A'} | Req: {job.numberOfRequirements || 'N/A'} | Created: {job.createdAt ? job.createdAt.format('DD/MM/YYYY') : 'N/A'} | Created By: {job.createdBy ? job.createdBy.firstName + ' ' + job.createdBy.lastName + '-' + job.createdBy.role || '' : 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button variant="outlined" color="primary" size="small" sx={{ borderRadius: '8px', fontWeight: 600 }} onClick={() => setReviewJob(job)}>Review</Button>
+                      <Button variant="outlined" color="error" size="small" sx={{ borderRadius: '8px', fontWeight: 600 }} onClick={() => handleRejectJob(job._id)}>Reject</Button>
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Review Job Details Dialog ── */}
+      <Dialog
+        open={Boolean(reviewJob)}
+        onClose={() => setReviewJob(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden', bgcolor: '#fdfdfd' } }}
+      >
+        <Box sx={{
+          background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 100%)',
+          px: 3, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <Box>
+            <Typography fontWeight={700} color="#fff" fontSize={18}>
+              Review Job Opening Details
+            </Typography>
+            <Typography fontSize={13} color="rgba(255,255,255,0.85)">
+              {reviewJob?.jobTitle} at {reviewJob?.companyName}
+            </Typography>
+          </Box>
+          <IconButton onClick={() => setReviewJob(null)} sx={{ color: '#fff' }}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ p: 3 }}>
+          {reviewJob && (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>COMPANY NAME</Typography>
+                <Typography variant="body1" fontWeight={600} color="#333">{reviewJob.companyName || '—'}</Typography>
+                {reviewJob.branchName && (
+                  <Chip label={`Branch: ${reviewJob.branchName}`} size="small" sx={{ mt: 0.5, bgcolor: '#e8f5e9', color: '#2e7d32', fontWeight: 700 }} />
+                )}
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>JOB TITLE</Typography>
+                <Typography variant="body1" fontWeight={600} color="#3f51b5">{reviewJob.jobTitle || '—'}</Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>CREATED BY</Typography>
+                <Typography variant="body1" fontWeight={600} color="#333">
+                  {reviewJob.createdBy
+                    ? (typeof reviewJob.createdBy === 'object'
+                      ? `${reviewJob.createdBy.firstName || ''} ${reviewJob.createdBy.lastName || ''}`.trim()
+                      : reviewJob.createdBy)
+                    : '—'}
+                </Typography>
+                {reviewJob.createdAt && (
+                  <Typography variant="caption" color="text.secondary">
+                    on {new Date(reviewJob.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </Typography>
+                )}
+              </Grid>
+
+              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>LOCATION</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.jobLocation || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>NO. OF OPENINGS</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.numberOfRequirements || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>JOB TIMING</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.jobTiming || '—'}</Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>SALARY</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.salary || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>EXPERIENCE</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.experience || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>EDUCATION</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.education || '—'}</Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>GENDER PREFERENCE</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.gender || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>WEEK OFF</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.weekOff || '—'}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>RESPONSE</Typography>
+                <Typography variant="body2" fontWeight={500}>{reviewJob.response || '—'}</Typography>
+              </Grid>
+
+              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>REQUIRED SKILLS</Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-line', bgcolor: '#f4f6f9', p: 1.5, borderRadius: '8px' }}>{reviewJob.requiredSkills || '—'}</Typography>
+              </Grid>
+
+              {reviewJob.keyResponsibility && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>KEY RESPONSIBILITIES</Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-line', bgcolor: '#f4f6f9', p: 1.5, borderRadius: '8px' }}>{reviewJob.keyResponsibility}</Typography>
+                </Grid>
+              )}
+
+              {reviewJob.benefits && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>BENEFITS</Typography>
+                  <Typography variant="body2" fontWeight={500}>{reviewJob.benefits}</Typography>
+                </Grid>
+              )}
+
+              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>ASSIGNED HR</Typography>
+                <Typography variant="body2" fontWeight={500}>
+                  {(() => {
+                    const hrList = reviewJob.assignedHR || [];
+                    if (hrList.length === 0) return 'Not Assigned';
+                    return hrList.map(hr => {
+                      if (typeof hr === 'string') {
+                        const hrUser = hrUsers.find(h => h._id === hr);
+                        return hrUser ? `${hrUser.firstName || ''} ${hrUser.lastName || ''}`.trim() : hr;
+                      }
+                      return hr ? `${hr.firstName || ''} ${hr.lastName || ''}`.trim() : '';
+                    }).filter(Boolean).join(', ') || 'Not Assigned';
+                  })()}
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block' }}>ASSIGNED TEAM LEADERS (TL)</Typography>
+                <Typography variant="body2" fontWeight={500}>
+                  {(() => {
+                    const tlList = reviewJob.assignedTL || [];
+                    if (tlList.length === 0) return 'Not Assigned';
+                    return tlList.map(tl => {
+                      if (typeof tl === 'string') {
+                        const tlUser = tlUsers.find(t => t._id === tl);
+                        return tlUser ? `${tlUser.firstName || ''} ${tlUser.lastName || ''}`.trim() : tl;
+                      }
+                      return tl ? `${tl.firstName || ''} ${tl.lastName || ''}`.trim() : '';
+                    }).filter(Boolean).join(', ') || 'Not Assigned';
+                  })()}
+                </Typography>
+              </Grid>
+
+              {reviewJob.descriptionFile && (
+                <Grid item xs={12} sx={{ mt: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>JOB DESCRIPTION DOCUMENT</Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    component="a"
+                    href={reviewJob.descriptionFile}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    startIcon={<VisibilityIcon />}
+                    sx={{ textTransform: 'none', borderRadius: '8px' }}
+                  >
+                    View JD PDF
+                  </Button>
+                </Grid>
+              )}
+            </Grid>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3, pt: 1, display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setReviewJob(null)}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, px: 3 }}
+          >
+            Close
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={() => {
+              handleApproveJob(reviewJob._id);
+              setReviewJob(null);
+            }}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, px: 4, bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}
+          >
+            Accept (Approve)
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

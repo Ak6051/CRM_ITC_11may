@@ -225,7 +225,7 @@ const AdminCandidateForm = ({ userId }) => {
       email: !formData.email.trim(),
       positionName: !formData.positionName.trim(),
       qualification: !formData.qualification.trim(),
-      experience: !formData.experience.trim(),
+      experience: !String(formData.experience).trim(),
       currentLocation: !formData.currentLocation.trim(),
       currentPosition: !formData.currentPosition.trim(),
       currentCTC: !String(formData.currentCTC).trim(),
@@ -365,23 +365,95 @@ const AdminCandidateForm = ({ userId }) => {
         return;
       }
 
-      // ✅ Filter out entries without phoneNumber
-      const validData = jsonData.filter((row) => row.phoneNumber && String(row.phoneNumber).trim() !== "");
-      const invalidDataCount = jsonData.length - validData.length;
+      // ── Required field validation (mirrors form validation) ──────────────
+      const REQUIRED = ['name', 'phoneNumber', 'email', 'positionName', 'qualification', 'experience', 'currentLocation', 'currentPosition', 'currentCTC', 'noticePeriod'];
+      const rowErrors = [];
+      jsonData.forEach((row, i) => {
+        const missing = REQUIRED.filter(f => !row[f] || String(row[f]).trim() === '');
+        if (missing.length) {
+          rowErrors.push(`Row ${i + 2}: missing ${missing.join(', ')}`);
+        } else {
+          // Check for valid phone number (must be 10 digits after non-digits are stripped)
+          const rawPhone = String(row.phoneNumber);
+          const cleanedPhone = rawPhone.replace(/\D/g, '').slice(-10);
+          if (!cleanedPhone || cleanedPhone.length !== 10) {
+            rowErrors.push(`Row ${i + 2}: phoneNumber must be a valid 10-digit number (found "${rawPhone}")`);
+          }
 
-      if (validData.length === 0) {
-        toast.error("❌ All rows missing phone number. Cannot import.", {
-          position: "top-right",
-          autoClose: 5000,
-        });
+          // Check for numeric validity in specific fields
+          const numericFields = ['currentCTC', 'expectedCTC', 'experience', 'noticePeriod'];
+          numericFields.forEach(field => {
+            if (row[field] != null) {
+              const val = String(row[field]).replace(/[, \s]/g, ''); // strip commas and spaces
+              if (/\D/.test(val)) {
+                rowErrors.push(`Row ${i + 2}: ${field} must be a number (found "${row[field]}")`);
+              }
+            }
+          });
+        }
+      });
+
+      if (rowErrors.length > 0) {
+        toast.error(
+          <div>
+            <strong>❌ Validation failed — fix these rows:</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 12 }}>
+              {rowErrors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
+              {rowErrors.length > 8 && <li>...and {rowErrors.length - 8} more</li>}
+            </ul>
+          </div>,
+          { position: "top-right", autoClose: false, closeOnClick: true }
+        );
         setShowConfirmDialog(false);
         return;
       }
 
-      if (invalidDataCount > 0) {
-        toast.warn(`⚠️ ${invalidDataCount} rows skipped due to missing phone number`, {
-          position: "top-right",
-          autoClose: 4000,
+      const processedData = jsonData.map(row => {
+        const rawPhone = row.phoneNumber != null ? String(row.phoneNumber) : '';
+        const cleanedPhone = rawPhone.replace(/\D/g, '').slice(-10);
+
+        const sanitizeNum = (val) => {
+          if (!val) return 0;
+          if (typeof val === 'number') return val;
+          const match = String(val).match(/\d+/);
+          return match ? parseInt(match[0]) : 0;
+        };
+
+        return {
+          ...row,
+          phoneNumber: cleanedPhone,
+          experience: sanitizeNum(row.experience),
+          noticePeriod: sanitizeNum(row.noticePeriod),
+          currentCTC: sanitizeNum(row.currentCTC),
+          expectedCTC: sanitizeNum(row.expectedCTC)
+        };
+      });
+
+      // ── Filter out duplicate phone numbers within the sheet itself (self-de-duplication) ──
+      const validData = [];
+      const seenPhones = new Set();
+      let duplicateSheetCount = 0;
+
+      processedData.forEach((row) => {
+        if (row.phoneNumber && row.phoneNumber.length === 10) {
+          if (seenPhones.has(row.phoneNumber)) {
+            duplicateSheetCount++;
+          } else {
+            seenPhones.add(row.phoneNumber);
+            validData.push(row);
+          }
+        }
+      });
+
+      if (validData.length === 0) {
+        toast.error("❌ All rows missing valid 10-digit phone number. Cannot import.", { position: "top-right", autoClose: 5000 });
+        setShowConfirmDialog(false);
+        return;
+      }
+
+      if (duplicateSheetCount > 0) {
+        toast.warn(`⚠️ ${duplicateSheetCount} duplicate candidates inside the sheet were skipped.`, {
+          position: "top-right", autoClose: 4000,
           style: { backgroundColor: "#fff8e1", color: "#ff6f00" },
         });
       }
@@ -416,22 +488,7 @@ const AdminCandidateForm = ({ userId }) => {
       try {
         await simulateProgress(); // show progress while uploading
 
-        const sanitizedData = validData.map(row => {
-          const sanitizeNum = (val) => {
-            if (!val) return 0;
-            if (typeof val === 'number') return val;
-            const match = String(val).match(/\d+/);
-            return match ? parseInt(match[0]) : 0;
-          };
-
-          return {
-            ...row,
-            experience: sanitizeNum(row.experience),
-            noticePeriod: sanitizeNum(row.noticePeriod),
-            currentCTC: sanitizeNum(row.currentCTC),
-            expectedCTC: sanitizeNum(row.expectedCTC)
-          };
-        });
+        const sanitizedData = validData;
 
         const token = sessionStorage.getItem("token");
         const response = await axios.post(

@@ -15,8 +15,13 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import EventNoteIcon from '@mui/icons-material/EventNote';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import DescriptionIcon from '@mui/icons-material/Description';
+import BusinessIcon from '@mui/icons-material/Business';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/sales components/SalesNavbar';
 import Sidebar from '../../components/sales components/Sidebar';
 import { API_BASE_URL } from '../../config/api.config';
@@ -51,7 +56,44 @@ const emptyForm = {
   leadSource: '', leadStatus: 'New',
   city: '', state: '', country: '', fullAddress: '',
   nextFollowUpDate: '', followUpNotes: '', communicationMode: '', remarks: '',
+  gstUpload: '', agreementUpload: '',
 };
+
+// ─── FileUploadField ─────────────────────────────────────────────────────────
+function FileUploadField({ label, fieldName, file, existingUrl, onChange }) {
+  const inputId = `lead-file-${fieldName}`;
+  return (
+    <Box sx={{ p: 2, bgcolor: '#f8f9ff', borderRadius: '10px', border: '1px solid #e8eaf6' }}>
+      <Typography variant="caption" sx={{ fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', mb: 1 }}>
+        {label}
+      </Typography>
+      {existingUrl && !file && (
+        <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: '#fff', borderRadius: '8px', border: '1px solid #e8eaf6' }}>
+          <DescriptionIcon fontSize="small" sx={{ color: '#3f51b5' }} />
+          <Typography variant="caption" sx={{ flexGrow: 1, color: '#334155' }} noWrap>
+            Uploaded file
+          </Typography>
+          <Tooltip title="View">
+            <IconButton size="small" onClick={() => window.open(existingUrl, '_blank')}>
+              <VisibilityIcon fontSize="small" sx={{ color: '#3f51b5' }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
+      <input type="file" id={inputId} accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
+        onChange={(e) => onChange(fieldName, e.target.files[0] || null)} />
+      <label htmlFor={inputId}>
+        <Button variant="outlined" component="span" fullWidth size="small" startIcon={<CloudUploadIcon />}
+          sx={{ borderRadius: '8px', borderColor: '#9fa8da', color: '#3f51b5', fontSize: '0.8rem', textTransform: 'none' }}>
+          {file ? file.name : (existingUrl ? 'Replace File' : 'Upload PDF / Image')}
+        </Button>
+      </label>
+      <Typography variant="caption" sx={{ mt: 0.5, color: 'text.secondary', display: 'block' }}>
+        Supported: PDF, JPG, PNG
+      </Typography>
+    </Box>
+  );
+}
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function LeadManagement() {
@@ -61,20 +103,33 @@ export default function LeadManagement() {
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 50 });
+  const [dbCounts, setDbCounts]     = useState({ All: 0, New: 0, Contacted: 0, Interested: 0, 'Not Interested': 0, Converted: 0, Lost: 0 });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editLead, setEditLead]     = useState(null);
   const [form, setForm]             = useState(emptyForm);
+  const [files, setFiles]           = useState({ gstUpload: null, agreementUpload: null });
   const [errors, setErrors]         = useState({});
   const [saving, setSaving]         = useState(false);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, lead: null });
 
   const searchTimer = useRef(null);
+  const navigate = useNavigate();
 
   const token   = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
-  // ── fetch ──────────────────────────────────────────────────────────────────
+  const fetchStatusCounts = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/leads/status-counts`, { headers });
+      if (res.data.success) {
+        setDbCounts(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch lead counts:', err);
+    }
+  }, []);
+
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
@@ -83,7 +138,11 @@ export default function LeadManagement() {
         limit: paginationModel.pageSize,
       };
       if (search)                        params.search = search;
-      if (statusFilter !== 'All')        params.status = statusFilter;
+      if (statusFilter !== 'All') {
+        params.status = statusFilter;
+      } else {
+        params.excludeStatus = 'Converted';
+      }
 
       const res = await axios.get(`${API_BASE_URL}/leads`, { headers, params });
       setLeads((res.data.data || []).map(r => ({ ...r, id: r._id })));
@@ -95,12 +154,19 @@ export default function LeadManagement() {
     }
   }, [paginationModel, search, statusFilter]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => {
+    fetchLeads();
+    fetchStatusCounts();
+  }, [fetchLeads, fetchStatusCounts]);
 
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleField = (e) => {
     setForm(p => ({ ...p, [e.target.name]: e.target.value }));
     if (errors[e.target.name]) setErrors(p => ({ ...p, [e.target.name]: '' }));
+  };
+
+  const handleFile = (name, file) => {
+    setFiles(p => ({ ...p, [name]: file }));
   };
 
   const validate = () => {
@@ -117,7 +183,8 @@ export default function LeadManagement() {
 
   const openCreate = () => {
     setEditLead(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, gstUpload: '', agreementUpload: '' });
+    setFiles({ gstUpload: null, agreementUpload: null });
     setErrors({});
     setDialogOpen(true);
   };
@@ -143,7 +210,10 @@ export default function LeadManagement() {
       followUpNotes:     lead.followUpNotes     || '',
       communicationMode: lead.communicationMode || '',
       remarks:           lead.remarks           || '',
+      gstUpload:         lead.gstUpload         || '',
+      agreementUpload:   lead.agreementUpload   || '',
     });
+    setFiles({ gstUpload: null, agreementUpload: null });
     setErrors({});
     setDialogOpen(true);
   };
@@ -153,15 +223,24 @@ export default function LeadManagement() {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true);
     try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      Object.entries(files).forEach(([k, v]) => { if (v) fd.append(k, v); });
+
       if (editLead) {
-        await axios.put(`${API_BASE_URL}/leads/${editLead._id}`, form, { headers });
+        await axios.put(`${API_BASE_URL}/leads/${editLead._id}`, fd, {
+          headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+        });
         toast.success('Lead updated');
       } else {
-        await axios.post(`${API_BASE_URL}/leads`, form, { headers });
+        await axios.post(`${API_BASE_URL}/leads`, fd, {
+          headers: { ...headers, 'Content-Type': 'multipart/form-data' },
+        });
         toast.success('Lead created');
       }
       setDialogOpen(false);
       fetchLeads();
+      fetchStatusCounts();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Save failed');
     } finally {
@@ -175,31 +254,51 @@ export default function LeadManagement() {
       toast.success('Lead deleted');
       setDeleteDialog({ open: false, lead: null });
       fetchLeads();
+      fetchStatusCounts();
     } catch {
       toast.error('Delete failed');
     }
   };
 
+  const handleConvertLead = (lead) => {
+    if (!lead.agreementUpload) {
+      toast.error('An agreement document is required to convert this lead. Please upload it first!');
+      return;
+    }
+    navigate('/sales-company-create', { state: { leadData: lead } });
+  };
+
   // ── columns ────────────────────────────────────────────────────────────────
   const columns = [
     {
-      field: 'actions', headerName: 'Actions', width: 100, sortable: false,
-      renderCell: p => (
-        <Box display="flex" gap={0.5}>
-          <Tooltip title="Edit">
-            <IconButton size="small" onClick={() => openEdit(p.row)}
-              sx={{ bgcolor: '#e8eaf6', '&:hover': { bgcolor: '#c5cae9' } }}>
-              <EditIcon fontSize="small" sx={{ color: '#3f51b5' }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton size="small" onClick={() => setDeleteDialog({ open: true, lead: p.row })}
-              sx={{ bgcolor: '#ffebee', '&:hover': { bgcolor: '#ffcdd2' } }}>
-              <DeleteIcon fontSize="small" sx={{ color: '#c62828' }} />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      ),
+      field: 'actions', headerName: 'Actions', width: 140, sortable: false,
+      renderCell: p => {
+        const isConverted = p.row.leadStatus === 'Converted';
+        return (
+          <Box display="flex" gap={0.5}>
+            <Tooltip title={isConverted ? "Already Converted to Company" : "Convert to Company Request"}>
+              <span>
+                <IconButton size="small" onClick={() => handleConvertLead(p.row)} disabled={isConverted}
+                  sx={{ bgcolor: isConverted ? '#f5f5f5' : '#e8f5e9', '&:hover': { bgcolor: isConverted ? '#f5f5f5' : '#c8e6c9' } }}>
+                  <BusinessIcon fontSize="small" sx={{ color: isConverted ? '#9e9e9e' : '#2e7d32' }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Edit">
+              <IconButton size="small" onClick={() => openEdit(p.row)}
+                sx={{ bgcolor: '#e8eaf6', '&:hover': { bgcolor: '#c5cae9' } }}>
+                <EditIcon fontSize="small" sx={{ color: '#3f51b5' }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Delete">
+              <IconButton size="small" onClick={() => setDeleteDialog({ open: true, lead: p.row })}
+                sx={{ bgcolor: '#ffebee', '&:hover': { bgcolor: '#ffcdd2' } }}>
+                <DeleteIcon fontSize="small" sx={{ color: '#c62828' }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
     {
       field: 'leadStatus', headerName: 'Status', width: 140,
@@ -218,6 +317,18 @@ export default function LeadManagement() {
       renderCell: p => p.value
         ? <a href={p.value.startsWith('http') ? p.value : `https://${p.value}`} target="_blank" rel="noreferrer"
             style={{ color: '#3f51b5', fontSize: '0.82rem' }}>{p.value}</a>
+        : '—',
+    },
+    {
+      field: 'gstUpload', headerName: 'GST', width: 80,
+      renderCell: p => p.value
+        ? <Tooltip title="View GST"><IconButton size="small" onClick={() => window.open(p.value, '_blank')}><VisibilityIcon fontSize="small" sx={{ color: '#3f51b5' }} /></IconButton></Tooltip>
+        : '—',
+    },
+    {
+      field: 'agreementUpload', headerName: 'Agreement', width: 100,
+      renderCell: p => p.value
+        ? <Tooltip title="View Agreement"><IconButton size="small" onClick={() => window.open(p.value, '_blank')}><VisibilityIcon fontSize="small" sx={{ color: '#388e3c' }} /></IconButton></Tooltip>
         : '—',
     },
     { field: 'leadSource',  headerName: 'Source',       width: 130,
@@ -251,11 +362,6 @@ export default function LeadManagement() {
     },
   ];
 
-  // ── status counts ──────────────────────────────────────────────────────────
-  const statusCounts = STATUSES.reduce((acc, s) => {
-    acc[s] = leads.filter(l => l.leadStatus === s).length;
-    return acc;
-  }, {});
 
   const secLabel = { fontWeight: 700, color: '#3f51b5', textTransform: 'uppercase', letterSpacing: '0.07em', fontSize: '0.72rem', display: 'block', mb: 1.5 };
 
@@ -302,8 +408,8 @@ export default function LeadManagement() {
 
           {/* ── Status Filter Tabs ── */}
           <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            {['All', ...STATUSES].map(s => {
-              const count = s === 'All' ? leads.length : (statusCounts[s] || 0);
+            {['All', 'New', 'Contacted', 'Interested', 'Not Interested', 'Lost'].map(s => {
+              const count = dbCounts[s] || 0;
               const sc = STATUS_COLORS[s] || { bg: '#e8eaf6', color: '#3f51b5' };
               const active = statusFilter === s;
               return (
@@ -317,6 +423,30 @@ export default function LeadManagement() {
                   }} />
               );
             })}
+            <Button
+              variant={statusFilter === 'Converted' ? 'contained' : 'outlined'}
+              color="success"
+              startIcon={<BusinessIcon />}
+              onClick={() => setStatusFilter(statusFilter === 'Converted' ? 'All' : 'Converted')}
+              sx={{
+                borderRadius: '16px',
+                fontWeight: 700,
+                textTransform: 'none',
+                px: 2,
+                py: 0.5,
+                fontSize: '0.75rem',
+                height: '32px',
+                borderColor: '#2e7d32',
+                color: statusFilter === 'Converted' ? '#fff' : '#2e7d32',
+                bgcolor: statusFilter === 'Converted' ? '#2e7d32' : 'transparent',
+                '&:hover': {
+                  bgcolor: statusFilter === 'Converted' ? '#1b5e20' : 'rgba(46,125,50,0.08)',
+                  borderColor: '#1b5e20'
+                }
+              }}
+            >
+              Converted Leads ({dbCounts['Converted'] || 0})
+            </Button>
             <TextField size="small" placeholder="Search name, company, mobile, email..."
               value={search}
               onChange={e => {
@@ -342,12 +472,18 @@ export default function LeadManagement() {
               onPaginationModelChange={setPaginationModel}
               pageSizeOptions={[25, 50, 100]}
               disableRowSelectionOnClick
+              getRowClassName={(params) => params.row.leadStatus === 'Converted' ? 'lead-row-converted' : ''}
               sx={{
                 border: 'none', height: '100%',
                 '& .MuiDataGrid-columnHeaders': { background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', borderBottom: '2px solid #c5cae9' },
                 '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, color: '#3f51b5', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' },
                 '& .MuiDataGrid-cell': { borderBottom: '1px solid #f0f2ff', fontSize: '0.83rem', color: '#334155', '&:focus': { outline: 'none' } },
                 '& .MuiDataGrid-row:hover': { bgcolor: '#f5f6ff' },
+                '& .lead-row-converted': {
+                  opacity: 0.75,
+                  bgcolor: '#f4fbf7',
+                  '&:hover': { bgcolor: '#e8f7ee' }
+                },
                 '& .MuiDataGrid-footerContainer': { borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' },
                 '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': { height: 7, width: 7 },
                 '& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 4 },
@@ -490,6 +626,31 @@ export default function LeadManagement() {
               <Grid item xs={12}>
                 <TextField label="Remarks" name="remarks" value={form.remarks} onChange={handleField}
                   fullWidth size="small" sx={fieldSx} multiline rows={2} />
+              </Grid>
+            </Grid>
+
+            <Divider />
+
+            {/* 4. Uploaded Documents */}
+            <Typography sx={secLabel}>Uploaded Documents</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <FileUploadField
+                  label="GST Document"
+                  fieldName="gstUpload"
+                  file={files.gstUpload}
+                  existingUrl={form.gstUpload}
+                  onChange={handleFile}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FileUploadField
+                  label="Signed Agreement Document"
+                  fieldName="agreementUpload"
+                  file={files.agreementUpload}
+                  existingUrl={form.agreementUpload}
+                  onChange={handleFile}
+                />
               </Grid>
             </Grid>
 
