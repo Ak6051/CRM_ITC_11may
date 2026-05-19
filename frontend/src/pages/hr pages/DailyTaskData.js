@@ -676,13 +676,9 @@ const DailyTaskData = () => {
               <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} md={6}>
                   <Autocomplete
-                    freeSolo
                     options={companyOptions}
-                    value={formData.companyName}
+                    value={formData.companyName || null}
                     onChange={(_, v) => handleCompanySelect(v || '')}
-                    onInputChange={(_, v, reason) => {
-                      if (reason === 'input') handleCompanySelect(v);
-                    }}
                     renderInput={(params) => (
                       <TextField
                         {...params}
@@ -690,7 +686,7 @@ const DailyTaskData = () => {
                         label="Company Name *"
                         size="small"
                         error={!!formErrors.companyName}
-                        helperText={formErrors.companyName || ''}
+                        helperText={formErrors.companyName || 'Select from assigned companies'}
                         required
                       />
                     )}
@@ -700,17 +696,10 @@ const DailyTaskData = () => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Autocomplete
-                    freeSolo
                     options={positionOptions}
-                    value={formData.position}
+                    value={formData.position || null}
                     disabled={!formData.companyName}
                     onChange={(_, v) => handlePositionSelect(v || '')}
-                    onInputChange={(_, v, reason) => {
-                      if (reason === 'input') {
-                        setFormData(prev => ({ ...prev, position: v }));
-                        if (formErrors.position) setFormErrors(prev => ({ ...prev, position: '' }));
-                      }
-                    }}
                     renderInput={(params) => (
                       <TextField
                         {...params}
@@ -719,7 +708,7 @@ const DailyTaskData = () => {
                         error={!!formErrors.position}
                         helperText={
                           formErrors.position ||
-                          (!formData.companyName ? 'Select a company first' : '')
+                          (!formData.companyName ? 'Select a company first' : 'Select from assigned positions')
                         }
                         required
                       />
@@ -962,29 +951,64 @@ const DailyTaskData = () => {
             {/* ── Row 1: Company + Position ── */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} md={6}>
-                <TextField
-                  name="companyName"
-                  label="Company Name *"
-                  fullWidth
-                  size="small"
-                  value={editRequestData.companyName || ''}
-                  onChange={handleEditRequestChange}
-                  error={!!editRequestErrors.companyName}
-                  helperText={editRequestErrors.companyName || ''}
-                  required
+                <Autocomplete
+                  options={companyOptions}
+                  value={editRequestData.companyName || null}
+                  onChange={(_, v) => {
+                    const positions = assignedJobs
+                      .filter(j => j.companyName?.trim().toLowerCase() === v?.trim().toLowerCase())
+                      .map(j => j.jobTitle?.trim())
+                      .filter(Boolean);
+                    setEditRequestData(prev => ({ ...prev, companyName: v || '', position: '' }));
+                    if (editRequestErrors.companyName) setEditRequestErrors(prev => ({ ...prev, companyName: '' }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Company Name *"
+                      size="small"
+                      error={!!editRequestErrors.companyName}
+                      helperText={editRequestErrors.companyName || 'Select from assigned companies'}
+                      required
+                    />
+                  )}
+                  clearOnEscape
+                  isOptionEqualToValue={(o, v) => o.toLowerCase() === v?.toLowerCase()}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField
-                  name="position"
-                  label="Position *"
-                  fullWidth
-                  size="small"
-                  value={editRequestData.position || ''}
-                  onChange={handleEditRequestChange}
-                  error={!!editRequestErrors.position}
-                  helperText={editRequestErrors.position || ''}
-                  required
+                <Autocomplete
+                  options={
+                    editRequestData.companyName
+                      ? [...new Set(
+                          assignedJobs
+                            .filter(j => j.companyName?.trim().toLowerCase() === editRequestData.companyName?.trim().toLowerCase())
+                            .map(j => j.jobTitle?.trim())
+                            .filter(Boolean)
+                        )].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+                      : []
+                  }
+                  value={editRequestData.position || null}
+                  disabled={!editRequestData.companyName}
+                  onChange={(_, v) => {
+                    setEditRequestData(prev => ({ ...prev, position: v || '' }));
+                    if (editRequestErrors.position) setEditRequestErrors(prev => ({ ...prev, position: '' }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Position *"
+                      size="small"
+                      error={!!editRequestErrors.position}
+                      helperText={
+                        editRequestErrors.position ||
+                        (!editRequestData.companyName ? 'Select a company first' : 'Select from assigned positions')
+                      }
+                      required
+                    />
+                  )}
+                  clearOnEscape
+                  isOptionEqualToValue={(o, v) => o.toLowerCase() === v?.toLowerCase()}
                 />
               </Grid>
             </Grid>

@@ -180,6 +180,8 @@ export default function CompanyManagement() {
   const [selectedExcelFile, setSelectedExcelFile] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [excelErrors, setExcelErrors] = useState([]);
+  const [showExcelErrorsDialog, setShowExcelErrorsDialog] = useState(false);
 
   // ── Filters State ──────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
@@ -564,8 +566,100 @@ export default function CompanyManagement() {
   const handleExcelUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setSelectedExcelFile(file);
-    setShowConfirmDialog(true);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (jsonData.length === 0) {
+          toast.error('Excel file is empty');
+          return;
+        }
+
+        const errors = [];
+        const duplicateNamesInExcel = new Set();
+
+        jsonData.forEach((row, index) => {
+          const rowNum = index + 2; // Header is row 1
+          const rowErrors = [];
+
+          // 1. Company Name validation (Required & database/excel duplicate check)
+          const name = String(row.companyName || '').trim();
+          if (!name) {
+            rowErrors.push('Company name is required');
+          } else {
+            const dbExists = companies.some(c => c.companyName.trim().toLowerCase() === name.toLowerCase());
+            if (dbExists) {
+              rowErrors.push(`Company "${name}" already exists in the database`);
+            }
+            if (duplicateNamesInExcel.has(name.toLowerCase())) {
+              rowErrors.push(`Duplicate company name "${name}" in the Excel file itself`);
+            } else {
+              duplicateNamesInExcel.add(name.toLowerCase());
+            }
+          }
+
+          // 2. contactNumber (10-digit validation)
+          const contactNo = row.contactNumber ? String(row.contactNumber).trim() : '';
+          if (contactNo && !isValidPhone(contactNo)) {
+            rowErrors.push('Contact Number must be a valid 10-digit phone number');
+          }
+
+          // 3. contactNumber2 (10-digit validation)
+          const contactNo2 = row.contactNumber2 ? String(row.contactNumber2).trim() : '';
+          if (contactNo2 && !isValidPhone(contactNo2)) {
+            rowErrors.push('Contact Number 2 must be a valid 10-digit phone number');
+          }
+
+          // 4. email (Valid email check)
+          const emailVal = row.email ? String(row.email).trim() : '';
+          if (emailVal && !isValidEmail(emailVal)) {
+            rowErrors.push('Email must be a valid email address');
+          }
+
+          // 5. websiteUrl (Valid URL format check)
+          const webUrl = row.websiteUrl ? String(row.websiteUrl).trim() : '';
+          if (webUrl && !isValidUrl(webUrl)) {
+            rowErrors.push('Website URL must start with http://, https:// or www.');
+          }
+
+          // 6. gpsLocation (Valid GPS link format check)
+          const gps = row.gpsLocation ? String(row.gpsLocation).trim() : '';
+          if (gps && !isValidUrl(gps)) {
+            rowErrors.push('GPS Location must start with http://, https:// or www.');
+          }
+
+          // 7. tokenAmount (Must be a numeric value)
+          if (row.tokenAmount !== undefined && row.tokenAmount !== '') {
+            if (isNaN(Number(row.tokenAmount))) {
+              rowErrors.push('Token amount must be a number');
+            }
+          }
+
+          if (rowErrors.length > 0) {
+            errors.push({ row: rowNum, companyName: name || `Row ${rowNum}`, errors: rowErrors });
+          }
+        });
+
+        if (errors.length > 0) {
+          setExcelErrors(errors);
+          setShowExcelErrorsDialog(true);
+          setSelectedExcelFile(null);
+        } else {
+          setExcelErrors([]);
+          setSelectedExcelFile(file);
+          setShowConfirmDialog(true);
+        }
+      } catch (err) {
+        toast.error('Failed to parse Excel file: ' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
     e.target.value = ''; // Reset input
   };
 
@@ -2142,6 +2236,52 @@ export default function CompanyManagement() {
           <Button onClick={confirmExcelUpload} variant="contained" disabled={importing}
             sx={{ borderRadius: '8px', bgcolor: '#4caf50', fontWeight: 700, '&:hover': { bgcolor: '#43a047' }, minWidth: 100 }}>
             {importing ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : 'Import Now'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Excel Validation Errors Dialog ── */}
+      <Dialog
+        open={showExcelErrorsDialog}
+        onClose={() => setShowExcelErrorsDialog(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <CancelIcon sx={{ color: '#c62828' }} />
+            <Typography variant="h6" fontWeight={700} color="#b71c1c">
+              Excel Sheet Validation Failed
+            </Typography>
+          </Box>
+          <IconButton onClick={() => setShowExcelErrorsDialog(false)} size="small" sx={{ color: '#b71c1c' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, bgcolor: '#fafafa', maxHeight: '60vh', overflowY: 'auto' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            We found some validation errors in your Excel sheet. Please correct these rows and re-upload the file.
+          </Typography>
+          <Box display="flex" flexDirection="column" gap={1.5}>
+            {excelErrors.map((err, idx) => (
+              <Box key={idx} sx={{ bgcolor: '#fff', border: '1px solid #ffcdd2', borderRadius: '8px', p: 2, boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                <Typography variant="subtitle2" color="#c62828" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <span>Row {err.row}:</span>
+                  <strong style={{ color: '#334155' }}>{err.companyName}</strong>
+                </Typography>
+                <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px', color: '#475569', fontSize: '0.85rem' }}>
+                  {err.errors.map((msg, i) => (
+                    <li key={i} style={{ marginBottom: '4px' }}>{msg}</li>
+                  ))}
+                </ul>
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e0e0e0', bgcolor: '#f5f5f5' }}>
+          <Button onClick={() => setShowExcelErrorsDialog(false)} variant="contained" color="error" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Dismiss and Fix Sheet
           </Button>
         </DialogActions>
       </Dialog>

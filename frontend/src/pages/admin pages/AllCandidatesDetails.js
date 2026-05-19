@@ -1140,6 +1140,22 @@ iTalentConnect`
             {/* Accordion filter rows */}
             {[
               {
+                key: "createdBy", label: "Created By", icon: <PersonIcon sx={{ fontSize: 18 }} />,
+                content: (
+                  <Autocomplete multiple size="small" options={hrList} value={selectedHRs}
+                    getOptionLabel={(o) => `${o.name} (${o.role})`}
+                    onChange={(_, val) => setSelectedHRs(val)}
+                    renderInput={(params) => (
+                      <TextField {...params} placeholder="Select HR/Admin"
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => <Chip {...getTagProps({ index })} label={option.name} size="small" key={index} />)
+                    }
+                  />
+                ),
+              },
+              {
                 key: "dateRange", label: "Date Range", icon: <CalendarTodayIcon sx={{ fontSize: 18 }} />,
                 content: (
                   <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -1235,22 +1251,6 @@ iTalentConnect`
                     )}
                     renderTags={(value, getTagProps) =>
                       value.map((option, index) => <Chip {...getTagProps({ index })} label={option} size="small" key={index} />)
-                    }
-                  />
-                ),
-              },
-              {
-                key: "createdBy", label: "Created By", icon: <PersonIcon sx={{ fontSize: 18 }} />,
-                content: (
-                  <Autocomplete multiple size="small" options={hrList} value={selectedHRs}
-                    getOptionLabel={(o) => `${o.name} (${o.role})`}
-                    onChange={(_, val) => setSelectedHRs(val)}
-                    renderInput={(params) => (
-                      <TextField {...params} placeholder="Select HR/Admin"
-                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "8px", bgcolor: "#f8fafc", fontSize: 13 } }} />
-                    )}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => <Chip {...getTagProps({ index })} label={option.name} size="small" key={index} />)
                     }
                   />
                 ),

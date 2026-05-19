@@ -99,6 +99,7 @@ const DailyTaskReport = () => {
   // Jobs assigned to the selected HR (for company + position dropdowns in create/edit form)
   const [hrJobs, setHrJobs] = useState([]);
   const [hrPositionOptions, setHrPositionOptions] = useState([]);
+  const [allCompanies, setAllCompanies] = useState([]);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(),
     endDate: new Date()
@@ -185,9 +186,20 @@ const DailyTaskReport = () => {
     }
   };
 
-  // Unique company names from hrJobs
+  const fetchAllCompanies = async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/companies`, config);
+      if (res.data && res.data.success) {
+        setAllCompanies(res.data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to load companies from CompanyCreate model", error);
+    }
+  };
+
+  // Unique company names from allCompanies (CompanyCreate model)
   const hrCompanyOptions = [...new Map(
-    hrJobs.map(j => [j.companyName?.trim().toLowerCase(), j.companyName?.trim()])
+    allCompanies.map(c => [c.companyName?.trim().toLowerCase(), c.companyName?.trim()])
   ).values()].filter(Boolean).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
   // When HR is selected in the form
@@ -255,8 +267,7 @@ const DailyTaskReport = () => {
           params: { hrId, position: positionName, date: taskDate },
         });
         const liveCount = res.data.count;
-        // Only update TCEOD if live count > 0 — otherwise keep existing value
-        if (liveCount > 0) {
+        if (typeof liveCount === 'number') {
           setFormData(prev => ({ ...prev, TCEOD: String(liveCount) }));
         }
       } catch (err) {
@@ -286,12 +297,14 @@ const DailyTaskReport = () => {
     fetchTasks();
     fetchEditRequests();
     fetchHRs();
+    fetchAllCompanies();
 
     // Auto-refresh every 30 seconds so admin sees new HR tasks without manual reload
     const interval = setInterval(() => {
       fetchTasks();
       fetchEditRequests();
       fetchHRs();
+      fetchAllCompanies();
     }, 30000);
 
     return () => clearInterval(interval);
@@ -300,6 +313,7 @@ const DailyTaskReport = () => {
   useEffect(() => {
     if (openForm) {
       fetchHRs();
+      fetchAllCompanies();
     }
 
     if (editData) {
@@ -338,8 +352,7 @@ const DailyTaskReport = () => {
           params: { hrId: task.hrId.toString(), position: task.position, date: taskDate },
         });
         const liveCount = countRes.data.count;
-        // Only use live count if it's greater than 0 — otherwise keep DB value
-        if (liveCount > 0) {
+        if (typeof liveCount === 'number') {
           fetchedTCEOD = String(liveCount);
         }
       } catch (err) {
@@ -909,16 +922,16 @@ const DailyTaskReport = () => {
               </Tabs>
 
               {/* Contextual Filters on the right side of Tabs */}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', py: 1 }}>
                 {activeTab === 0 ? (
                   <>
-                    <Button variant="contained" size="small" onClick={() => { setEditData(null); setOpenForm(true); }} sx={{ textTransform: 'none', ml: 1 }}>+ Create</Button>
+                    <Button variant="contained" size="small" onClick={() => { setEditData(null); setOpenForm(true); }} sx={{ textTransform: 'none', ml: 1, minWidth: '85px' }}>+ Create</Button>
                     <Autocomplete
                       options={Array.from(new Set(hrList.map(h => `${h.firstName} ${h.lastName}`))).sort()}
                       value={hrFilter || null}
                       onChange={(_, newValue) => setHrFilter(newValue || '')}
                       size="small"
-                      sx={{ minWidth: 140 }}
+                      sx={{ minWidth: 160 }}
                       renderInput={(params) => <TextField {...params} label="HR" size="small" />}
                     />
                     <Autocomplete
@@ -926,22 +939,24 @@ const DailyTaskReport = () => {
                       value={companyFilter || null}
                       onChange={(_, newValue) => setCompanyFilter(newValue || '')}
                       size="small"
-                      sx={{ minWidth: 140 }}
+                      sx={{ minWidth: 180 }}
                       renderInput={(params) => <TextField {...params} label="Company" size="small" />}
                     />
                     <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                        label="Start"
-                        value={dateRange.startDate}
-                        onChange={(date) => setDateRange(prev => ({ ...prev, startDate: date }))}
-                        renderInput={(params) => <TextField {...params} size="small" sx={{ width: 120 }} />}
-                      />
-                      <DatePicker
-                        label="End"
-                        value={dateRange.endDate}
-                        onChange={(date) => setDateRange(prev => ({ ...prev, endDate: date }))}
-                        renderInput={(params) => <TextField {...params} size="small" sx={{ width: 120 }} />}
-                      />
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                        <DatePicker
+                          label="Start"
+                          value={dateRange.startDate}
+                          onChange={(date) => setDateRange(prev => ({ ...prev, startDate: date }))}
+                          renderInput={(params) => <TextField {...params} size="small" sx={{ width: 135 }} />}
+                        />
+                        <DatePicker
+                          label="End"
+                          value={dateRange.endDate}
+                          onChange={(date) => setDateRange(prev => ({ ...prev, endDate: date }))}
+                          renderInput={(params) => <TextField {...params} size="small" sx={{ width: 135 }} />}
+                        />
+                      </Box>
                     </LocalizationProvider>
                     <Button variant="outlined" size="small" onClick={handleResetFilters} sx={{ textTransform: 'none' }}>Clear</Button>
                     <Button variant="contained" size="small" startIcon={<FileDownloadIcon />} onClick={handleExport} sx={{ textTransform: 'none' }}>CSV</Button>
@@ -953,22 +968,24 @@ const DailyTaskReport = () => {
                       value={hrFilter || null}
                       onChange={(_, newValue) => setHrFilter(newValue || '')}
                       size="small"
-                      sx={{ minWidth: 160 }}
+                      sx={{ minWidth: 180 }}
                       renderInput={(params) => <TextField {...params} label="Filter by HR" size="small" />}
                     />
                     <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                        label="Start"
-                        value={dateRange.startDate}
-                        onChange={(date) => setDateRange(prev => ({ ...prev, startDate: date }))}
-                        renderInput={(params) => <TextField {...params} size="small" sx={{ width: 130 }} />}
-                      />
-                      <DatePicker
-                        label="End"
-                        value={dateRange.endDate}
-                        onChange={(date) => setDateRange(prev => ({ ...prev, endDate: date }))}
-                        renderInput={(params) => <TextField {...params} size="small" sx={{ width: 130 }} />}
-                      />
+                      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                        <DatePicker
+                          label="Start"
+                          value={dateRange.startDate}
+                          onChange={(date) => setDateRange(prev => ({ ...prev, startDate: date }))}
+                          renderInput={(params) => <TextField {...params} size="small" sx={{ width: 135 }} />}
+                        />
+                        <DatePicker
+                          label="End"
+                          value={dateRange.endDate}
+                          onChange={(date) => setDateRange(prev => ({ ...prev, endDate: date }))}
+                          renderInput={(params) => <TextField {...params} size="small" sx={{ width: 135 }} />}
+                        />
+                      </Box>
                     </LocalizationProvider>
                     <Button variant="outlined" size="small" onClick={handleResetFilters} sx={{ textTransform: 'none' }}>Reset</Button>
                     <Button variant="outlined" size="small" onClick={fetchEditRequests} sx={{ textTransform: 'none' }}>Refresh</Button>
@@ -1135,14 +1152,10 @@ const DailyTaskReport = () => {
                           </Grid>
                           <Grid item xs={12} md={4}>
                             <Autocomplete
-                              freeSolo
                               options={hrCompanyOptions}
-                              value={formData.companyName || ''}
+                              value={formData.companyName || null}
                               disabled={!formData.hrId}
                               onChange={(_, v) => handleFormCompanySelect(v || '')}
-                              onInputChange={(_, v, reason) => {
-                                if (reason === 'input') handleFormCompanySelect(v);
-                              }}
                               renderInput={(params) => (
                                 <TextField
                                   {...params}
@@ -1151,7 +1164,7 @@ const DailyTaskReport = () => {
                                   error={!!formErrors.companyName}
                                   helperText={
                                     formErrors.companyName ||
-                                    (!formData.hrId ? 'Select an HR first' : '')
+                                    (!formData.hrId ? 'Select an HR first' : 'Select from assigned companies')
                                   }
                                   required
                                 />
@@ -1162,17 +1175,10 @@ const DailyTaskReport = () => {
                           </Grid>
                           <Grid item xs={12} md={4}>
                             <Autocomplete
-                              freeSolo
                               options={hrPositionOptions}
-                              value={formData.position || ''}
+                              value={formData.position || null}
                               disabled={!formData.companyName}
                               onChange={(_, v) => handleFormPositionSelect(v || '')}
-                              onInputChange={(_, v, reason) => {
-                                if (reason === 'input') {
-                                  setFormData(prev => ({ ...prev, position: v }));
-                                  if (formErrors.position) setFormErrors(prev => ({ ...prev, position: '' }));
-                                }
-                              }}
                               renderInput={(params) => (
                                 <TextField
                                   {...params}
@@ -1181,7 +1187,7 @@ const DailyTaskReport = () => {
                                   error={!!formErrors.position}
                                   helperText={
                                     formErrors.position ||
-                                    (!formData.companyName ? 'Select a company first' : '')
+                                    (!formData.companyName ? 'Select a company first' : 'Select from assigned positions')
                                   }
                                   required
                                 />
