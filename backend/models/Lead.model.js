@@ -37,6 +37,10 @@ const leadSchema = new mongoose.Schema(
     },
     remarks: { type: String, default: '' },
 
+    // ── Uploaded Documents ────────────────────────────────────────────────────
+    gstUpload:       { type: String, default: '' },
+    agreementUpload: { type: String, default: '' },
+
     // ── System ────────────────────────────────────────────────────────────────
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   },

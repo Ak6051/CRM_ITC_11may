@@ -8,65 +8,65 @@ const { extractClientIp } = require('../middleware/ipWhitelistMiddleware');
 
 // Register User
 const registerUser = async (req, res) => {
-    const { firstName, lastName, email, password, mobileNo, role, address, gender } = req.body;
+  const { firstName, lastName, email, password, mobileNo, role, address, gender } = req.body;
 
-    try {
-        let user = await User.findOne({ email });
-        if (user) {
-            return res.status(400).json({ msg: 'User already exists' });
-        }
-
-        // role me Sales ya HR ko allow karte hue
-        user = new User({
-            firstName,
-            lastName,
-            email,
-            password,
-            mobileNo,
-            role,
-            address,
-            gender,
-        });
-
-        await user.save();
-        res.status(201).json({ msg: 'User registered successfully' });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
+  try {
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ msg: 'User already exists' });
     }
+
+    // role me Sales ya HR ko allow karte hue
+    user = new User({
+      firstName,
+      lastName,
+      email,
+      password,
+      mobileNo,
+      role,
+      address,
+      gender,
+    });
+
+    await user.save();
+    res.status(201).json({ msg: 'User registered successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
 };
 
 
 // Login User
 const loginUser = async (req, res) => {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    try {
-        // Check for user
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).json({ msg: 'Invalid credentials' });
-        }
-
-        // Block deactivated accounts
-        if (user.isActive === false) {
-            return res.status(403).json({ msg: 'Your account has been deactivated. Please contact the administrator.' });
-        }
-
-        // Match password
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).json({ msg: 'Invalid credentials' });
-        }
-
-        // Create and send token
-        const token = generateAccessToken(user);
-
-        res.json({ token, role: user.role });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
+  try {
+    // Check for user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ msg: 'Invalid credentials' });
     }
+
+    // Block deactivated accounts
+    if (user.isActive === false) {
+      return res.status(403).json({ msg: 'Your account has been deactivated. Please contact the administrator.' });
+    }
+
+    // Match password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ msg: 'Invalid credentials' });
+    }
+
+    // Create and send token
+    const token = generateAccessToken(user);
+
+    res.json({ token, role: user.role });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server error');
+  }
 };
 
 const preLogin = async (req, res) => {

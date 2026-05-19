@@ -28,8 +28,8 @@ const jobOpeningsSchema = new mongoose.Schema(
     jobTiming:            { type: String, required: false },
     education:            { type: String, required: false },
     gender:               { type: String, required: false },
-    salary:               { type: String, required: false },
-    experience:           { type: String, required: false },
+    salary:               { type: Number, required: false },
+    experience:           { type: Number, required: false },
     requiredSkills:       { type: String, required: false },
     keyResponsibility:    { type: String, required: false },
     benefits:             { type: String, required: false },
@@ -42,6 +42,11 @@ const jobOpeningsSchema = new mongoose.Schema(
       type: String,
       enum: ['Open', 'Closed', 'OnHold'],
       default: 'Open',
+    },
+    approvalStatus: {
+      type: String,
+      enum: ['Approved', 'Pending', 'Rejected'],
+      default: 'Approved',
     },
     holdReason: { type: String, default: '' }, // reason when jobStatus = 'OnHold'
 

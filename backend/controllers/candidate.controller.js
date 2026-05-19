@@ -230,7 +230,25 @@ const markCandidateAsBackout = async (req, res) => {
 const updateCandidate = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
+
+    // Clean up populated fields that might have string/object representation
+    delete updates.createdBy;
+    
+    const sanitizeObjectIdField = (field) => {
+      if (updates[field]) {
+        if (typeof updates[field] === 'object') {
+          delete updates[field];
+        } else if (typeof updates[field] === 'string' && updates[field].length !== 24) {
+          delete updates[field];
+        }
+      }
+    };
+
+    sanitizeObjectIdField('assignedTo');
+    sanitizeObjectIdField('assignedPosition');
+    sanitizeObjectIdField('assignedBy');
+    sanitizeObjectIdField('jobId');
 
     // Find the candidate first to check permissions
     const candidate = await Candidate.findById(id);

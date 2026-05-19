@@ -107,32 +107,51 @@ const bulkUploadCandidates = async (req, res) => {
 
     const userId = req.user._id;
 
-    // Normalize phone numbers from incoming data
-    const incomingPhoneNumbers = candidates
-      .map(c => typeof c.phoneNumber === 'string' ? c.phoneNumber.trim() : String(c.phoneNumber || '').trim())
-      .filter(Boolean);
+    // We will track skipped phone numbers (both DB duplicates and Excel file duplicates)
+    const skippedPhoneNumbers = [];
+    const processedCandidatesMap = new Map(); // normalizedPhone -> candidate data
 
-    // Check existing by candidatePhone
+    for (let c of candidates) {
+      const rawPhone = typeof c.phoneNumber === 'string' ? c.phoneNumber : String(c.phoneNumber || '');
+      const cleanedPhone = rawPhone.replace(/\D/g, '').slice(-10);
+
+      if (!cleanedPhone || cleanedPhone.length !== 10) {
+        skippedPhoneNumbers.push(rawPhone || 'invalid');
+        continue;
+      }
+
+      // Check if this phone number is already present in this Excel upload (self-duplication)
+      if (processedCandidatesMap.has(cleanedPhone)) {
+        skippedPhoneNumbers.push(rawPhone);
+        continue;
+      }
+
+      processedCandidatesMap.set(cleanedPhone, c);
+    }
+
+    const uniqueIncomingPhones = Array.from(processedCandidatesMap.keys());
+
+    // Check existing by candidatePhone in DB
     const existingCandidates = await Candidate.find({
-      candidatePhone: { $in: incomingPhoneNumbers },
+      candidatePhone: { $in: uniqueIncomingPhones },
     }).select('candidatePhone');
 
     const existingPhoneSet = new Set(existingCandidates.map(c => c.candidatePhone.trim()));
 
-    const skippedPhoneNumbers = [];
     const newCandidates = [];
 
-    for (let c of candidates) {
-      const phone = typeof c.phoneNumber === 'string' ? c.phoneNumber.trim() : String(c.phoneNumber || '').trim();
-      if (!phone || existingPhoneSet.has(phone)) {
-        skippedPhoneNumbers.push(phone);
+    for (const [cleanedPhone, c] of processedCandidatesMap.entries()) {
+      if (existingPhoneSet.has(cleanedPhone)) {
+        // Find the original phone number format to return in skipped list
+        const rawPhone = typeof c.phoneNumber === 'string' ? c.phoneNumber : String(c.phoneNumber || '');
+        skippedPhoneNumbers.push(rawPhone);
         continue;
       }
 
       newCandidates.push({
         candidateName: typeof c.name === 'string' ? c.name.trim() : String(c.name || '').trim(),
         candidateEmail: typeof c.email === 'string' ? c.email.trim() : String(c.email || '').trim(),
-        candidatePhone: phone,
+        candidatePhone: cleanedPhone,
         positionName: c.positionName || '',
         qualification: c.qualification || '',
         experience: Number(c.experience) || 0,
@@ -182,6 +201,22 @@ const updateCandidate = async (req, res) => {
 
     // Remove helper fields
     delete updatedData.modelType;
+    delete updatedData.createdBy;
+
+    const sanitizeObjectIdField = (field) => {
+      if (updatedData[field]) {
+        if (typeof updatedData[field] === 'object') {
+          delete updatedData[field];
+        } else if (typeof updatedData[field] === 'string' && updatedData[field].length !== 24) {
+          delete updatedData[field];
+        }
+      }
+    };
+
+    sanitizeObjectIdField('assignedTo');
+    sanitizeObjectIdField('assignedPosition');
+    sanitizeObjectIdField('assignedBy');
+    sanitizeObjectIdField('jobId');
 
     // Map incoming name/email/phoneNumber → candidateModal field names
     if (updatedData.name !== undefined) {

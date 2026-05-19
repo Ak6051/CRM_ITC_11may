@@ -49,6 +49,7 @@ const companyRequestSchema = new mongoose.Schema(
 
     // ── After approval, link to created CompanyCreate doc ────────────────────
     createdCompanyId: { type: mongoose.Schema.Types.ObjectId, ref: 'CompanyCreate', default: null },
+    leadId:           { type: mongoose.Schema.Types.ObjectId, ref: 'Lead', default: null },
   },
   { timestamps: true }
 );

@@ -4,6 +4,7 @@ const { upload, uploadToS3 } = require('../middleware/gcsMulter');
 const auth = require('../middleware/authMiddleware');
 const CompanyRequest = require('../models/CompanyRequest.model');
 const CompanyCreate = require('../models/companycreate.model');
+const Lead = require('../models/Lead.model');
 
 const requestUpload = upload.fields([
   { name: 'gstUpload',            maxCount: 1 },
@@ -21,11 +22,16 @@ router.post('/', auth, requestUpload, async (req, res) => {
             email, websiteUrl, gpsLocation,
             contactPerson2, contactPerson2Designation, contactNumber2, email2,
             agreementStartDate, agreementEndDate,
-            invoiceNumber, paymentMode, paymentRemark, tokenAmount } = req.body;
+            invoiceNumber, paymentMode, paymentRemark, tokenAmount,
+            leadId } = req.body;
 
     if (!companyName) return res.status(400).json({ success: false, message: 'Company name is required' });
 
-    let gstUpload = '', agreementUpload = '', tokenUpload = '', otherDocumentUpload = '';
+    let gstUpload = req.body.gstUpload || '';
+    let agreementUpload = req.body.agreementUpload || '';
+    let tokenUpload = req.body.tokenUpload || '';
+    let otherDocumentUpload = req.body.otherDocumentUpload || '';
+
     if (req.files?.gstUpload?.[0]) {
       const f = req.files.gstUpload[0];
       gstUpload = await uploadToS3(f.buffer, f.originalname, f.mimetype);
@@ -56,9 +62,15 @@ router.post('/', auth, requestUpload, async (req, res) => {
       gstUpload, agreementUpload, tokenUpload, otherDocumentUpload,
       requestedBy: req.user._id,
       status: 'Pending',
+      leadId: leadId || null,
     });
 
     await request.save();
+
+    if (leadId) {
+      await Lead.findByIdAndUpdate(leadId, { leadStatus: 'Converted' });
+    }
+
     res.status(201).json({ success: true, data: request });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

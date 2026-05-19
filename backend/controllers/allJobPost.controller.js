@@ -71,9 +71,16 @@ const createJobOpening = async (req, res) => {
       companyId: Number(companyId),
     };
 
-    // Set createdBy
+    // Set createdBy and approvalStatus
     if (req.user?._id) {
       jobData.createdBy = req.user._id.toString();
+    }
+    
+    // Set approval status based on role
+    if (req.user?.role === 'Sales') {
+      jobData.approvalStatus = 'Pending';
+    } else {
+      jobData.approvalStatus = 'Approved';
     }
 
     // File uploads
@@ -818,7 +825,20 @@ const getUniqueIndustries = async (req, res) => {
   }
 };
 
-
+const updateApprovalStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const job = await JobOpenings.findByIdAndUpdate(
+      req.params.id,
+      { approvalStatus: status },
+      { new: true }
+    );
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+    res.status(200).json({ message: 'Approval status updated', job });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating approval status', error: error.message });
+  }
+};
 
 module.exports = {
   createJobOpening,
@@ -829,5 +849,5 @@ module.exports = {
   deleteJobOpening,
   toggleJobStatus,
   getUniqueIndustries,
-
+  updateApprovalStatus,
 };

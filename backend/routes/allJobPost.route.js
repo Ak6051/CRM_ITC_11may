@@ -11,6 +11,7 @@ const {
   getAllSales,
   toggleJobStatus,
   getUniqueIndustries,
+  updateApprovalStatus,
 } = require('../controllers/allJobPost.controller');
 const JobOpenings = require('../models/jobopennings.modal');
 const Candidate = require("../models/candidateModal");
@@ -28,6 +29,7 @@ router.put('/edit/:id',protect,upload.fields([{ name: 'agreementSigned', maxCoun
 router.delete('/delete/:id', protect, deleteJobOpening);       // Delete job by id
 router.get('/sales', protect, getAllSales);
 router.put('/:id/toggle-status', protect, toggleJobStatus);
+router.put('/update-approval/:id', protect, updateApprovalStatus);
 router.get('/industries', getUniqueIndustries);
 
 

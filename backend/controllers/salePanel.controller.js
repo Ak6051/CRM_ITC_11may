@@ -17,25 +17,104 @@ const getMySales = async (req, res) => {
   try {
     let salesQuery = ['admin', 'teamleader'].includes(req.user.role) ? {} : { createdBy: req.user._id };
 
-    const [sales, reschedules] = await Promise.all([
+    const [salesRaw, jobOpeningsRaw, reschedulesRaw, companies] = await Promise.all([
       salesPanel.find(salesQuery).populate('createdBy', 'firstName lastName'),
-      RescheduledMeeting.find(salesQuery).populate('salesId').populate('createdBy', 'firstName lastName')
+      // Also fetch jobs created by this Sales user from JobOpenings model
+      JobOpenings.find(salesQuery).populate('createdBy', 'firstName lastName role'),
+      RescheduledMeeting.find(salesQuery).populate('salesId').populate('createdBy', 'firstName lastName'),
+      CompanyCreate.find({})
     ]);
 
-    // Merge original sales and reschedules into one array
-    const formattedReschedules = reschedules
-    .filter(r => r.salesId) // only include if salesId is populated
-    .map(r => ({
-      ...r.salesId.toObject(),
-      _id: r._id, // use reschedule id
-      createdAt: r.createdAt,
-      rescheduledDate: r.newDate,
-      rescheduleReason: r.reason,
-      isRescheduled: true
-    }));
-  
+    // Create a map of companies by companyId for fast lookup
+    const companyMap = new Map();
+    companies.forEach(co => {
+      if (co.companyId) {
+        companyMap.set(Number(co.companyId), co);
+      }
+    });
 
-    const allRows = [...sales, ...formattedReschedules];
+    const enrichWithCompanyDetails = (saleObj) => {
+      if (!saleObj.companyId) return saleObj;
+      const co = companyMap.get(Number(saleObj.companyId));
+      if (!co) return saleObj;
+
+      // Map company-level fields (prefer CompanyCreate, fallback to sale fields)
+      saleObj.co_industries = co.industries || saleObj.industries || '';
+      saleObj.co_companyAddress = co.companyAddress || saleObj.companyAddress || '';
+      saleObj.co_area = co.area || saleObj.Area || '';
+      saleObj.co_city = co.city || '';
+      saleObj.co_contactPerson = co.contactPerson || saleObj.contactName || '';
+      saleObj.co_contactNumber2 = co.contactNumber2 || '';
+      saleObj.co_email = co.email || saleObj.email || '';
+      saleObj.co_websiteUrl = co.websiteUrl || saleObj.websiteURL || '';
+      saleObj.co_gpsLocation = co.gpsLocation || '';
+      saleObj.co_gstUpload = co.gstUpload || saleObj.gstUpload || '';
+      saleObj.co_agreementUpload = co.agreementUpload || saleObj.agreementSigned || '';
+      saleObj.co_tokenAmount = co.tokenAmount || null;
+
+      // Map branch-level fields
+      if (saleObj.branchId) {
+        const br = co.branches?.find(b => b._id.toString() === saleObj.branchId.toString());
+        if (br) {
+          saleObj.br_branchName = br.branchName || saleObj.branchName || '';
+          saleObj.br_branchAddress = br.branchAddress || '';
+          saleObj.br_city = br.city || '';
+          saleObj.br_area = br.area || '';
+          saleObj.br_contactPerson = br.contactPerson || '';
+          saleObj.br_contactNumber = br.contactNumber || '';
+          saleObj.br_email = br.email || '';
+          saleObj.br_gpsLocation = br.gpsLocation || '';
+        } else {
+          saleObj.br_branchName = saleObj.branchName || '';
+          saleObj.br_branchAddress = '';
+          saleObj.br_city = '';
+          saleObj.br_area = '';
+          saleObj.br_contactPerson = '';
+          saleObj.br_contactNumber = '';
+          saleObj.br_email = '';
+          saleObj.br_gpsLocation = '';
+        }
+      } else {
+        saleObj.br_branchName = saleObj.branchName || '';
+        saleObj.br_branchAddress = '';
+        saleObj.br_city = '';
+        saleObj.br_area = '';
+        saleObj.br_contactPerson = '';
+        saleObj.br_contactNumber = '';
+        saleObj.br_email = '';
+        saleObj.br_gpsLocation = '';
+      }
+
+      return saleObj;
+    };
+
+    const sales = salesRaw.map(s => enrichWithCompanyDetails(s.toObject()));
+
+    // Enrich JobOpenings data (new Sales-created jobs) with company details
+    const jobOpenings = jobOpeningsRaw
+      .filter(j => j.createdBy?.role === 'Sales') // Only Sales-created jobs from JobOpenings
+      .map(j => {
+        const obj = enrichWithCompanyDetails(j.toObject());
+        obj._source = 'jobOpenings'; // Mark source for update/delete routing
+        return obj;
+      });
+
+    // Merge original sales and reschedules into one array
+    const formattedReschedules = reschedulesRaw
+    .filter(r => r.salesId) // only include if salesId is populated
+    .map(r => {
+      const saleObj = enrichWithCompanyDetails(r.salesId.toObject());
+      return {
+        ...saleObj,
+        _id: r._id, // use reschedule id
+        createdAt: r.createdAt,
+        rescheduledDate: r.newDate,
+        rescheduleReason: r.reason,
+        isRescheduled: true
+      };
+    });
+
+    const allRows = [...sales, ...jobOpenings, ...formattedReschedules];
 
     res.status(200).json(allRows);
   } catch (error) {
@@ -84,6 +163,10 @@ const createJobOpening = async (req, res) => {
     if (!companyName) return res.status(400).json({ message: 'companyName is required' });
     if (!companyId)   return res.status(400).json({ message: 'companyId is required' });
 
+    if (!req.files || !req.files.descriptionFile?.[0]) {
+      return res.status(400).json({ message: 'Job Description PDF is required' });
+    }
+
     // Validate company exists in CompanyCreate
     const company = await CompanyCreate.findOne({ companyId: Number(companyId) });
     if (!company) return res.status(404).json({ message: `Company with ID ${companyId} not found` });
@@ -95,6 +178,7 @@ const createJobOpening = async (req, res) => {
       branchId:    branchId   || '',
       branchName:  branchName || '',
       createdBy:   req.user._id,
+      approvalStatus: 'Pending', // Sales jobs always start as Pending
     };
 
     if (req.files) {
@@ -110,10 +194,9 @@ const createJobOpening = async (req, res) => {
       }
     }
 
-    const newJob = new salesPanel(jobData);
+    // Save directly to JobOpenings model (Admin will approve/reject)
+    const newJob = new JobOpenings(jobData);
     await newJob.save();
-
-
 
     res.status(201).json({ message: 'Job opening created successfully', job: newJob });
   } catch (error) {
@@ -127,8 +210,13 @@ const createJobOpening = async (req, res) => {
 // UPDATE JOB OPENING
 const updateJobOpening = async (req, res) => {
   try {
-    const job = await salesPanel.findById(req.params.id);
-    if (!job) return res.status(404).json({ message: 'Job not found' });
+    let job = await salesPanel.findById(req.params.id);
+    let isJobOpeningModel = false;
+    if (!job) {
+      job = await JobOpenings.findById(req.params.id);
+      if (!job) return res.status(404).json({ message: 'Job not found' });
+      isJobOpeningModel = true;
+    }
 
     if (job.createdBy.toString() !== req.user._id.toString() && req.user.role !== 'admin' && req.user.role !== 'teamleader') {
       return res.status(403).json({ message: 'You are not allowed to edit this job' });
@@ -156,10 +244,18 @@ const updateJobOpening = async (req, res) => {
       delete updateData.description;
     }
 
-    const updatedJob = await salesPanel.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true,
-    });
+    let updatedJob;
+    if (isJobOpeningModel) {
+      updatedJob = await JobOpenings.findByIdAndUpdate(req.params.id, updateData, {
+        new: true,
+        runValidators: true,
+      });
+    } else {
+      updatedJob = await salesPanel.findByIdAndUpdate(req.params.id, updateData, {
+        new: true,
+        runValidators: true,
+      });
+    }
 
 
 
@@ -360,9 +456,14 @@ const deleteJobOpening = async (req, res) => {
     }
 
     // Check if the job exists
-    const job = await salesPanel.findById(id);
+    let job = await salesPanel.findById(id);
+    let isJobOpeningModel = false;
     if (!job) {
-      return res.status(404).json({ message: 'Job opening not found' });
+      job = await JobOpenings.findById(id);
+      if (!job) {
+        return res.status(404).json({ message: 'Job opening not found' });
+      }
+      isJobOpeningModel = true;
     }
 
     // Check if the user is the creator or admin
@@ -371,7 +472,11 @@ const deleteJobOpening = async (req, res) => {
     }
 
     // Delete the job
-    await salesPanel.findByIdAndDelete(id);
+    if (isJobOpeningModel) {
+      await JobOpenings.findByIdAndDelete(id);
+    } else {
+      await salesPanel.findByIdAndDelete(id);
+    }
     
     res.status(200).json({ message: 'Job opening deleted successfully' });
   } catch (error) {
