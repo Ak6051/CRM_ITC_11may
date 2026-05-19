@@ -67,15 +67,30 @@ router.get('/hr-candidate-count', protect, async (req, res) => {
 
     const mongoose = require('mongoose');
     const Candidate = require('../models/candidateModal');
+    const JobOpenings = require('../models/jobopennings.modal');
+    const CandidateApplication = require('../models/CandidateApplication.model');
 
-    // Date range: if date provided use that day, else use today
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
-    const endOfDay   = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+    // Date range: resilient to local and UTC timezones
+    let startOfDay, endOfDay;
+    if (date) {
+      const dateStr = String(date).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
+        endOfDay   = new Date(`${dateStr}T23:59:59.999Z`);
+      } else {
+        const targetDate = new Date(date);
+        startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0);
+        endOfDay   = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
+      }
+    } else {
+      const now = new Date();
+      startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    }
 
-    // Escape special regex characters (e.g. parentheses, &, +, etc.)
+    // Escape special regex characters (e.g. parentheses, &, +, etc.) and allow optional leading/trailing spaces
     const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const positionRegex = new RegExp(`^${escapeRegex(position.trim())}$`, 'i');
+    const positionRegex = new RegExp(`^\\s*${escapeRegex(position.trim())}\\s*$`, 'i');
 
     // hrId can be ObjectId or string — handle both
     let hrObjectId;
@@ -85,13 +100,40 @@ router.get('/hr-candidate-count', protect, async (req, res) => {
       return res.status(400).json({ error: 'Invalid hrId format' });
     }
 
-    // Count candidates created by this HR with matching positionName on the given date
-    const count = await Candidate.countDocuments({
-      createdBy:    hrObjectId,
-      positionName: positionRegex,
-      createdAt:    { $gte: startOfDay, $lte: endOfDay },
-    });
+    // Find all job IDs that match the position title
+    const matchingJobs = await JobOpenings.find({
+      jobTitle: positionRegex
+    }).select('_id');
+    const matchingJobIds = matchingJobs.map(j => j._id);
 
+    // 1. Unique candidate IDs from Candidate model
+    const directCandidateIds = await Candidate.find({
+      createdBy: hrObjectId,
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+      $or: [
+        { positionName: positionRegex },
+        { jobId: { $in: matchingJobIds } },
+        { assignedPosition: { $in: matchingJobIds } }
+      ]
+    }).distinct('_id');
+
+    // 2. Unique candidate IDs from CandidateApplication model
+    const applicationCandidateIds = await CandidateApplication.find({
+      createdBy: hrObjectId,
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+      $or: [
+        { positionName: positionRegex },
+        { jobId: { $in: matchingJobIds } }
+      ]
+    }).distinct('candidateId');
+
+    // Combine sets to get unique count of candidates handled by this HR today
+    const combinedSet = new Set([
+      ...directCandidateIds.map(id => id.toString()),
+      ...applicationCandidateIds.map(id => id.toString())
+    ]);
+
+    const count = combinedSet.size;
     res.json({ count });
   } catch (err) {
     console.error('[hr-candidate-count] error:', err);

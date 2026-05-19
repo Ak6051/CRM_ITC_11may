@@ -31,14 +31,17 @@ const getAllCandidates = async (req, res) => {
     if (startDate || endDate) {
       filter.selectionDate = { $exists: true, $ne: null };
       if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        filter.selectionDate.$gte = start;
+        filter.selectionDate.$gte = new Date(startDate);
       }
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        filter.selectionDate.$lte = end;
+        const endLimit = new Date(endDate);
+        endLimit.setUTCHours(
+          endLimit.getUTCHours() + 23,
+          endLimit.getUTCMinutes() + 59,
+          endLimit.getUTCSeconds() + 59,
+          endLimit.getUTCMilliseconds() + 999
+        );
+        filter.selectionDate.$lte = endLimit;
       }
     }
 

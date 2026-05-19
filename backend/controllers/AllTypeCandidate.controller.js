@@ -366,8 +366,20 @@ const getCombinedCandidates = async (req, res) => {
     if (gender) filterQuery.gender = { $regex: `^${gender.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' };
     if (startDate || endDate) {
       filterQuery.createdAt = {};
-      if (startDate) filterQuery.createdAt.$gte = new Date(startDate);
-      if (endDate) filterQuery.createdAt.$lte = new Date(new Date(endDate).setHours(23, 59, 59, 999));
+      if (startDate) {
+        filterQuery.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        // Add 23h 59m 59s 999ms in UTC to cover the full local day represented by the ISO string
+        const endLimit = new Date(endDate);
+        endLimit.setUTCHours(
+          endLimit.getUTCHours() + 23,
+          endLimit.getUTCMinutes() + 59,
+          endLimit.getUTCSeconds() + 59,
+          endLimit.getUTCMilliseconds() + 999
+        );
+        filterQuery.createdAt.$lte = endLimit;
+      }
     }
 
     // Numeric filters (applied directly since fields are now Numbers)
