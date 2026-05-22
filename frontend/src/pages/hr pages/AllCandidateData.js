@@ -140,6 +140,60 @@ const AllCandidateData = () => {
   const openPhonePopover = (e, candidate) => setPhonePopover({ anchor: e.currentTarget, phone: candidate.phoneNumber || '', name: candidate.name || '' });
   const closePhonePopover = () => setPhonePopover({ anchor: null, phone: '', name: '' });
 
+  // ── Mark as Called dialog ───────────────────────────────────────────────────
+  const [callDialogOpen, setCallDialogOpen] = useState(false);
+  const [callCandidate, setCallCandidate] = useState(null);
+  const [callPosition, setCallPosition] = useState('');
+  const [callLogging, setCallLogging] = useState(false);
+  const [calledTodayIds, setCalledTodayIds] = useState(new Set()); // candidateIds called today
+
+  const openCallDialog = (candidate) => {
+    setCallCandidate(candidate);
+    setCallPosition(candidate.positionName || '');
+    setCallDialogOpen(true);
+  };
+
+  const handleConfirmCall = async () => {
+    if (!callCandidate || !callPosition.trim()) return;
+    setCallLogging(true);
+    try {
+      const token = sessionStorage.getItem('token');
+      const res = await axios.post(
+        `${API_BASE_URL}/calllog`,
+        { candidateId: callCandidate._id || callCandidate.id, position: callPosition.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.alreadyLogged) {
+        toast.info('Already marked as called today for this position');
+      } else {
+        toast.success(`✅ ${callCandidate.name} marked as called for "${callPosition}"`);
+        setCalledTodayIds(prev => new Set([...prev, callCandidate._id || callCandidate.id]));
+      }
+      setCallDialogOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to log call');
+    } finally {
+      setCallLogging(false);
+    }
+  };
+
+  // Fetch today's call logs on mount to pre-populate calledTodayIds
+  useEffect(() => {
+    const fetchTodayCallLogs = async () => {
+      try {
+        const token = sessionStorage.getItem('token');
+        const res = await axios.get(`${API_BASE_URL}/calllog/today`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const ids = new Set(res.data.map(log => log.candidateId?._id?.toString() || log.candidateId?.toString()).filter(Boolean));
+        setCalledTodayIds(ids);
+      } catch (e) {
+        // non-critical — silently ignore
+      }
+    };
+    fetchTodayCallLogs();
+  }, []);
+
   // ── WhatsApp Preview Dialog ─────────────────────────────────────────────────
   const [waDialogOpen, setWaDialogOpen] = useState(false);
   const [waCandidate, setWaCandidate] = useState(null);
@@ -729,6 +783,24 @@ iTalentConnect`
             }}
           >
             Call candidate
+          </Button>
+
+          {/* Mark as Called button */}
+          <Button
+            variant={calledTodayIds.has(candidate._id || candidate.id) ? "contained" : "outlined"}
+            size="small"
+            fullWidth
+            onClick={() => openCallDialog(candidate)}
+            sx={{
+              textTransform: "none", borderRadius: "6px", fontSize: 11.5, fontWeight: 600,
+              py: 0.6,
+              ...(calledTodayIds.has(candidate._id || candidate.id)
+                ? { bgcolor: "#10b981", borderColor: "#10b981", color: "#fff", "&:hover": { bgcolor: "#059669" } }
+                : { borderColor: "#10b981", color: "#10b981", "&:hover": { bgcolor: "#f0fdf4" } }
+              ),
+            }}
+          >
+            {calledTodayIds.has(candidate._id || candidate.id) ? "✅ Called Today" : "📞 Mark as Called"}
           </Button>
 
           <Typography fontSize={11} color="#94a3b8" align="center">Verified phone &amp; email</Typography>
@@ -2376,6 +2448,97 @@ iTalentConnect`
             }}
           >
             Send on WhatsApp
+          </Button>
+        </Box>
+      </Dialog>
+
+      {/* ── Mark as Called Dialog ── */}
+      <Dialog
+        open={callDialogOpen}
+        onClose={() => setCallDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
+      >
+        {/* Header */}
+        <Box sx={{
+          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+          px: 3, py: 2.5,
+          display: 'flex', alignItems: 'center', gap: 1.5,
+        }}>
+          <Box sx={{
+            width: 40, height: 40, borderRadius: '50%',
+            bgcolor: 'rgba(255,255,255,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+          }}>
+            📞
+          </Box>
+          <Box>
+            <Typography fontWeight={700} color="#fff" fontSize={16}>Mark as Called</Typography>
+            <Typography fontSize={12} color="rgba(255,255,255,0.85)">
+              {callCandidate?.name || ''}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Body */}
+        <Box sx={{ px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Candidate info */}
+          <Box sx={{ p: 1.5, bgcolor: '#f0fdf4', borderRadius: '10px', border: '1px solid #d1fae5' }}>
+            <Typography fontSize={13} color="#374151">
+              <strong>Candidate:</strong> {callCandidate?.name || '—'}
+            </Typography>
+            <Typography fontSize={13} color="#374151" mt={0.4}>
+              <strong>Phone:</strong> {callCandidate?.phoneNumber || '—'}
+            </Typography>
+          </Box>
+
+          {/* Position selector */}
+          <Box>
+            <Typography fontSize={13} fontWeight={600} color="#374151" mb={0.8}>
+              Position <span style={{ color: '#ef4444' }}>*</span>
+            </Typography>
+            <Autocomplete
+              freeSolo
+              size="small"
+              options={positions}
+              value={callPosition}
+              onChange={(_, val) => setCallPosition(val || '')}
+              onInputChange={(_, val) => setCallPosition(val)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select or type position..."
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 13 } }}
+                />
+              )}
+            />
+            <Typography fontSize={11} color="#6b7280" mt={0.5}>
+              Pre-filled from candidate data. Change if calling for a different position.
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Footer */}
+        <Box sx={{ px: 3, pb: 2.5, display: 'flex', gap: 1.5 }}>
+          <Button
+            fullWidth variant="outlined"
+            onClick={() => setCallDialogOpen(false)}
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: '#d1d5db', color: '#6b7280' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            fullWidth variant="contained"
+            onClick={handleConfirmCall}
+            disabled={callLogging || !callPosition.trim()}
+            sx={{
+              borderRadius: '8px', textTransform: 'none', fontWeight: 700,
+              bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' },
+              '&:disabled': { bgcolor: '#a7f3d0', color: '#fff' },
+            }}
+          >
+            {callLogging ? 'Logging...' : '✅ Confirm Call'}
           </Button>
         </Box>
       </Dialog>

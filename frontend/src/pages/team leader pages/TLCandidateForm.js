@@ -96,9 +96,10 @@ const AdminCandidateForm = ({ userId }) => {
     // Special handling for numeric fields
     const numericFields = ['currentCTC', 'expectedCTC', 'experience', 'noticePeriod'];
     if (numericFields.includes(name)) {
-      // Only allow whole numbers
-      const numericValue = value.replace(/\D/g, '');
-      setFormData(prev => ({ ...prev, [name]: numericValue }));
+      // Allow decimal values
+      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+        setFormData(prev => ({ ...prev, [name]: value }));
+      }
       return;
     }
 
@@ -194,11 +195,13 @@ const AdminCandidateForm = ({ userId }) => {
   };
 
   const handleExperienceChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '');
-    setFormData(prev => ({
-      ...prev,
-      experience: value
-    }));
+    const value = e.target.value;
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setFormData(prev => ({
+        ...prev,
+        experience: value
+      }));
+    }
 
     // Clear error if any
     if (errors.experience) {
@@ -385,7 +388,7 @@ const AdminCandidateForm = ({ userId }) => {
           numericFields.forEach(field => {
             if (row[field] != null) {
               const val = String(row[field]).replace(/[, \s]/g, ''); // strip commas and spaces
-              if (/\D/.test(val)) {
+              if (val !== '' && isNaN(Number(val))) {
                 rowErrors.push(`Row ${i + 2}: ${field} must be a number (found "${row[field]}")`);
               }
             }
@@ -415,8 +418,8 @@ const AdminCandidateForm = ({ userId }) => {
         const sanitizeNum = (val) => {
           if (!val) return 0;
           if (typeof val === 'number') return val;
-          const match = String(val).match(/\d+/);
-          return match ? parseInt(match[0]) : 0;
+          const cleaned = String(val).replace(/[^0-9.]/g, '');
+          return cleaned ? parseFloat(cleaned) || 0 : 0;
         };
 
         return {

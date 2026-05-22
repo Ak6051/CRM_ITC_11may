@@ -107,11 +107,14 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
 
     // Special handling for numeric fields
     if (['phoneNumber', 'currentCTC', 'expectedCTC', 'experience', 'noticePeriod'].includes(name)) {
-      const numericValue = value.replace(/\D/g, '');
       if (name === 'phoneNumber') {
+        const numericValue = value.replace(/\D/g, '');
         setFormData(prev => ({ ...prev, [name]: numericValue.slice(0, 10) }));
       } else {
-        setFormData(prev => ({ ...prev, [name]: numericValue }));
+        // Allow decimal values
+        if (value === '' || /^\d*\.?\d*$/.test(value)) {
+          setFormData(prev => ({ ...prev, [name]: value }));
+        }
       }
       return;
     }
@@ -128,11 +131,8 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
       'reasonforLeaving',
       'remark'
     ].includes(name)) {
-      // Capitalize first letter of each word in text fields
-      const capitalizedValue = value
-        .split(' ')
-        .map(word => word.length > 0 ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '')
-        .join(' ');
+      // Capitalize first letter of each word (preserve rest of casing)
+      const capitalizedValue = value.replace(/\b\w/g, (char) => char.toUpperCase());
       setFormData(prev => ({ ...prev, [name]: capitalizedValue }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -385,7 +385,7 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
           numericFields.forEach(field => {
             if (row[field] != null) {
               const val = String(row[field]).replace(/[, \s]/g, ''); // strip commas and spaces
-              if (/\D/.test(val)) {
+              if (val !== '' && isNaN(Number(val))) {
                 rowErrors.push(`Row ${i + 2}: ${field} must be a number (found "${row[field]}")`);
               }
             }
@@ -415,10 +415,10 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
         return {
           ...row,
           phoneNumber: cleanedPhone,
-          currentCTC: row.currentCTC != null ? Number(String(row.currentCTC).replace(/\D/g, '')) : row.currentCTC,
-          expectedCTC: row.expectedCTC != null ? Number(String(row.expectedCTC).replace(/\D/g, '')) : row.expectedCTC,
-          experience: row.experience != null ? Number(String(row.experience).replace(/\D/g, '')) : row.experience,
-          noticePeriod: row.noticePeriod != null ? Number(String(row.noticePeriod).replace(/\D/g, '')) : row.noticePeriod,
+          currentCTC: row.currentCTC != null ? (Number(String(row.currentCTC).replace(/[^0-9.]/g, '')) || 0) : row.currentCTC,
+          expectedCTC: row.expectedCTC != null ? (Number(String(row.expectedCTC).replace(/[^0-9.]/g, '')) || 0) : row.expectedCTC,
+          experience: row.experience != null ? (Number(String(row.experience).replace(/[^0-9.]/g, '')) || 0) : row.experience,
+          noticePeriod: row.noticePeriod != null ? (Number(String(row.noticePeriod).replace(/[^0-9.]/g, '')) || 0) : row.noticePeriod,
         };
       });
 
@@ -620,9 +620,9 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
       [""], // empty row
       ["📢 INSTRUCTIONS & RULES:"],
       ["1. Do NOT change the header names in the first row."],
-      ["2. currentCTC & expectedCTC: Enter ONLY monthly amount in numbers (e.g. 20000)."],
-      ["3. experience: Enter ONLY number of years (e.g. 2)."],
-      ["4. noticePeriod: Enter ONLY number of days (e.g. 30)."],
+      ["2. currentCTC & expectedCTC: Enter monthly amount in numbers (decimals allowed, e.g. 20000.5)."],
+      ["3. experience: Enter number of years (decimals allowed, e.g. 2.5)."],
+      ["4. noticePeriod: Enter number of days (decimals allowed, e.g. 30.5)."],
       ["5. phoneNumber: Must be a 10-digit number."],
       ["6. Required Columns: name, phoneNumber, email, positionName, qualification, experience, currentLocation, currentPosition, currentCTC, noticePeriod"],
       [""],

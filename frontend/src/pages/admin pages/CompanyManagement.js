@@ -1032,70 +1032,59 @@ export default function CompanyManagement() {
 
           {/* ── Filters Section ── */}
           <Paper sx={{ 
-            p: 2.5, mb: 3, borderRadius: '16px', 
+            p: 1.5, mb: 2, borderRadius: '16px', 
             boxShadow: '0 4px 20px rgba(0,0,0,0.05)', 
             border: '1px solid #e8eaf6',
             background: '#fff'
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Box display="flex" alignItems="center" gap={1}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'nowrap' }}>
+              {/* Label */}
+              <Box display="flex" alignItems="center" gap={1} sx={{ flexShrink: 0 }}>
                 <Box sx={{ width: 4, height: 16, bgcolor: '#3f51b5', borderRadius: 2 }} />
-                <Typography variant="subtitle2" fontWeight={800} color="#3f51b5" textTransform="uppercase" letterSpacing="0.05em">
-                  Quick Search & Filters
+                <Typography variant="caption" fontWeight={800} color="#3f51b5" textTransform="uppercase" letterSpacing="0.05em" sx={{ whiteSpace: 'nowrap', fontSize: '0.7rem' }}>
+                  Filters
                 </Typography>
               </Box>
-              <Button 
-                size="small" 
-                onClick={clearFilters}
-                startIcon={<CloseIcon fontSize="small" />}
-                sx={{ 
-                  color: '#64748b', fontWeight: 600, textTransform: 'none', 
-                  '&:hover': { color: '#ef4444', bgcolor: '#fff1f2' },
-                  borderRadius: '8px'
-                }}
-              >
-                Clear Filters
-              </Button>
-            </Box>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField label="Company Name" name="companyName" value={filters.companyName} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by name..." />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField label="Industries" name="industries" value={filters.industries} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by industry..." />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField label="Contact Person" name="contactPerson" value={filters.contactPerson} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by person..." />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField 
-                  label="Mobile Number" 
-                  name="contactNumber" 
-                  value={filters.contactNumber} 
+
+              {/* All filter fields in one row - more compact */}
+              <Box sx={{ display: 'flex', gap: 1, flex: 1, flexWrap: 'nowrap', alignItems: 'center' }}>
+                <TextField label="Company" name="companyName" value={filters.companyName} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 1, minWidth: 100 }} placeholder="Name..." />
+                <TextField label="Industry" name="industries" value={filters.industries} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.8, minWidth: 90 }} placeholder="Industry..." />
+                <TextField label="Contact" name="contactPerson" value={filters.contactPerson} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 1, minWidth: 100 }} placeholder="Person..." />
+                <TextField
+                  label="Mobile"
+                  name="contactNumber"
+                  value={filters.contactNumber}
                   onChange={(e) => {
                     const v = e.target.value.replace(/\D/g, '').slice(0, 10);
                     handleFilterChange({ target: { name: 'contactNumber', value: v } });
-                  }} 
-                  fullWidth 
-                  size="small" 
-                  sx={fieldSx} 
-                  placeholder="Search by mobile..." 
+                  }}
+                  size="small"
+                  sx={{ ...fieldSx, flex: 0.8, minWidth: 90 }}
+                  placeholder="Mobile..."
                   inputProps={{ maxLength: 10 }}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField label="Area" name="area" value={filters.area} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by area..." />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField label="City" name="city" value={filters.city} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by city..." />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField label="State" name="state" value={filters.state} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by state..." />
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <TextField label="Country" name="country" value={filters.country} onChange={handleFilterChange} fullWidth size="small" sx={fieldSx} placeholder="Search by country..." />
-              </Grid>
-            </Grid>
+                <TextField label="Area" name="area" value={filters.area} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.7, minWidth: 80 }} placeholder="Area..." />
+                <TextField label="City" name="city" value={filters.city} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.7, minWidth: 80 }} placeholder="City..." />
+                <TextField label="State" name="state" value={filters.state} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.7, minWidth: 80 }} placeholder="State..." />
+                <TextField label="Country" name="country" value={filters.country} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.8, minWidth: 85 }} placeholder="Country..." />
+              </Box>
+
+              {/* Clear button */}
+              <Button
+                size="small"
+                onClick={clearFilters}
+                startIcon={<CloseIcon fontSize="small" />}
+                sx={{
+                  flexShrink: 0,
+                  color: '#64748b', fontWeight: 600, textTransform: 'none', fontSize: '0.75rem',
+                  '&:hover': { color: '#ef4444', bgcolor: '#fff1f2' },
+                  borderRadius: '8px', whiteSpace: 'nowrap', px: 1.5, py: 0.5,
+                }}
+              >
+                Clear
+              </Button>
+            </Box>
           </Paper>
 
           {/* ── Pending Requests Dialog ── */}
@@ -1160,7 +1149,7 @@ export default function CompanyManagement() {
           </Dialog>
 
           {/* DataGrid */}
-          <Box sx={{ bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(63,81,181,0.08)', height: 'calc(100vh - 340px)' }}>
+          <Box sx={{ bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(63,81,181,0.08)', height: 'calc(100vh - 180px)' }}>
             <Box sx={{ px: 3, py: 1.5, background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', borderBottom: '1px solid #c5cae9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box display="flex" alignItems="center" gap={1}>
                 <Box sx={{ width: 4, height: 18, bgcolor: '#3f51b5', borderRadius: 2 }} />
@@ -1175,15 +1164,16 @@ export default function CompanyManagement() {
               columns={columns}
               getRowId={(r) => r._id}
               loading={loading}
-              pageSizeOptions={[10, 25, 50]}
-              initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+              rowHeight={38}
+              pageSizeOptions={[50, 100, 200]}
+              initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
               disableRowSelectionOnClick
               sx={{
                 border: 'none',
                 height: 'calc(100% - 52px)',
                 '& .MuiDataGrid-columnHeaders': { background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', borderBottom: '2px solid #c5cae9' },
                 '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, color: '#3f51b5', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #f0f2ff', fontSize: '0.83rem', color: '#334155', '&:focus': { outline: 'none' } },
+                '& .MuiDataGrid-cell': { borderBottom: '1px solid #f0f2ff', fontSize: '0.82rem', color: '#334155', '&:focus': { outline: 'none' } },
                 '& .MuiDataGrid-row:hover': { bgcolor: '#f5f6ff' },
                 '& .MuiDataGrid-footerContainer': { borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' },
                 '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': { height: 7, width: 7 },

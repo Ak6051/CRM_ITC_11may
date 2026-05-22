@@ -1241,7 +1241,7 @@ const MasterDashboard = () => {
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="lg"
+        maxWidth="xl"
         fullWidth
         PaperProps={{
           sx: {
@@ -1281,7 +1281,9 @@ const MasterDashboard = () => {
                   <TableRow sx={{ bgcolor: '#f8fafc' }}>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Candidate</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Contact</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Company</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Position</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>HR Name</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Location</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Status</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Interview Status</TableCell>
@@ -1337,10 +1339,33 @@ const MasterDashboard = () => {
                           </Box>
                         </Box>
                       </TableCell>
+                      {/* Company Name */}
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.92rem' }}>
+                          {candidate.jobId?.companyName || '—'}
+                        </Typography>
+                      </TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.92rem' }}>
                           {candidate.positionName || candidate.candidateId?.positionName || 'N/A'}
                         </Typography>
+                      </TableCell>
+                      {/* HR Name */}
+                      <TableCell>
+                        {(() => {
+                          const hrName = candidate.createdBy
+                            ? `${candidate.createdBy.firstName || ''} ${candidate.createdBy.lastName || ''}`.trim()
+                            : candidate.createdByName || '';
+                          return hrName ? (
+                            <Chip
+                              label={hrName}
+                              size="small"
+                              sx={{ bgcolor: '#e0e7ff', color: '#3730a3', fontWeight: 700, fontSize: '0.78rem' }}
+                            />
+                          ) : (
+                            <Typography variant="body2" sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>—</Typography>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

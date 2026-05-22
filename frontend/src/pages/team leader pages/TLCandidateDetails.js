@@ -110,8 +110,10 @@ const AdminCandidateDetails = () => {
     // Special handling for numeric fields
     const numericFields = ['currentCTC', 'expectedCTC', 'experience', 'noticePeriod'];
     if (numericFields.includes(name)) {
-      const numericValue = value.replace(/\D/g, '');
-      setSelectedCandidate(prev => ({ ...prev, [name]: numericValue }));
+      // Allow decimal values
+      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+        setSelectedCandidate(prev => ({ ...prev, [name]: value }));
+      }
       return;
     }
     setSelectedCandidate({

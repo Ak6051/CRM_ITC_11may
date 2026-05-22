@@ -58,6 +58,8 @@ router.post('/hr/edit-request/:id', protect, hrRequestTaskEdit);   // HR submits
 router.get('/hr/edit-requests/my', protect, getMyEditRequests);    // HR views their own requests
 
 // Candidate count for a specific HR + position (used in admin edit form for TCEOD auto-fill)
+// TCEOD = new candidates created by HR for this position today
+//       + existing candidates "marked as called" by HR for this position today
 router.get('/hr-candidate-count', protect, async (req, res) => {
   try {
     const { hrId, position, date } = req.query;
@@ -69,6 +71,7 @@ router.get('/hr-candidate-count', protect, async (req, res) => {
     const Candidate = require('../models/candidateModal');
     const JobOpenings = require('../models/jobopennings.modal');
     const CandidateApplication = require('../models/CandidateApplication.model');
+    const CallLog = require('../models/CallLog.model');
 
     // Date range: resilient to local and UTC timezones
     let startOfDay, endOfDay;
@@ -88,11 +91,10 @@ router.get('/hr-candidate-count', protect, async (req, res) => {
       endOfDay   = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     }
 
-    // Escape special regex characters (e.g. parentheses, &, +, etc.) and allow optional leading/trailing spaces
+    // Escape special regex characters and allow optional leading/trailing spaces
     const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const positionRegex = new RegExp(`^\\s*${escapeRegex(position.trim())}\\s*$`, 'i');
 
-    // hrId can be ObjectId or string — handle both
     let hrObjectId;
     try {
       hrObjectId = new mongoose.Types.ObjectId(hrId);
@@ -101,12 +103,10 @@ router.get('/hr-candidate-count', protect, async (req, res) => {
     }
 
     // Find all job IDs that match the position title
-    const matchingJobs = await JobOpenings.find({
-      jobTitle: positionRegex
-    }).select('_id');
+    const matchingJobs = await JobOpenings.find({ jobTitle: positionRegex }).select('_id');
     const matchingJobIds = matchingJobs.map(j => j._id);
 
-    // 1. Unique candidate IDs from Candidate model
+    // 1. New candidates created by this HR for this position today
     const directCandidateIds = await Candidate.find({
       createdBy: hrObjectId,
       createdAt: { $gte: startOfDay, $lte: endOfDay },
@@ -117,7 +117,6 @@ router.get('/hr-candidate-count', protect, async (req, res) => {
       ]
     }).distinct('_id');
 
-    // 2. Unique candidate IDs from CandidateApplication model
     const applicationCandidateIds = await CandidateApplication.find({
       createdBy: hrObjectId,
       createdAt: { $gte: startOfDay, $lte: endOfDay },
@@ -127,14 +126,30 @@ router.get('/hr-candidate-count', protect, async (req, res) => {
       ]
     }).distinct('candidateId');
 
-    // Combine sets to get unique count of candidates handled by this HR today
+    // 2. Existing candidates "marked as called" by this HR for this position today
+    const calledCandidateIds = await CallLog.find({
+      hrId: hrObjectId,
+      position: positionRegex,
+      calledAt: { $gte: startOfDay, $lte: endOfDay },
+    }).distinct('candidateId');
+
+    // Union of all three sets — unique candidate count
     const combinedSet = new Set([
       ...directCandidateIds.map(id => id.toString()),
-      ...applicationCandidateIds.map(id => id.toString())
+      ...applicationCandidateIds.map(id => id.toString()),
+      ...calledCandidateIds.map(id => id.toString()),
     ]);
 
-    const count = combinedSet.size;
-    res.json({ count });
+    res.json({
+      count: combinedSet.size,
+      breakdown: {
+        newCandidates: new Set([
+          ...directCandidateIds.map(id => id.toString()),
+          ...applicationCandidateIds.map(id => id.toString()),
+        ]).size,
+        calledExisting: calledCandidateIds.length,
+      }
+    });
   } catch (err) {
     console.error('[hr-candidate-count] error:', err);
     res.status(500).json({ error: err.message });

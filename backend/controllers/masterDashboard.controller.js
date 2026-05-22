@@ -49,6 +49,7 @@ exports.getAdminDashboardData = async (req, res) => {
       .populate('candidateId', 'candidateName candidateEmail candidatePhone qualification currentLocation')
       .populate('interviewByWhom', 'firstName lastName')
       .populate('jobId', 'jobTitle companyName')
+      .populate('createdBy', 'firstName lastName')
       .lean();
 
     // Fetch all job openings
@@ -410,6 +411,7 @@ exports.getHRDashboardData = async (req, res) => {
     .populate('candidateId', 'candidateName candidateEmail candidatePhone qualification currentLocation')
     .populate('interviewByWhom', 'firstName lastName')
     .populate('jobId', 'jobTitle companyName')
+    .populate('createdBy', 'firstName lastName')
     .lean();
 
     // Calculate recruitment analytics
@@ -719,6 +721,7 @@ exports.getTLDashboardData = async (req, res) => {
     .populate('candidateId', 'candidateName candidateEmail candidatePhone qualification currentLocation')
     .populate('interviewByWhom', 'firstName lastName')
     .populate('jobId', 'jobTitle companyName')
+    .populate('createdBy', 'firstName lastName')
     .lean();
 
     // Calculate aggregated metrics

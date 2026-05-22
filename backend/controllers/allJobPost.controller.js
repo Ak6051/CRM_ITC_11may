@@ -77,7 +77,8 @@ const createJobOpening = async (req, res) => {
     }
     
     // Set approval status based on role
-    if (req.user?.role === 'Sales') {
+    // Sales and HR jobs need admin approval; Admin and Team Leader jobs are auto-approved
+    if (req.user?.role === 'Sales' || req.user?.role === 'HR') {
       jobData.approvalStatus = 'Pending';
     } else {
       jobData.approvalStatus = 'Approved';

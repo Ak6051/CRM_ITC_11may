@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Button, Grid, Typography, TextField, Paper,
-  FormControl, Select, MenuItem, InputLabel, FormHelperText,
 } from '@mui/material';
 import { Autocomplete } from '@mui/material';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -38,13 +37,7 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
   const isEmbedded = !!onSuccess;
   const isEditMode  = !!editId;
 
-  // Predefined experience options for the job opening form
-  const experienceOptions = [
-    'Fresher', '0-6 Months', '6 Months', '1 Year', '1 Year 3 Months',
-    '1 Year 6 Months', '2 Years', '2 Years 3 Months', '2 Years 6 Months',
-    '3 Years', '3-5 Years', '5 Years', '5-7 Years', '7-10 Years',
-    '10+ Years', '15+ Years',
-  ];
+
 
   // Convert "9:00 AM" / "1:30 PM" → "09:00" / "13:30" for <input type="time">
   const to24h = (timeStr) => {
@@ -78,16 +71,40 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
   useEffect(() => {
     if (editData && editId) {
       setFormData({ ...emptyFormData, ...editData, descriptionFile: null });
-      setSalaryMonthly(''); // clear monthly input; existing LPA shown in formData.salary
-      // Parse existing jobTiming into start/end parts
-      if (editData.jobTiming && editData.jobTiming.includes(' - ')) {
-        const [start, end] = editData.jobTiming.split(' - ');
-        setJobTimingStart(start.trim());
-        setJobTimingEnd(end.trim());
-      } else {
-        setJobTimingStart(editData.jobTiming || '');
-        setJobTimingEnd('');
+      
+      // Parse salary back to monthly if it's in LPA format or just a number
+      let initialSalaryMonthly = '';
+      if (editData.salary != null) {
+        const salaryStr = String(editData.salary);
+        if (salaryStr.toUpperCase().includes('LPA')) {
+          const lpaValue = parseFloat(salaryStr.replace(/[^0-9.]/g, ''));
+          if (!isNaN(lpaValue)) {
+            initialSalaryMonthly = Math.round((lpaValue * 100000) / 12).toString();
+          }
+        } else if (/^\d*\.?\d*$/.test(salaryStr.trim())) {
+          initialSalaryMonthly = salaryStr.trim();
+        }
       }
+      setSalaryMonthly(initialSalaryMonthly);
+
+      // Parse existing jobTiming into start/end parts
+      let startT = '';
+      let endT = '';
+      if (editData.jobTiming) {
+        if (editData.jobTiming.includes('-')) {
+          const parts = editData.jobTiming.split('-');
+          startT = parts[0].trim();
+          endT = parts[1].trim();
+        } else if (editData.jobTiming.toLowerCase().includes(' to ')) {
+          const parts = editData.jobTiming.toLowerCase().split(' to ');
+          startT = parts[0].trim();
+          endT = parts[1].trim();
+        } else {
+          startT = editData.jobTiming.trim();
+        }
+      }
+      setJobTimingStart(startT);
+      setJobTimingEnd(endT);
     }
   }, [editData, editId]);
 
@@ -109,9 +126,18 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
   }, [editData, companyOptions]);
 
   // ── handlers ──────────────────────────────────────────────────────────────
+  // Fields that should NOT be auto-capitalized
+  const NO_CAPITALIZE_FIELDS = ['email', 'phoneNumber', 'websiteURL', 'salary', 'numberOfRequirements', 'experience', 'companyId', 'branchId'];
+
+  const capitalizeWords = (str) =>
+    str.replace(/\b\w/g, (char) => char.toUpperCase());
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const processedValue = (!NO_CAPITALIZE_FIELDS.includes(name) && typeof value === 'string' && value.length > 0)
+      ? capitalizeWords(value)
+      : value;
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
   };
 
   const resetForm = () => {
@@ -148,9 +174,9 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
     try {
       const form = new FormData();
 
-      // Convert monthly salary to annual LPA if user entered a monthly amount
+      // Store the raw monthly salary since the database expects a Number
       const salaryToStore = salaryMonthly
-        ? `${((Number(salaryMonthly) * 12) / 100000).toFixed(2)} LPA`
+        ? salaryMonthly
         : formData.salary;
 
       // Combine jobTimingStart + jobTimingEnd into jobTiming string
@@ -159,7 +185,7 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
         : jobTimingStart || jobTimingEnd || formData.jobTiming || '';
 
       Object.entries(formData).forEach(([key, value]) => {
-        if (['descriptionFile', 'agreementSigned', 'gstUpload'].includes(key)) return;
+        if (['descriptionFile', 'agreementSigned', 'gstUpload', 'createdBy'].includes(key)) return;
         if (key === 'salary') {
           if (salaryToStore) form.append('salary', salaryToStore);
         } else if (key === 'jobTiming') {
@@ -296,6 +322,16 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
               fullWidth error={errors.jobLocation}
               helperText={errors.jobLocation ? 'Job location is required' : ''} required />
 
+            {/* Area */}
+            <TextField
+              label="Area"
+              name="Area"
+              value={formData.Area || ''}
+              onChange={handleChange}
+              size="small"
+              fullWidth
+            />
+
             {/* No. of Openings + Job Timing */}
             <Grid container spacing={2}>
               <Grid item xs={6}>
@@ -387,59 +423,46 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
                   value={salaryMonthly}
                   onChange={(e) => {
                     const v = e.target.value;
-                    if (v === '' || /^\d*$/.test(v)) setSalaryMonthly(v);
+                    if (v === '' || /^\d*\.?\d*$/.test(v)) setSalaryMonthly(v);
                   }}
                   size="small" fullWidth
-                  inputProps={{ inputMode: 'numeric', pattern: '\\d*' }}
+                  inputProps={{ inputMode: 'decimal' }}
                   helperText={
-                    salaryMonthly
-                      ? `= ₹${((Number(salaryMonthly) * 12) / 100000).toFixed(2)} LPA (Annual)`
-                      : formData.salary
+                    formData.salary
                       ? `Current: ${formData.salary}`
                       : 'Enter monthly amount in ₹'
                   }
                 />
               </Grid>
               <Grid item xs={6}>
-                <FormControl fullWidth error={errors.experience} required size="small">
-                  <InputLabel>Experience *</InputLabel>
-                  <Select
-                    value={formData.experience}
-                    label="Experience *"
-                    onChange={(e) => {
-                      setFormData(prev => ({ ...prev, experience: e.target.value }));
+                <TextField
+                  label="Experience (Year) *"
+                  name="experience"
+                  value={formData.experience}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    // Allow decimal numbers (e.g. 1.5, 2.5)
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                      setFormData(prev => ({ ...prev, experience: val }));
                       if (errors.experience) setErrors(p => ({ ...p, experience: false }));
-                    }}
-                  >
-                    {experienceOptions.map(opt => (
-                      <MenuItem key={opt} value={opt}>{opt}</MenuItem>
-                    ))}
-                  </Select>
-                  {errors.experience && <FormHelperText>Required</FormHelperText>}
-                </FormControl>
+                    } else if (!/^\d*\.?\d*$/.test(formData.experience)) {
+                      // Old value was a non-numeric string; allow clearing it entirely
+                      setFormData(prev => ({ ...prev, experience: '' }));
+                    }
+                  }}
+                  size="small"
+                  fullWidth
+                  error={!!errors.experience}
+                  helperText={errors.experience ? 'Required' : ''}
+                  required
+                  inputProps={{ inputMode: 'decimal' }}
+                />
               </Grid>
             </Grid>
           </Grid>
 
           {/* ── RIGHT COLUMN ── */}
           <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-
-            {/* Required Skills */}
-            <TextField label="Required Skills *" name="requiredSkills" value={formData.requiredSkills} size="small"
-              onChange={(e) => { handleChange(e); if (errors.requiredSkills) setErrors(p => ({ ...p, requiredSkills: false })); }}
-              fullWidth multiline rows={2}
-              error={errors.requiredSkills}
-              helperText={errors.requiredSkills ? 'Required skills are required' : ''} required />
-
-            {/* Key Responsibilities */}
-            <TextField label="Key Responsibilities" name="keyResponsibility" size="small"
-              value={formData.keyResponsibility} onChange={handleChange} fullWidth multiline rows={3} />
-
-            {/* Benefits */}
-            <TextField label="Benefits" name="benefits" value={formData.benefits} size="small" onChange={handleChange} fullWidth />
-
-            {/* Response */}
-            <TextField label="Response" name="response" value={formData.response} size="small" onChange={handleChange} fullWidth />
 
             {/* Week Off */}
             <Autocomplete
@@ -465,6 +488,23 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
                   helperText="Select or type custom week off" />
               )}
             />
+
+            {/* Required Skills */}
+            <TextField label="Required Skills *" name="requiredSkills" value={formData.requiredSkills} size="small"
+              onChange={(e) => { handleChange(e); if (errors.requiredSkills) setErrors(p => ({ ...p, requiredSkills: false })); }}
+              fullWidth multiline rows={2}
+              error={errors.requiredSkills}
+              helperText={errors.requiredSkills ? 'Required skills are required' : ''} required />
+
+            {/* Key Responsibilities */}
+            <TextField label="Key Responsibilities" name="keyResponsibility" size="small"
+              value={formData.keyResponsibility} onChange={handleChange} fullWidth multiline rows={3} />
+
+            {/* Benefits */}
+            <TextField label="Benefits" name="benefits" value={formData.benefits} size="small" onChange={handleChange} fullWidth />
+
+            {/* Response */}
+            <TextField label="Response" name="response" value={formData.response} size="small" onChange={handleChange} fullWidth />
 
             {/* Job Description PDF */}
             <Box sx={{ p: 2, bgcolor: '#f8f9ff', borderRadius: '10px', border: '1px solid #e8eaf6' }}>
@@ -589,7 +629,7 @@ const HRJobForm = ({ onSuccess, onClose, editData, editId }) => {
           {/* Form card */}
           <Paper elevation={0} sx={{
             border: '1px solid #e8eaf6', borderRadius: '16px', overflow: 'hidden',
-            maxHeight: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column',
+            height: 'calc(100vh - 200px)', display: 'flex', flexDirection: 'column',
             boxShadow: '0 4px 24px rgba(63,81,181,0.08)',
           }}>
             {formFields}

@@ -66,6 +66,7 @@ const DailyTaskData = () => {
   // Filter state
   const [companyFilter, setCompanyFilter] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
+  const [tceodBreakdown, setTceodBreakdown] = useState(null); // { newCandidates, calledExisting }
 
   const token = sessionStorage.getItem('token');
   const config = {
@@ -248,7 +249,7 @@ const DailyTaskData = () => {
       }
     }
 
-    // Auto-fetch TCEOD — count candidates created by this HR for this position today
+    // Auto-fetch TCEOD — new candidates + called existing for this position today
     const hrId = sessionStorage.getItem('userId');
     if (hrId && positionName) {
       try {
@@ -258,13 +259,12 @@ const DailyTaskData = () => {
           params: { hrId, position: positionName, date: today },
         });
         setFormData(prev => ({ ...prev, TCEOD: String(res.data.count ?? prev.TCEOD) }));
+        if (res.data.breakdown) setTceodBreakdown(res.data.breakdown);
       } catch (err) {
         console.error('Could not fetch TCEOD candidate count:', err);
       }
     }
-  };
-
-  const validateForm = () => {
+  };  const validateForm = () => {
     const errors = {};
     let isValid = true;
     ['companyName', 'position', 'totalCall', 'profilesShared', 'interviewsScheduled'].forEach(field => {
@@ -334,6 +334,7 @@ const DailyTaskData = () => {
           params: { hrId, position: task.position, date: taskDate },
         });
         todayCandidateCount = String(res.data.count ?? todayCandidateCount);
+        if (res.data.breakdown) setTceodBreakdown(res.data.breakdown);
       } catch (err) {
         console.error('Error fetching today candidate count:', err);
       }
@@ -785,6 +786,28 @@ const DailyTaskData = () => {
                           </Grid>
                         ))}
                       </Grid>
+
+                      {/* TCEOD auto-count info — shown after position is selected */}
+                      {formData.position && (
+                        <Box sx={{
+                          mt: 2, p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1.5,
+                          border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
+                        }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534' }}>
+                            📊 TCEOD (auto-calculated): <strong>{formData.TCEOD}</strong>
+                          </Typography>
+                          {tceodBreakdown && (
+                            <>
+                              <Typography variant="caption" sx={{ color: '#15803d' }}>
+                                🆕 New candidates: <strong>{tceodBreakdown.newCandidates}</strong>
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#15803d' }}>
+                                📞 Called existing: <strong>{tceodBreakdown.calledExisting}</strong>
+                              </Typography>
+                            </>
+                          )}
+                        </Box>
+                      )}
                     </Box>
                   </Box>
                 </Grid>

@@ -97,42 +97,26 @@ router.post('/import', protect, async (req, res) => {
 router.get('/company-names', async (req, res) => {
   try {
     const companies = await JobOpenings.aggregate([
+      // Only include documents that have a non-empty companyName
+      { $match: { companyName: { $exists: true, $ne: null, $ne: '' } } },
       {
-        // First group by both companyId and companyName to handle case sensitivity
+        // Group purely by normalized (lowercase + trimmed) company name
+        // This eliminates duplicates regardless of companyId differences
         $group: {
-          _id: {
-            companyId: '$companyId',
-            companyName: { $toLower: '$companyName' }
-          },
-          originalName: { $first: '$companyName' } // Keep the original case
-        }
-      },
-      {
-        // Then group by companyId to handle any remaining duplicates
-        $group: {
-          _id: '$_id.companyId',
-          companyName: { $first: '$originalName' }
+          _id: { $trim: { input: { $toLower: '$companyName' } } },
+          originalName: { $first: '$companyName' }
         }
       },
       {
         $project: {
           _id: 0,
-          companyId: '$_id',
-          formattedName: {
-            $concat: [
-              '$companyName',
-              ' (ID: ',
-              { $toString: '$_id' },
-              ')'
-            ]
-          }
+          companyName: '$originalName',
         }
       },
-      { $sort: { formattedName: 1 } }
+      { $sort: { companyName: 1 } }
     ]);
-    
-    // Extract just the formatted names
-    const companyNames = companies.map(c => c.formattedName);
+
+    const companyNames = companies.map(c => c.companyName);
     res.json(companyNames);
   } catch (error) {
     console.error('Error fetching company names:', error);

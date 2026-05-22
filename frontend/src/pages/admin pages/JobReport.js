@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -201,9 +201,118 @@ const JobReport = () => {
   const [companySearchTerm, setCompanySearchTerm] = useState('');
   const [jobTitleSearchTerm, setJobTitleSearchTerm] = useState('');
   const [salarySearchTerm, setSalarySearchTerm] = useState('');
+  const [selectedLocations, setSelectedLocations] = useState([]);
+  const [locationSearchTerm, setLocationSearchTerm] = useState('');
+  const [areaSearchTerm, setAreaSearchTerm] = useState('');
+
+  // ── Cascading filter helper: matchCompany ──────────────────────────────
+  const matchCompany = (saleCompanyName, selectedCompany) => {
+    if (!saleCompanyName || !selectedCompany) return false;
+
+    let selectedCompanyName;
+    if (typeof selectedCompany === 'string') {
+      selectedCompanyName = selectedCompany.includes(' (ID: ')
+        ? selectedCompany.split(' (ID: ')[0]
+        : selectedCompany;
+    } else if (typeof selectedCompany === 'object' && selectedCompany.companyName) {
+      selectedCompanyName = selectedCompany.companyName;
+    } else {
+      return false;
+    }
+
+    let saleName;
+    if (typeof saleCompanyName === 'string') {
+      saleName = saleCompanyName.includes(' (ID: ')
+        ? saleCompanyName.split(' (ID: ')[0]
+        : saleCompanyName;
+    } else {
+      saleName = saleCompanyName || '';
+    }
+
+    const normalizeString = (str) => {
+      return str.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    const normalizedSelected = normalizeString(selectedCompanyName);
+    const normalizedSale = normalizeString(saleName);
+
+    return normalizedSelected === normalizedSale ||
+      normalizedSelected.includes(normalizedSale) ||
+      normalizedSale.includes(normalizedSelected);
+  };
+
+  // Job titles filtered by selected companies
+  const filteredJobTitleOptions = useMemo(() => {
+    if (selectedCompanies.length === 0) return jobTitleNames;
+    const matchedTitles = sales
+      .filter(sale => selectedCompanies.some(sc => matchCompany(sale.companyName, sc)))
+      .map(sale => sale.jobTitle)
+      .filter(Boolean);
+    return [...new Set(matchedTitles)].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' })
+    );
+  }, [selectedCompanies, sales, jobTitleNames]);
+
+  // Salary options filtered by selected job titles
+  const filteredSalaryOptions = useMemo(() => {
+    if (selectedJobTitle.length === 0) return salaryOptions;
+    const matchedSalaries = sales
+      .filter(sale => selectedJobTitle.includes(sale.jobTitle))
+      .map(sale => sale.salary)
+      .filter(s => s != null && String(s).trim() !== '')
+      .map(s => String(s));
+    return [...new Set(matchedSalaries)].sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true })
+    );
+  }, [selectedJobTitle, sales, salaryOptions]);
+
+  // Location options filtered by selected job titles
+  const filteredLocationOptions = useMemo(() => {
+    const relevantSales = selectedJobTitle.length > 0
+      ? sales.filter(sale => selectedJobTitle.includes(sale.jobTitle))
+      : sales;
+    const locations = relevantSales
+      .map(sale => sale.jobLocation)
+      .filter(l => l && l.trim() !== '');
+    return [...new Set(locations)].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' })
+    );
+  }, [selectedJobTitle, sales]);
+
+  // Auto-clear invalid child selections when parent selections change
+  useEffect(() => {
+    if (selectedJobTitle.length > 0) {
+      const validSelected = selectedJobTitle.filter(title => filteredJobTitleOptions.includes(title));
+      if (validSelected.length !== selectedJobTitle.length) {
+        setSelectedJobTitle(validSelected);
+      }
+    }
+  }, [filteredJobTitleOptions]);
+
+  useEffect(() => {
+    if (selectedSalaries.length > 0) {
+      const validSelected = selectedSalaries.filter(salary =>
+        filteredSalaryOptions.map(String).includes(String(salary))
+      );
+      if (validSelected.length !== selectedSalaries.length) {
+        setSelectedSalaries(validSelected);
+      }
+    }
+  }, [filteredSalaryOptions]);
+
+  useEffect(() => {
+    if (selectedLocations.length > 0) {
+      const validSelected = selectedLocations.filter(loc => filteredLocationOptions.includes(loc));
+      if (validSelected.length !== selectedLocations.length) {
+        setSelectedLocations(validSelected);
+      }
+    }
+  }, [filteredLocationOptions]);
 
   // Per-section text filter states for the new filter panel
-  const [filterJobLocation, setFilterJobLocation] = useState('');
   const [filterNoOfReq, setFilterNoOfReq] = useState('');
   const [filterJobTiming, setFilterJobTiming] = useState('');
   const [filterEducation, setFilterEducation] = useState('');
@@ -219,6 +328,9 @@ const JobReport = () => {
   const [mcFilterExpectedCTC, setMcFilterExpectedCTC] = useState('');
   const [mcFilterNoticePeriod, setMcFilterNoticePeriod] = useState('');
   const [mcFilterCurrentCompany, setMcFilterCurrentCompany] = useState('');
+  const [mcFilterPhone, setMcFilterPhone] = useState('');
+  const [mcFilterDateFrom, setMcFilterDateFrom] = useState('');
+  const [mcFilterDateTo, setMcFilterDateTo] = useState('');
 
   const [inputText, setInputText] = useState(String(formData.companyName || ''));
   const shownReminders = new Set();
@@ -293,12 +405,10 @@ const JobReport = () => {
 
 
     socketInstance.on('connect', () => {
-      console.log('ðŸŸ¢ Socket connected');
       socketInstance.emit('register-user', token);
     });
 
     socketInstance.on('disconnect', (reason) => {
-      console.log('ðŸ”´ Socket disconnected:', reason);
     });
 
     socketInstance.on('task-reminder', (data) => {
@@ -354,12 +464,15 @@ const JobReport = () => {
       setMatchedJobTitle(jobTitle || '');
       // Reset all MC filters when opening fresh
       setMcFilterName('');
+      setMcFilterPhone('');
       setMcFilterExperience('');
       setMcFilterLocation('');
       setMcFilterPosition('');
       setMcFilterExpectedCTC('');
       setMcFilterNoticePeriod('');
       setMcFilterCurrentCompany('');
+      setMcFilterDateFrom('');
+      setMcFilterDateTo('');
       setOpenCandidateDialog(true); // open popup
     } catch (err) {
       console.error("Error fetching candidates", err);
@@ -432,6 +545,7 @@ const JobReport = () => {
       currentCompany: row.currentCompany || 'N/A',
       remark: row.remark || 'N/A',
       resume: row.resumeUpload || row.resumeLink || '',
+      createdAt: row.createdAt || '',
     }));
 
 
@@ -453,8 +567,19 @@ const JobReport = () => {
     const fetchCompanyNames = async () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/allType/company-names`);
-        // Now we get array of strings like "Company Name (ID: 123)"
-        setCompanyNames(res.data);
+        // Backend already deduplicates by normalized name — do a final case-insensitive
+        // safety dedup on the frontend in case of any edge cases
+        const seen = new Set();
+        const unique = (res.data || [])
+          .filter(Boolean)
+          .filter(name => {
+            const key = name.trim().toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        setCompanyNames(unique);
       } catch (err) {
         console.error('Error fetching company names:', err);
       }
@@ -580,7 +705,7 @@ const JobReport = () => {
     selectedSalaries.length > 0,
     selectedJobTitle.length > 0,
     areaFilter.length > 0,
-    filterJobLocation,
+    selectedLocations.length > 0,
     filterNoOfReq,
     filterJobTiming,
     filterEducation,
@@ -597,62 +722,7 @@ const JobReport = () => {
   const filteredSales = sales.filter(sale => {
     // Filter by company if any companies are selected
     const companyMatch = selectedCompanies.length === 0 ||
-      selectedCompanies.some(selectedCompany => {
-        if (!selectedCompany) return false;
-
-        // Handle different formats of selectedCompany
-        let selectedCompanyName;
-        if (typeof selectedCompany === 'string') {
-          // If it's a string, extract company name (handle both "Company Name" and "Company Name (ID: 123)" formats)
-          selectedCompanyName = selectedCompany.includes(' (ID: ')
-            ? selectedCompany.split(' (ID: ')[0]
-            : selectedCompany;
-        } else if (typeof selectedCompany === 'object' && selectedCompany.companyName) {
-          // If it's an object with companyName property
-          selectedCompanyName = selectedCompany.companyName;
-        } else {
-          return false;
-        }
-
-        // Handle different formats of sale.companyName
-        let saleCompanyName;
-        if (typeof sale.companyName === 'string') {
-          saleCompanyName = sale.companyName.includes(' (ID: ')
-            ? sale.companyName.split(' (ID: ')[0]
-            : sale.companyName;
-        } else {
-          saleCompanyName = sale.companyName || '';
-        }
-
-        // Use flexible matching to handle spelling variations and case differences
-        const normalizeString = (str) => {
-          return str.toLowerCase()
-            .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-            .replace(/\s+/g, ' ') // Normalize whitespace
-            .trim();
-        };
-
-        const normalizedSelected = normalizeString(selectedCompanyName);
-        const normalizedSale = normalizeString(saleCompanyName);
-
-        // Debug logging - remove after fixing
-        if (selectedCompanyName.toLowerCase().includes('candor') || saleCompanyName.toLowerCase().includes('candor')) {
-          console.log('DEBUG - Company Filter Comparison:', {
-            selectedCompany: selectedCompanyName,
-            saleCompany: saleCompanyName,
-            normalizedSelected,
-            normalizedSale,
-            exactMatch: normalizedSelected === normalizedSale,
-            selectedContainsSale: normalizedSelected.includes(normalizedSale),
-            saleContainsSelected: normalizedSale.includes(normalizedSelected)
-          });
-        }
-
-        // Check if one string contains the other (flexible matching)
-        return normalizedSelected === normalizedSale ||
-          normalizedSelected.includes(normalizedSale) ||
-          normalizedSale.includes(normalizedSelected);
-      });
+      selectedCompanies.some(selectedCompany => matchCompany(sale.companyName, selectedCompany));
 
     // Filter by assignment / status tab
     const assignedMatch =
@@ -681,7 +751,13 @@ const JobReport = () => {
         sale.Area.toLowerCase().includes(selectedArea.toLowerCase())
       ));
 
-    const jobLocationMatch = !filterJobLocation || (sale.jobLocation && sale.jobLocation.toLowerCase().includes(filterJobLocation.toLowerCase()));
+    // Filter by location (multi-select dropdown)
+    const jobLocationMatch = selectedLocations.length === 0 ||
+      (sale.jobLocation && selectedLocations.some(selectedLoc =>
+        sale.jobLocation.toLowerCase().includes(selectedLoc.toLowerCase()) ||
+        selectedLoc.toLowerCase().includes(sale.jobLocation.toLowerCase())
+      ));
+
     const noOfReqMatch = !filterNoOfReq || (sale.numberOfRequirements && String(sale.numberOfRequirements).includes(filterNoOfReq));
     const jobTimingMatch = !filterJobTiming || (sale.jobTiming && sale.jobTiming.toLowerCase().includes(filterJobTiming.toLowerCase()));
     const educationMatch = !filterEducation || (sale.education && sale.education.toLowerCase().includes(filterEducation.toLowerCase()));
@@ -770,7 +846,6 @@ const JobReport = () => {
               const newExpirationTime = new Date().getTime() + 10 * 60 * 60 * 1000; // 10 hours
               sessionStorage.setItem('token', refreshResponse.data.token);
               sessionStorage.setItem('tokenExpiration', newExpirationTime.toString());
-              console.log('Token refreshed, new expiration time:', newExpirationTime);
             } else {
               throw new Error('Failed to refresh token');
             }
@@ -849,9 +924,7 @@ const JobReport = () => {
 
   const pendingJobsList = sales.filter(s => s.approvalStatus === 'Pending');
 
-  useEffect(() => {
-    console.log('Current sales state:', sales); // Debug log for sales state
-  }, [sales]);
+
 
   const getHRUsers = async () => {
     try {
@@ -863,26 +936,6 @@ const JobReport = () => {
   };
 
 
-  // const handleFileUpload = async (e) => {
-  //   const file = e.target.files[0];
-  //   if (!file) return;
-
-  //   const reader = new FileReader();
-  //   reader.onload = (evt) => {
-  //     const bstr = evt.target.result;
-  //     const wb = XLSX.read(bstr, { type: 'binary' });
-  //     const wsname = wb.SheetNames[0];
-  //     const ws = wb.Sheets[wsname];
-  //     const data = XLSX.utils.sheet_to_json(ws);
-
-  //     // Store parsed data and file name in state
-  //     setParsedJobs(data);
-  //     setUploadedFileName(file.name);
-  //     setImportModalOpen(true); // Show confirmation modal
-  //   };
-
-  //   reader.readAsBinaryString(file);
-  // };
 
 
 
@@ -926,13 +979,12 @@ const JobReport = () => {
         return;
       }
 
-      // ── Convert monthly salary → annual LPA ──────────────────────────────
+      // ── Salary is stored as Number ──────────────────────────────
       const toAnnualLPA = (val) => {
         if (val == null || val === '') return val;
         const n = Number(val);
-        if (!n) return val;                          // not a plain number, leave as-is
-        if (String(val).match(/[a-zA-Z]/)) return val; // already formatted
-        return `${((n * 12) / 100000).toFixed(2)} LPA`;
+        if (!n) return val;
+        return n;
       };
 
       const processedData = data.map(row => ({
@@ -1042,11 +1094,20 @@ const JobReport = () => {
     return /^[\w-.]+@([\w-]+\.)+[\w-]{2,}$/.test(email);
   };
 
+  // Fields that should NOT be auto-capitalized (numeric, email, URLs, etc.)
+  const NO_CAPITALIZE_FIELDS = ['email', 'phoneNumber', 'websiteURL', 'salary', 'numberOfRequirements', 'experience'];
+
+  const capitalizeWords = (str) =>
+    str.replace(/\b\w/g, (char) => char.toUpperCase());
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    const processedValue = (!NO_CAPITALIZE_FIELDS.includes(name) && typeof value === 'string' && value.length > 0)
+      ? capitalizeWords(value)
+      : value;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: processedValue
     }));
     if (name === 'email') {
       if (!value) {
@@ -1133,13 +1194,14 @@ const JobReport = () => {
     '10+ Years', '15+ Years',
   ];
 
-  // Convert "9:00 AM" / "1:30 PM" → "09:00" / "13:30" for <input type="time">
+  // Convert "9:00 AM" / "1:30 PM" / "9 AM" / "9.30" → "09:00" / "13:30" for <input type="time">
   const to24h = (timeStr) => {
     if (!timeStr) return '';
-    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    const match = timeStr.trim().match(/^(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?$/i);
     if (!match) return '';
     let [, h, m, period] = match;
     h = parseInt(h);
+    m = m || '00';
     if (period) {
       if (period.toUpperCase() === 'PM' && h !== 12) h += 12;
       if (period.toUpperCase() === 'AM' && h === 12) h = 0;
@@ -1152,13 +1214,13 @@ const JobReport = () => {
 
     // Validate required fields
     const newErrors = {
-      companyName: !formData.companyName?.trim(),
-      jobTitle: !formData.jobTitle?.trim(),
-      jobLocation: !formData.jobLocation?.trim(),
+      companyName: !String(formData.companyName || '').trim(),
+      jobTitle: !String(formData.jobTitle || '').trim(),
+      jobLocation: !String(formData.jobLocation || '').trim(),
       numberOfRequirements: !formData.numberOfRequirements,
-      experience: !formData.experience?.trim(),
-      education: !formData.education?.trim(),
-      requiredSkills: !formData.requiredSkills?.trim(),
+      experience: !String(formData.experience || '').trim(),
+      education: !String(formData.education || '').trim(),
+      requiredSkills: !String(formData.requiredSkills || '').trim(),
     };
     setErrors(newErrors);
     if (Object.values(newErrors).some(Boolean)) {
@@ -1172,9 +1234,9 @@ const JobReport = () => {
     try {
       const form = new FormData();
 
-      // Convert monthly salary to annual LPA if user entered a monthly amount
+      // Store the raw monthly salary since the database expects a Number
       const salaryToStore = salaryMonthly
-        ? `${((Number(salaryMonthly) * 12) / 100000).toFixed(2)} LPA`
+        ? salaryMonthly
         : formData.salary;
 
       // Combine jobTimingStart + jobTimingEnd into jobTiming string
@@ -1297,6 +1359,7 @@ const JobReport = () => {
       branchName: sale.branchName || '',
       jobTitle: sale.jobTitle || '',
       jobLocation: sale.jobLocation || '',
+      Area: sale.Area || '',
       numberOfRequirements: sale.numberOfRequirements || '',
       jobTiming: sale.jobTiming || '',
       education: sale.education || '',
@@ -1307,7 +1370,7 @@ const JobReport = () => {
       keyResponsibility: sale.keyResponsibility || '',
       benefits: sale.benefits || '',
       response: sale.response || '',
-      descriptionFile: null,   // file re-upload only if needed
+      descriptionFile: sale.descriptionFile || null,   // Preserve existing file URL if available
       weekOff: sale.weekOff || '',
       assignedHR: formattedAssignedHR,
       assignedTL: formattedAssignedTL,
@@ -1325,17 +1388,40 @@ const JobReport = () => {
     setSelectedId(sale._id);
     setEditMode(true);
     setOpen(true);
-    setSalaryMonthly(''); // clear monthly input; existing LPA shown in formData.salary
 
-    // Parse existing jobTiming into start/end parts
-    if (sale.jobTiming && sale.jobTiming.includes(' - ')) {
-      const [start, end] = sale.jobTiming.split(' - ');
-      setJobTimingStart(start.trim());
-      setJobTimingEnd(end.trim());
-    } else {
-      setJobTimingStart(sale.jobTiming || '');
-      setJobTimingEnd('');
+    // Parse salary back to monthly if it's in LPA format or just a number
+    let initialSalaryMonthly = '';
+    if (sale.salary != null) {
+      const salaryStr = String(sale.salary);
+      if (salaryStr.toUpperCase().includes('LPA')) {
+        const lpaValue = parseFloat(salaryStr.replace(/[^0-9.]/g, ''));
+        if (!isNaN(lpaValue)) {
+          initialSalaryMonthly = Math.round((lpaValue * 100000) / 12).toString();
+        }
+      } else if (/^\d*\.?\d*$/.test(salaryStr.trim())) {
+        initialSalaryMonthly = salaryStr.trim();
+      }
     }
+    setSalaryMonthly(initialSalaryMonthly);
+
+    // Parse existing jobTiming into start/end parts more robustly
+    let startT = '';
+    let endT = '';
+    if (sale.jobTiming) {
+      if (sale.jobTiming.includes('-')) {
+        const parts = sale.jobTiming.split('-');
+        startT = parts[0].trim();
+        endT = parts[1].trim();
+      } else if (sale.jobTiming.toLowerCase().includes(' to ')) {
+        const parts = sale.jobTiming.toLowerCase().split(' to ');
+        startT = parts[0].trim();
+        endT = parts[1].trim();
+      } else {
+        startT = sale.jobTiming.trim();
+      }
+    }
+    setJobTimingStart(startT);
+    setJobTimingEnd(endT);
   };
 
 
@@ -1363,124 +1449,8 @@ const JobReport = () => {
   };
 
 
-  // const handleExport = () => {
-  //   const worksheet = XLSX.utils.json_to_sheet(sales);
-  //   const workbook = XLSX.utils.book_new();
-  //   XLSX.utils.book_append_sheet(workbook, worksheet, 'SalesData');
-  //   XLSX.writeFile(workbook, 'SalesData.xlsx');
-  // };
-
-  // const handleExportData = async () => {
-  //   console.log("Export button clicked ");
-  //   let apiData = null;
-
-  //   try {
-  //     const token = sessionStorage.getItem('token');
-  //     if (!token) {
-  //       alert('Authentication token not found. Please login again.');
-  //       return;
-  //     }
-
-  //     console.log('Making API call to export data...');
-  //     const response = await fetch(`${API_BASE_URL}/allType/export-data`, {
-  //       method: 'GET',
-  //       headers: {
-  //         'Authorization': `Bearer ${token}`,
-  //         'Content-Type': 'application/json'
-  //       }
-  //     });
-
-  //     console.log('API Response status:', response.status);
-  //     if (!response.ok) {
-  //       throw new Error(`HTTP error! status: ${response.status}`);
-  //     }
-
-  //     apiData = await response.json();
-  //     console.log('Received data from API:', apiData);
-
-  //     if (!Array.isArray(apiData) || apiData.length === 0) {
-  //       throw new Error('No data received from server or invalid data format');
-  //     }
-
-  //   } catch (error) {
-  //     console.error('Export Error:', error);
-  //     alert(`Failed to export data: ${error.message}`);
-  //     return; // Exit if API call fails
-  //   }
-
-  //   // Only proceed with Excel creation if we have valid data from API
-  //   try {
-  //     // Sort data by createdAt in descending order (newest first)
-  //     const sortedData = [...apiData].sort((a, b) => {
-  //       const dateA = new Date(a.createdAt);
-  //       const dateB = new Date(b.createdAt);
-  //       return dateB - dateA; // Sort in descending order
-  //     });
-
-  //     const formattedData = sortedData.map(job => ({
-  //       Industries: job.industries || '',
-  //       Company_Name: job.companyName || '',
-  //       Company_ID: job.companyId || '',
-  //       Company_Address: job.companyAddress || '',
-  //       Contact_Name: job.contactName || '',
-  //       Email: job.email || '',
-  //       Phone_Number: job.phoneNumber || '',
-  //       Response: job.response || '',
-  //       Job_Title: job.jobTitle || '',
-  //       Benefits: job.benefits || '',
-  //       No_of_Requirements: job.numberOfRequirements || '',
-  //       Website_URL: job.websiteURL || '',
-  //       Key_Responsibility: job.keyResponsibility || '',
-  //       Required_Skills: job.requiredSkills || '',
-  //       Education: job.education || '',
-  //       Experience: job.experience || '',
-  //       Salary: job.salary || '',
-  //       Job_Location: job.jobLocation || '',
-  //       Job_Timing: job.jobTiming || '',
-  //       Remarks: job.remarks || '',
-  //       //Description: job.description || '',
-  //       Assigned_HR: job.assignedHR && job.assignedHR.length > 0
-  //         ? job.assignedHR
-  //             .map(hr => 
-  //               typeof hr === 'object' 
-  //                 ? `${hr.firstName || ''} ${hr.lastName || ''}`.trim()
-  //                 : hr
-  //             )
-  //             .filter(Boolean)
-  //             .join(', ')
-  //         : 'Not Assigned',
-  //       Created_By: job.createdBy
-  //         ? typeof job.createdBy === 'object'
-  //           ? `${job.createdBy.firstName || ''} ${job.createdBy.lastName || ''} (${job.createdBy.role || ''})`
-  //           : String(job.createdBy || 'N/A')
-  //         : 'N/A',
-  //       Created_At: job.createdAt ? new Date(job.createdAt).toLocaleString() : 'N/A'
-  //     }));
-
-  //     if (formattedData.length === 0) {
-  //       throw new Error('No data available to export');
-  //     }
-
-  //     console.log('Creating Excel file with formatted data...');
-  //     const worksheet = XLSX.utils.json_to_sheet(formattedData);
-  //     const workbook = XLSX.utils.book_new();
-  //     XLSX.utils.book_append_sheet(workbook, worksheet, 'JobData');
-
-  //     // Generate filename with current date
-  //     const date = new Date().toISOString().split('T')[0];
-  //     const filename = `JobOpeningsExport_${date}.xlsx`;
-
-  //     console.log('Exporting file:', filename);
-  //     XLSX.writeFile(workbook, filename);
-  //     console.log('Export completed successfully');
-  //   } catch (error) {
-  //     console.error('Excel Creation Error:', error);
-  //     alert(`Failed to create Excel file: ${error.message}`);
-  //   }
-  // };
 
   const handleExportData = async () => {
-    console.log("Export button clicked ");
     let apiData = null;
 
     try {
@@ -1575,7 +1545,6 @@ const JobReport = () => {
       const filename = `JobOpeningsExport_${date}.xlsx`;
 
       XLSX.writeFile(workbook, filename);
-      console.log('Export completed successfully');
     } catch (error) {
       console.error('Excel Creation Error:', error);
       alert(`Failed to create Excel file: ${error.message}`);
@@ -1917,6 +1886,16 @@ const JobReport = () => {
       ),
     },
 
+    // ── Column 13b: Area ───────────────────────────────────────────────────────
+    {
+      field: 'Area', headerName: 'Area', width: 110,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>{params.value || '—'}</div>
+        </Tooltip>
+      ),
+    },
+
     // ── Column 14: Job Location ───────────────────────────────────────────────
     {
       field: 'jobLocation', headerName: 'Location', width: 110,
@@ -2146,7 +2125,7 @@ const JobReport = () => {
               <Button variant="contained" onClick={() => setApprovalModalOpen(true)} size="small"
                 sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, bgcolor: '#f43f5e', color: '#fff', '&:hover': { bgcolor: '#e11d48' }, px: 2, height: 34, whiteSpace: 'nowrap' }}
               >
-                Approvals {pendingJobsList.length > 0 && `(${pendingJobsList.length})`}
+                Job Approvals {pendingJobsList.length > 0 && `(${pendingJobsList.length})`}
               </Button>
               <Button variant="contained" onClick={handleAddNew} size="small"
                 sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)', color: '#fff', boxShadow: '0 2px 8px rgba(63,81,181,0.3)', '&:hover': { background: 'linear-gradient(135deg, #303f9f, #3f51b5)' }, px: 2, height: 34, whiteSpace: 'nowrap' }}
@@ -2168,182 +2147,154 @@ const JobReport = () => {
             {/* ── Horizontal Filter Bar ── */}
             <Box sx={{ px: 3, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', borderBottom: '1px solid #f1f5f9', bgcolor: '#fafbff' }}>
 
-              {/* HR filter with search */}
-              <FormControl size="small" sx={{ minWidth: 130 }}>
-                <InputLabel sx={{ fontSize: 12 }}>HR</InputLabel>
-                <Select
-                  value={hrFilter}
-                  label="HR"
-                  onChange={(e) => setHrFilter(e.target.value)}
-                  onClose={() => setHrSearchTerm('')}
-                  sx={{ fontSize: 12, borderRadius: '8px', bgcolor: hrFilter ? '#e8eaf6' : '#fff' }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: { maxHeight: 300 }
-                    },
-                    autoFocus: false
-                  }}
-                >
-                  <Box sx={{ px: 1.5, py: 1, position: 'sticky', top: 0, bgcolor: '#fff', zIndex: 1, borderBottom: '1px solid #e8eaf6' }}>
-                    <TextField
-                      size="small"
-                      placeholder="Search HR..."
-                      value={hrSearchTerm}
-                      onChange={(e) => setHrSearchTerm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      fullWidth
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: 12 } }}
-                      InputProps={{
-                        startAdornment: <SearchIcon sx={{ fontSize: 16, color: '#9fa8da', mr: 0.5 }} />
-                      }}
-                    />
-                  </Box>
-                  <MenuItem value=""><em>All HRs</em></MenuItem>
-                  {hrUsers
-                    .filter(hr => {
-                      const name = `${hr.firstName || ''} ${hr.lastName || ''}`.trim().toLowerCase();
-                      return !hrSearchTerm || name.includes(hrSearchTerm.toLowerCase());
-                    })
-                    .map(hr => (
-                      <MenuItem key={hr._id} value={hr._id} sx={{ fontSize: 13 }}>
-                        {`${hr.firstName || ''} ${hr.lastName || ''}`.trim()}
-                      </MenuItem>
-                    ))}
-                </Select>
-              </FormControl>
+              {/* HR filter with Autocomplete (search directly in field) */}
+              <Autocomplete
+                size="small"
+                options={hrUsers}
+                getOptionLabel={(option) => `${option.firstName || ''} ${option.lastName || ''}`.trim()}
+                value={hrUsers.find(hr => hr._id === hrFilter) || null}
+                onChange={(event, newValue) => {
+                  setHrFilter(newValue ? newValue._id : '');
+                }}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    label="HR" 
+                    placeholder="Search HR..." 
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: 12 },
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: 12,
+                        borderRadius: '8px',
+                        bgcolor: hrFilter ? '#e8eaf6' : '#fff',
+                      }
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} style={{ fontSize: 13, padding: '4px 12px' }}>
+                    {`${option.firstName || ''} ${option.lastName || ''}`.trim()}
+                  </li>
+                )}
+                sx={{ minWidth: 150, display: 'inline-flex' }}
+              />
 
-              {/* Company filter with search */}
-              <FormControl size="small" sx={{ minWidth: 160 }}>
-                <InputLabel sx={{ fontSize: 12 }}>Company</InputLabel>
-                <Select
-                  multiple
-                  value={selectedCompanies}
-                  label="Company"
-                  onChange={(e) => setSelectedCompanies(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
-                  onClose={() => setCompanySearchTerm('')}
-                  renderValue={(sel) => sel.length === 1 ? sel[0].length > 14 ? sel[0].slice(0, 14) + '…' : sel[0] : `${sel.length} selected`}
-                  sx={{ fontSize: 12, borderRadius: '8px', bgcolor: selectedCompanies.length > 0 ? '#e8eaf6' : '#fff' }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: { maxHeight: 350 }
-                    },
-                    autoFocus: false
-                  }}
-                >
-                  <Box sx={{ px: 1.5, py: 1, position: 'sticky', top: 0, bgcolor: '#fff', zIndex: 1, borderBottom: '1px solid #e8eaf6' }}>
-                    <TextField
+              {/* Company filter with Autocomplete (search directly in field) */}
+              <Autocomplete
+                multiple
+                limitTags={1}
+                size="small"
+                options={companyNames}
+                value={selectedCompanies}
+                onChange={(event, newValue) => {
+                  setSelectedCompanies(newValue);
+                }}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    label="Company" 
+                    placeholder={selectedCompanies.length > 0 ? "" : "Company"} 
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: 12 },
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: 12,
+                        borderRadius: '8px',
+                        bgcolor: selectedCompanies.length > 0 ? '#e8eaf6' : '#fff',
+                        py: '2px !important'
+                      }
+                    }}
+                  />
+                )}
+                renderOption={(props, option, { selected }) => (
+                  <li {...props} style={{ fontSize: 13, padding: '4px 12px' }}>
+                    <Checkbox
                       size="small"
-                      placeholder="Search company..."
-                      value={companySearchTerm}
-                      onChange={(e) => setCompanySearchTerm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      fullWidth
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: 12 } }}
-                      InputProps={{
-                        startAdornment: <SearchIcon sx={{ fontSize: 16, color: '#9fa8da', mr: 0.5 }} />
-                      }}
+                      checked={selected}
+                      sx={{ p: 0, mr: 1 }}
                     />
-                  </Box>
-                  {companyNames
-                    .filter(c => !companySearchTerm || c.toLowerCase().includes(companySearchTerm.toLowerCase()))
-                    .map((c, i) => (
-                      <MenuItem key={i} value={c} sx={{ fontSize: 13 }}>
-                        <Checkbox size="small" checked={selectedCompanies.includes(c)} sx={{ p: 0, mr: 1 }} />
-                        <ListItemText primary={c} primaryTypographyProps={{ fontSize: 13, noWrap: true }} />
-                      </MenuItem>
-                    ))}
-                </Select>
-              </FormControl>
+                    <ListItemText primary={option} primaryTypographyProps={{ fontSize: 13 }} />
+                  </li>
+                )}
+                sx={{ minWidth: 200, display: 'inline-flex' }}
+              />
 
-              {/* Job Title filter with search */}
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel sx={{ fontSize: 12 }}>Job Title</InputLabel>
-                <Select
-                  multiple
-                  value={selectedJobTitle}
-                  label="Job Title"
-                  onChange={handleJobTitleChange}
-                  onClose={() => setJobTitleSearchTerm('')}
-                  renderValue={(sel) => sel.length === 1 ? sel[0].length > 14 ? sel[0].slice(0, 14) + '…' : sel[0] : `${sel.length} selected`}
-                  sx={{ fontSize: 12, borderRadius: '8px', bgcolor: selectedJobTitle.length > 0 ? '#e8eaf6' : '#fff' }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: { maxHeight: 350 }
-                    },
-                    autoFocus: false
-                  }}
-                >
-                  <Box sx={{ px: 1.5, py: 1, position: 'sticky', top: 0, bgcolor: '#fff', zIndex: 1, borderBottom: '1px solid #e8eaf6' }}>
-                    <TextField
+              {/* Job Title filter with Autocomplete (search directly in field) */}
+              <Autocomplete
+                multiple
+                limitTags={1}
+                size="small"
+                options={filteredJobTitleOptions}
+                value={selectedJobTitle}
+                onChange={(event, newValue) => {
+                  setSelectedJobTitle(newValue);
+                }}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    label="Job Title" 
+                    placeholder={selectedJobTitle.length > 0 ? "" : "Job Title"} 
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: 12 },
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: 12,
+                        borderRadius: '8px',
+                        bgcolor: selectedJobTitle.length > 0 ? '#e8eaf6' : '#fff',
+                        py: '2px !important'
+                      }
+                    }}
+                  />
+                )}
+                renderOption={(props, option, { selected }) => (
+                  <li {...props} style={{ fontSize: 13, padding: '4px 12px' }}>
+                    <Checkbox
                       size="small"
-                      placeholder="Search job title..."
-                      value={jobTitleSearchTerm}
-                      onChange={(e) => setJobTitleSearchTerm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      fullWidth
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: 12 } }}
-                      InputProps={{
-                        startAdornment: <SearchIcon sx={{ fontSize: 16, color: '#9fa8da', mr: 0.5 }} />
-                      }}
+                      checked={selected}
+                      sx={{ p: 0, mr: 1 }}
                     />
-                  </Box>
-                  {jobTitleNames
-                    .filter(t => !jobTitleSearchTerm || t.toLowerCase().includes(jobTitleSearchTerm.toLowerCase()))
-                    .map((t, i) => (
-                      <MenuItem key={i} value={t} sx={{ fontSize: 13 }}>
-                        <Checkbox size="small" checked={selectedJobTitle.includes(t)} sx={{ p: 0, mr: 1 }} />
-                        <ListItemText primary={t} primaryTypographyProps={{ fontSize: 13, noWrap: true }} />
-                      </MenuItem>
-                    ))}
-                </Select>
-              </FormControl>
+                    <ListItemText primary={option} primaryTypographyProps={{ fontSize: 13 }} />
+                  </li>
+                )}
+                sx={{ minWidth: 180, display: 'inline-flex' }}
+              />
 
-              {/* Salary filter with search */}
-              <FormControl size="small" sx={{ minWidth: 130 }}>
-                <InputLabel sx={{ fontSize: 12 }}>Salary</InputLabel>
-                <Select
-                  multiple
-                  value={selectedSalaries}
-                  label="Salary"
-                  onChange={(e) => setSelectedSalaries(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
-                  onClose={() => setSalarySearchTerm('')}
-                  renderValue={(sel) => sel.length === 1 ? String(sel[0]).slice(0, 12) : `${sel.length} selected`}
-                  sx={{ fontSize: 12, borderRadius: '8px', bgcolor: selectedSalaries.length > 0 ? '#e8eaf6' : '#fff' }}
-                  MenuProps={{
-                    PaperProps: {
-                      sx: { maxHeight: 350 }
-                    },
-                    autoFocus: false
-                  }}
-                >
-                  <Box sx={{ px: 1.5, py: 1, position: 'sticky', top: 0, bgcolor: '#fff', zIndex: 1, borderBottom: '1px solid #e8eaf6' }}>
-                    <TextField
+              {/* Salary filter with Autocomplete (search directly in field) */}
+              <Autocomplete
+                multiple
+                limitTags={1}
+                size="small"
+                options={filteredSalaryOptions}
+                value={selectedSalaries}
+                onChange={(event, newValue) => {
+                  setSelectedSalaries(newValue);
+                }}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    label="Salary" 
+                    placeholder={selectedSalaries.length > 0 ? "" : "Salary"} 
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: 12 },
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: 12,
+                        borderRadius: '8px',
+                        bgcolor: selectedSalaries.length > 0 ? '#e8eaf6' : '#fff',
+                        py: '2px !important'
+                      }
+                    }}
+                  />
+                )}
+                renderOption={(props, option, { selected }) => (
+                  <li {...props} style={{ fontSize: 13, padding: '4px 12px' }}>
+                    <Checkbox
                       size="small"
-                      placeholder="Search salary..."
-                      value={salarySearchTerm}
-                      onChange={(e) => setSalarySearchTerm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      fullWidth
-                      sx={{ '& .MuiOutlinedInput-root': { fontSize: 12 } }}
-                      InputProps={{
-                        startAdornment: <SearchIcon sx={{ fontSize: 16, color: '#9fa8da', mr: 0.5 }} />
-                      }}
+                      checked={selected}
+                      sx={{ p: 0, mr: 1 }}
                     />
-                  </Box>
-                  {salaryOptions
-                    .filter(s => !salarySearchTerm || String(s).toLowerCase().includes(salarySearchTerm.toLowerCase()))
-                    .map((s, i) => (
-                      <MenuItem key={i} value={s} sx={{ fontSize: 13 }}>
-                        <Checkbox size="small" checked={selectedSalaries.includes(s)} sx={{ p: 0, mr: 1 }} />
-                        <ListItemText primary={s} primaryTypographyProps={{ fontSize: 13 }} />
-                      </MenuItem>
-                    ))}
-                </Select>
-              </FormControl>
+                    <ListItemText primary={option} primaryTypographyProps={{ fontSize: 13 }} />
+                  </li>
+                )}
+                sx={{ minWidth: 150, display: 'inline-flex' }}
+              />
 
               {/* Gender filter */}
               <FormControl size="small" sx={{ minWidth: 110 }}>
@@ -2359,14 +2310,82 @@ const JobReport = () => {
                 </Select>
               </FormControl>
 
-              {/* Location text filter */}
-              <TextField
+              {/* Area filter with Autocomplete (search directly in field) */}
+              <Autocomplete
+                multiple
+                limitTags={1}
                 size="small"
-                label="Location"
-                value={filterJobLocation}
-                onChange={(e) => setFilterJobLocation(e.target.value)}
-                sx={{ width: 130, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 12, bgcolor: filterJobLocation ? '#e8eaf6' : '#fff' } }}
-                InputProps={{ endAdornment: filterJobLocation && <IconButton size="small" onClick={() => setFilterJobLocation('')}><CloseIcon sx={{ fontSize: 13 }} /></IconButton> }}
+                options={areaOptions}
+                value={areaFilter}
+                onChange={(event, newValue) => {
+                  setAreaFilter(newValue);
+                }}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    label="Area" 
+                    placeholder={areaFilter.length > 0 ? "" : "Area"} 
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: 12 },
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: 12,
+                        borderRadius: '8px',
+                        bgcolor: areaFilter.length > 0 ? '#e8eaf6' : '#fff',
+                        py: '2px !important'
+                      }
+                    }}
+                  />
+                )}
+                renderOption={(props, option, { selected }) => (
+                  <li {...props} style={{ fontSize: 13, padding: '4px 12px' }}>
+                    <Checkbox
+                      size="small"
+                      checked={selected}
+                      sx={{ p: 0, mr: 1 }}
+                    />
+                    <ListItemText primary={option} primaryTypographyProps={{ fontSize: 13 }} />
+                  </li>
+                )}
+                sx={{ minWidth: 160, display: 'inline-flex' }}
+              />
+
+              {/* Location filter with Autocomplete (search directly in field) */}
+              <Autocomplete
+                multiple
+                limitTags={1}
+                size="small"
+                options={filteredLocationOptions}
+                value={selectedLocations}
+                onChange={(event, newValue) => {
+                  setSelectedLocations(newValue);
+                }}
+                renderInput={(params) => (
+                  <TextField 
+                    {...params} 
+                    label="Location" 
+                    placeholder={selectedLocations.length > 0 ? "" : "Location"} 
+                    sx={{
+                      '& .MuiInputLabel-root': { fontSize: 12 },
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: 12,
+                        borderRadius: '8px',
+                        bgcolor: selectedLocations.length > 0 ? '#e8eaf6' : '#fff',
+                        py: '2px !important'
+                      }
+                    }}
+                  />
+                )}
+                renderOption={(props, option, { selected }) => (
+                  <li {...props} style={{ fontSize: 13, padding: '4px 12px' }}>
+                    <Checkbox
+                      size="small"
+                      checked={selected}
+                      sx={{ p: 0, mr: 1 }}
+                    />
+                    <ListItemText primary={option} primaryTypographyProps={{ fontSize: 13 }} />
+                  </li>
+                )}
+                sx={{ minWidth: 160, display: 'inline-flex' }}
               />
 
               {/* Experience text filter */}
@@ -2409,7 +2428,7 @@ const JobReport = () => {
               {activeFilterCount > 0 && (
                 <Button size="small" variant="outlined" onClick={() => {
                   setSelectedCompanies([]); setHrFilter(''); setSelectedSalaries([]); resetJobTitle(); setAreaFilter([]);
-                  setFilterJobLocation(''); setFilterNoOfReq(''); setFilterJobTiming('');
+                  setSelectedLocations([]); setFilterNoOfReq(''); setFilterJobTiming('');
                   setFilterEducation(''); setFilterExperience(''); setFilterGender(''); setFilterSkills('');
                   setStartDate(''); setEndDate(''); getSales();
                 }} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, color: '#ef4444', borderColor: '#ef4444', height: 36, whiteSpace: 'nowrap', '&:hover': { bgcolor: '#fff5f5', borderColor: '#ef4444' } }}>
@@ -2709,6 +2728,16 @@ const JobReport = () => {
                     required
                   />
 
+                  {/* Area */}
+                  <TextField
+                    label="Area"
+                    name="Area"
+                    value={formData.Area || ''}
+                    onChange={handleChange}
+                    fullWidth
+                  />
+
+
                   {/* No. of Openings + Job Timing */}
                   <Grid container spacing={2}>
                     <Grid item xs={6}>
@@ -2812,17 +2841,11 @@ const JobReport = () => {
                         value={salaryMonthly}
                         onChange={(e) => {
                           const v = e.target.value;
-                          if (v === '' || /^\d*$/.test(v)) setSalaryMonthly(v);
+                          if (v === '' || /^\d*\.?\d*$/.test(v)) setSalaryMonthly(v);
                         }}
                         fullWidth
-                        inputProps={{ inputMode: 'numeric', pattern: '\\d*' }}
-                        helperText={
-                          salaryMonthly
-                            ? `= ₹${((Number(salaryMonthly) * 12) / 100000).toFixed(2)} LPA (Annual)`
-                            : formData.salary
-                              ? `Current: ${formData.salary}`
-                              : 'Enter monthly amount in ₹'
-                        }
+                        inputProps={{ inputMode: 'decimal' }}
+                        helperText=""
                       />
                     </Grid>
                     <Grid item xs={6}>
@@ -2832,16 +2855,20 @@ const JobReport = () => {
                         value={formData.experience}
                         onChange={(e) => {
                           const val = e.target.value;
-                          if (val === '' || /^\d*$/.test(val)) {
+                          // Allow decimal numbers (e.g. 1.5, 2.5)
+                          if (val === '' || /^\d*\.?\d*$/.test(val)) {
                             setFormData(prev => ({ ...prev, experience: val }));
                             if (errors.experience) setErrors(p => ({ ...p, experience: false }));
+                          } else if (!/^\d*\.?\d*$/.test(formData.experience)) {
+                            // Old value was a non-numeric string; allow clearing it entirely
+                            setFormData(prev => ({ ...prev, experience: '' }));
                           }
                         }}
                         fullWidth
                         error={!!errors.experience}
                         helperText={errors.experience ? 'Required' : ''}
                         required
-                        inputProps={{ inputMode: 'numeric', pattern: '\\d*' }}
+                        inputProps={{ inputMode: 'decimal' }}
                       />
                     </Grid>
                   </Grid>
@@ -3054,49 +3081,6 @@ const JobReport = () => {
             </Box>
           </Modal>
 
-          {/* Commented out duplicate dialog
-          <Dialog
-            open={openCandidateDialog}
-            onClose={() => setOpenCandidateDialog(false)}
-            fullWidth
-            maxWidth="xl"
-          >
-            <DialogTitle>Matching Candidates</DialogTitle>
-            <DialogContent>
-              <div style={{ height: 500, width: '100%' }}>
-                <DataGrid
-                  rows={matchedCandidates.map((row, i) => ({ id: i + 1, ...row }))}
-                  columns={[
-                    { field: 'name', headerName: 'Name', width: 150 },
-                    { field: 'phoneNumber', headerName: 'Phone', width: 130 },
-                    { field: 'positionName', headerName: 'Position', width: 150 },
-                    { field: 'experience', headerName: 'Experience', width: 100 },
-                    { field: 'currentLocation', headerName: 'Location', width: 150 },
-                    { field: 'expectedCTC', headerName: 'Expected CTC', width: 130 },
-                    { field: 'noticePeriod', headerName: 'Notice', width: 100 },
-                    {
-                      field: 'resumeUpload',
-                      headerName: 'Resume',
-                      width: 100,
-                      renderCell: (params) => (
-                        <a
-                          href={params.value}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: 'blue' }}
-                        >
-                          View
-                        </a>
-                      ),
-                    }
-                  ]}
-                  pageSize={10}
-                  rowsPerPageOptions={[5, 10, 25]}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-          */}
 
           <Dialog open={openCandidateDialog} onClose={() => setOpenCandidateDialog(false)} fullWidth maxWidth="xl"
             PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden' } }}
@@ -3110,12 +3094,29 @@ const JobReport = () => {
                     const nm = (v) => String(v || '').toLowerCase();
                     return (
                       (!mcFilterName || nm(c.name).includes(nm(mcFilterName))) &&
+                      (!mcFilterPhone || String(c.phoneNumber || '').replace(/\D/g, '').includes(mcFilterPhone.replace(/\D/g, ''))) &&
                       (!mcFilterExperience || nm(c.experience).includes(nm(mcFilterExperience))) &&
                       (!mcFilterLocation || nm(c.currentLocation).includes(nm(mcFilterLocation))) &&
                       (!mcFilterPosition || nm(c.positionName).includes(nm(mcFilterPosition))) &&
                       (!mcFilterExpectedCTC || nm(c.expectedCTC).includes(nm(mcFilterExpectedCTC))) &&
                       (!mcFilterNoticePeriod || nm(c.noticePeriod).includes(nm(mcFilterNoticePeriod))) &&
-                      (!mcFilterCurrentCompany || nm(c.currentCompany).includes(nm(mcFilterCurrentCompany)))
+                      (!mcFilterCurrentCompany || nm(c.currentCompany).includes(nm(mcFilterCurrentCompany))) &&
+                      ((!mcFilterDateFrom && !mcFilterDateTo) || (() => {
+                        if (!c.createdAt) return false;
+                        const candDate = new Date(c.createdAt);
+                        if (isNaN(candDate.getTime())) return false;
+                        if (mcFilterDateFrom) {
+                          const fromDate = new Date(mcFilterDateFrom);
+                          fromDate.setHours(0, 0, 0, 0);
+                          if (candDate < fromDate) return false;
+                        }
+                        if (mcFilterDateTo) {
+                          const toDate = new Date(mcFilterDateTo);
+                          toDate.setHours(23, 59, 59, 999);
+                          if (candDate > toDate) return false;
+                        }
+                        return true;
+                      })())
                     );
                   }).length} of {normalizedCandidates.length} candidates
                 </Typography>
@@ -3137,6 +3138,21 @@ const JobReport = () => {
                 InputProps={{
                   startAdornment: <SearchIcon sx={{ fontSize: 15, color: '#9fa8da', mr: 0.5 }} />,
                   endAdornment: mcFilterName && <IconButton size="small" onClick={() => setMcFilterName('')}><CloseIcon sx={{ fontSize: 13 }} /></IconButton>,
+                }}
+              />
+              <TextField
+                size="small"
+                placeholder="Search phone..."
+                value={mcFilterPhone}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setMcFilterPhone(v);
+                }}
+                sx={{ width: 140, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 12, bgcolor: mcFilterPhone ? '#e8eaf6' : '#fff' } }}
+                inputProps={{ maxLength: 10 }}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ fontSize: 15, color: '#9fa8da', mr: 0.5 }} />,
+                  endAdornment: mcFilterPhone && <IconButton size="small" onClick={() => setMcFilterPhone('')}><CloseIcon sx={{ fontSize: 13 }} /></IconButton>,
                 }}
               />
               <TextField size="small" label="Experience" value={mcFilterExperience} onChange={(e) => setMcFilterExperience(e.target.value)}
@@ -3163,9 +3179,40 @@ const JobReport = () => {
                 sx={{ width: 160, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 12, bgcolor: mcFilterCurrentCompany ? '#e8eaf6' : '#fff' } }}
                 InputProps={{ endAdornment: mcFilterCurrentCompany && <IconButton size="small" onClick={() => setMcFilterCurrentCompany('')}><CloseIcon sx={{ fontSize: 13 }} /></IconButton> }}
               />
-              {(mcFilterName || mcFilterExperience || mcFilterLocation || mcFilterPosition || mcFilterExpectedCTC || mcFilterNoticePeriod || mcFilterCurrentCompany) && (
+              <TextField
+                size="small"
+                label="Date From"
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                value={mcFilterDateFrom}
+                onChange={(e) => setMcFilterDateFrom(e.target.value)}
+                sx={{ width: 135, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 12, bgcolor: mcFilterDateFrom ? '#e8eaf6' : '#fff' } }}
+                InputProps={{ endAdornment: mcFilterDateFrom && <IconButton size="small" onClick={() => setMcFilterDateFrom('')}><CloseIcon sx={{ fontSize: 13 }} /></IconButton> }}
+              />
+              <TextField
+                size="small"
+                label="Date To"
+                type="date"
+                InputLabelProps={{ shrink: true }}
+                value={mcFilterDateTo}
+                onChange={(e) => setMcFilterDateTo(e.target.value)}
+                sx={{ width: 135, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 12, bgcolor: mcFilterDateTo ? '#e8eaf6' : '#fff' } }}
+                InputProps={{ endAdornment: mcFilterDateTo && <IconButton size="small" onClick={() => setMcFilterDateTo('')}><CloseIcon sx={{ fontSize: 13 }} /></IconButton> }}
+              />
+              {(mcFilterName || mcFilterPhone || mcFilterExperience || mcFilterLocation || mcFilterPosition || mcFilterExpectedCTC || mcFilterNoticePeriod || mcFilterCurrentCompany || mcFilterDateFrom || mcFilterDateTo) && (
                 <Button size="small" variant="outlined"
-                  onClick={() => { setMcFilterName(''); setMcFilterExperience(''); setMcFilterLocation(''); setMcFilterPosition(''); setMcFilterExpectedCTC(''); setMcFilterNoticePeriod(''); setMcFilterCurrentCompany(''); }}
+                  onClick={() => {
+                    setMcFilterName('');
+                    setMcFilterPhone('');
+                    setMcFilterExperience('');
+                    setMcFilterLocation('');
+                    setMcFilterPosition('');
+                    setMcFilterExpectedCTC('');
+                    setMcFilterNoticePeriod('');
+                    setMcFilterCurrentCompany('');
+                    setMcFilterDateFrom('');
+                    setMcFilterDateTo('');
+                  }}
                   sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, color: '#ef4444', borderColor: '#ef4444', height: 36, whiteSpace: 'nowrap', '&:hover': { bgcolor: '#fff5f5', borderColor: '#ef4444' } }}>
                   Clear All
                 </Button>
@@ -3179,12 +3226,29 @@ const JobReport = () => {
                     const nm = (v) => String(v || '').toLowerCase();
                     return (
                       (!mcFilterName || nm(c.name).includes(nm(mcFilterName))) &&
+                      (!mcFilterPhone || String(c.phoneNumber || '').replace(/\D/g, '').includes(mcFilterPhone.replace(/\D/g, ''))) &&
                       (!mcFilterExperience || nm(c.experience).includes(nm(mcFilterExperience))) &&
                       (!mcFilterLocation || nm(c.currentLocation).includes(nm(mcFilterLocation))) &&
                       (!mcFilterPosition || nm(c.positionName).includes(nm(mcFilterPosition))) &&
                       (!mcFilterExpectedCTC || nm(c.expectedCTC).includes(nm(mcFilterExpectedCTC))) &&
                       (!mcFilterNoticePeriod || nm(c.noticePeriod).includes(nm(mcFilterNoticePeriod))) &&
-                      (!mcFilterCurrentCompany || nm(c.currentCompany).includes(nm(mcFilterCurrentCompany)))
+                      (!mcFilterCurrentCompany || nm(c.currentCompany).includes(nm(mcFilterCurrentCompany))) &&
+                      ((!mcFilterDateFrom && !mcFilterDateTo) || (() => {
+                        if (!c.createdAt) return false;
+                        const candDate = new Date(c.createdAt);
+                        if (isNaN(candDate.getTime())) return false;
+                        if (mcFilterDateFrom) {
+                          const fromDate = new Date(mcFilterDateFrom);
+                          fromDate.setHours(0, 0, 0, 0);
+                          if (candDate < fromDate) return false;
+                        }
+                        if (mcFilterDateTo) {
+                          const toDate = new Date(mcFilterDateTo);
+                          toDate.setHours(23, 59, 59, 999);
+                          if (candDate > toDate) return false;
+                        }
+                        return true;
+                      })())
                     );
                   })}
                   columns={[
@@ -3200,6 +3264,12 @@ const JobReport = () => {
                     { field: 'reasonforLeaving', headerName: 'Reason for Leaving', width: 180 },
                     { field: 'currentCompany', headerName: 'Current Company', width: 150 },
                     { field: 'remark', headerName: 'Remark', width: 150 },
+                    {
+                      field: 'createdAt',
+                      headerName: 'Created At',
+                      width: 120,
+                      valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : 'N/A'
+                    },
                     {
                       field: 'resume', headerName: 'Resume', width: 100,
                       renderCell: (params) => params.value
@@ -3526,7 +3596,7 @@ const JobReport = () => {
       {/* ── Pending Approvals Modal ── */}
       <Dialog open={approvalModalOpen} onClose={() => setApprovalModalOpen(false)} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: '16px', bgcolor: '#f9f9f9' } }}>
         <DialogTitle sx={{ background: 'linear-gradient(135deg, #3f51b5, #5c6bc0)', color: '#fff', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Pending Sales Approvals
+          Pending Job Approvals
           <IconButton onClick={() => setApprovalModalOpen(false)} sx={{ color: '#fff' }}>
             <CloseIcon />
           </IconButton>

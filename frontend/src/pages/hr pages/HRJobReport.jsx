@@ -114,6 +114,7 @@ const fetchJobs = async () => {
       jobLocation: item.jobLocation,
       jobTiming: item.jobTiming,
       gender: item.gender,
+      approvalStatus: item.approvalStatus,
       descriptionFile: item.descriptionFile,
       agreementSigned: item.agreementSigned,
       gstUpload: item.gstUpload,
@@ -187,6 +188,24 @@ const fetchJobs = async () => {
   }, []);
 
 const columns = [
+  {
+    field: 'approvalStatus',
+    headerName: 'Status',
+    width: 130,
+    renderCell: (params) => {
+      const status = params.row.approvalStatus || 'Approved';
+      let color = 'warning';
+      let label = 'Pending';
+      if (status === 'Approved') {
+        color = 'success';
+        label = 'Accepted';
+      } else if (status === 'Rejected') {
+        color = 'error';
+        label = 'Rejected';
+      }
+      return <Chip label={label} color={color} size="small" variant="outlined" />;
+    }
+  },
   {
     field: 'companyName',
     headerName: 'Company / Branch',
@@ -618,9 +637,11 @@ const columns = [
           PaperProps={{
             sx: {
               borderRadius: '16px',
-              maxHeight: '92vh',
+              height: '92vh',
               overflow: 'hidden',
               boxShadow: '0 16px 48px rgba(63,81,181,0.25)',
+              display: 'flex',
+              flexDirection: 'column',
             },
           }}
         >

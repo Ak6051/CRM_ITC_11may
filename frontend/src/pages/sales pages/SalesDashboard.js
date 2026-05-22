@@ -49,165 +49,6 @@ import {
   updateMySale,
 } from '../../utils/salesPanelService';
 
-// ── Job Opening Report Dialog (Converted Jobs) ────────────────────────────────
-const JobReportDialog = ({ open, onClose }) => {
-  const [rows, setRows] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    const fetchJobs = async () => {
-      setLoading(true);
-      try {
-        const token = sessionStorage.getItem('token');
-        const res = await axios.get(`${API_BASE_URL}/panel/converted-jobs`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setRows(res.data.map((item, i) => ({ id: item._id || i, ...item })));
-      } catch (err) {
-        console.error('Error fetching converted jobs:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchJobs();
-  }, [open]);
-
-  const reportColumns = [
-    { field: 'companyName', headerName: 'Company Name', width: 180 },
-    { field: 'jobTitle', headerName: 'Job Title', width: 150 },
-    { field: 'numberOfRequirements', headerName: 'Requirements', width: 130 },
-    { field: 'salary', headerName: 'Salary', width: 130 },
-    { field: 'jobTiming', headerName: 'Job Timing', width: 150 },
-    { field: 'jobLocation', headerName: 'Job Location', width: 140 },
-    { field: 'education', headerName: 'Education', width: 130 },
-    { field: 'experience', headerName: 'Experience', width: 120 },
-    { field: 'gender', headerName: 'Gender', width: 100 },
-    { field: 'requiredSkills', headerName: 'Required Skills', width: 180 },
-    { field: 'keyResponsibility', headerName: 'Key Responsibility', width: 200 },
-    { field: 'industries', headerName: 'Industries', width: 140 },
-    { field: 'contactName', headerName: 'Contact Name', width: 140 },
-    { field: 'email', headerName: 'Email', width: 180 },
-    { field: 'phoneNumber', headerName: 'Phone', width: 130 },
-    { field: 'response', headerName: 'Response', width: 130 },
-    { field: 'benefits', headerName: 'Benefits', width: 140 },
-    { field: 'remarks', headerName: 'Remarks', width: 160 },
-    {
-      field: 'agreementSigned', headerName: 'Agreement', width: 130,
-      renderCell: (p) => {
-        const v = p.value;
-        const isLink = typeof v === 'string' && (v.startsWith('http://') || v.startsWith('https://'));
-        return isLink ? (
-          <Button size="small" variant="outlined" href={v} target="_blank" rel="noopener noreferrer"
-            sx={{ fontSize: '0.72rem', borderRadius: '6px', borderColor: '#3f51b5', color: '#3f51b5' }}>
-            View
-          </Button>
-        ) : <Typography variant="caption" sx={{ color: '#9e9e9e' }}>{v || 'N/A'}</Typography>;
-      },
-    },
-    {
-      field: 'descriptionFile', headerName: 'Job Description', width: 150,
-      renderCell: (p) => p.value ? (
-        <Button size="small" variant="outlined" href={p.value} target="_blank" rel="noopener noreferrer"
-          sx={{ fontSize: '0.72rem', borderRadius: '6px', borderColor: '#3f51b5', color: '#3f51b5' }}>
-          View PDF
-        </Button>
-      ) : <Typography variant="caption" sx={{ color: '#9e9e9e' }}>N/A</Typography>,
-    },
-    {
-      field: 'convertedAt', headerName: 'Converted At', width: 180,
-      renderCell: (p) => {
-        if (!p.value) return 'N/A';
-        const d = new Date(p.value);
-        return isNaN(d) ? 'N/A' : d.toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
-      },
-    },
-  ];
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth
-      PaperProps={{ sx: { borderRadius: '16px', maxHeight: '92vh', overflow: 'hidden' } }}>
-      <DialogTitle sx={{
-        background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 60%, #7986cb 100%)',
-        color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 3,
-      }}>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Box sx={{ width: 42, height: 42, borderRadius: '10px', bgcolor: 'rgba(255,255,255,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircleIcon sx={{ color: '#fff', fontSize: 22 }} />
-          </Box>
-          <Box>
-            <Typography variant="h6" fontWeight={800}>Job Opening Report</Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-              {rows.length} converted job{rows.length !== 1 ? 's' : ''}
-            </Typography>
-          </Box>
-        </Box>
-        <IconButton onClick={onClose} sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' } }}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent sx={{ p: 0 }}>
-        {/* Table header bar */}
-        <Box sx={{
-          px: 3, py: 1.5,
-          background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
-          borderBottom: '1px solid #c5cae9',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Box sx={{ width: 4, height: 18, bgcolor: '#3f51b5', borderRadius: 2 }} />
-            <Typography variant="subtitle2" fontWeight={700} color="#3f51b5" textTransform="uppercase" letterSpacing="0.06em">
-              Converted Jobs
-            </Typography>
-          </Box>
-          <Box sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 700, fontSize: '0.75rem', px: 1.5, py: 0.5, borderRadius: '8px' }}>
-            {rows.length} records
-          </Box>
-        </Box>
-
-        <Box sx={{ height: 'calc(92vh - 180px)' }}>
-          <DataGrid
-            rows={rows}
-            columns={reportColumns}
-            loading={loading}
-            pageSize={25}
-            rowsPerPageOptions={[25, 50, 100]}
-            disableSelectionOnClick
-            sx={{
-              border: 'none',
-              height: '100%',
-              '& .MuiDataGrid-columnHeaders': {
-                background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)',
-                borderBottom: '2px solid #c5cae9',
-              },
-              '& .MuiDataGrid-columnHeaderTitle': {
-                fontWeight: 700, color: '#3f51b5', fontSize: '0.78rem',
-                textTransform: 'uppercase', letterSpacing: '0.04em',
-              },
-              '& .MuiDataGrid-cell': {
-                borderBottom: '1px solid #f0f2ff', fontSize: '0.82rem', color: '#334155',
-                '&:focus': { outline: 'none' },
-              },
-              '& .MuiDataGrid-row:hover': { bgcolor: '#f5f6ff' },
-              '& .MuiDataGrid-footerContainer': { borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' },
-              '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': { height: 7, width: 7 },
-              '& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 4 },
-            }}
-          />
-        </Box>
-      </DialogContent>
-
-      <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' }}>
-        <Button onClick={onClose} variant="outlined"
-          sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 600, borderColor: '#3f51b5', color: '#3f51b5' }}>
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
 const JobOpeningsDashboard = () => {
   const [salesMessages, setSalesMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
@@ -236,6 +77,8 @@ const JobOpeningsDashboard = () => {
     experience: '',
     salary: '',
     jobLocation: '',
+    Area: '',
+    weekOff: '',
     jobTiming: '',
     gender: '',
     remarks: '',
@@ -279,7 +122,6 @@ const JobOpeningsDashboard = () => {
   const [reminderList, setReminderList] = useState([]);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-  const [jobReportOpen, setJobReportOpen] = useState(false);
   const [detailPanel, setDetailPanel] = useState({ open: false, row: null, view: 'company' });
   const [fileError, setFileError] = useState('');
   const shownReminders = useRef(new Set());
@@ -677,6 +519,8 @@ const JobOpeningsDashboard = () => {
         branchName: data?.branchName || '',
         jobTitle: data?.jobTitle || '',
         jobLocation: data?.jobLocation || '',
+        Area: data?.Area || '',
+        weekOff: data?.weekOff || '',
         numberOfRequirements: data?.numberOfRequirements || '',
         jobTiming: data?.jobTiming || '',
         education: data?.education || '',
@@ -727,7 +571,7 @@ const JobOpeningsDashboard = () => {
       setSelectedId(null);
       setFormData({
         companyName: '', companyId: '', branchId: '', branchName: '',
-        jobTitle: '', jobLocation: '', numberOfRequirements: '', jobTiming: '',
+        jobTitle: '', jobLocation: '', Area: '', weekOff: '', numberOfRequirements: '', jobTiming: '',
         education: '', gender: '', salary: '', experience: '',
         requiredSkills: '', keyResponsibility: '', benefits: '', response: '',
         remarks: '', descriptionFile: null,
@@ -788,13 +632,18 @@ const JobOpeningsDashboard = () => {
   //   return phoneRegex.test(phone);
   // };
 
+  // Fields that should NOT be auto-capitalized
+  const NO_CAPITALIZE_FIELDS = ['email', 'phoneNumber', 'websiteURL', 'salary', 'numberOfRequirements', 'experience', 'companyId', 'branchId'];
+
+  const capitalizeWords = (str) =>
+    str.replace(/\b\w/g, (char) => char.toUpperCase());
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
     if (name === 'date') {
       const isValid = /^(\d{2})-(\d{2})-(\d{4})$/.test(value);
       if (!isValid && value !== '') {
-        // You can show an error message or prevent updating formData
         // For now, just update anyway
       }
     }
@@ -810,17 +659,13 @@ const JobOpeningsDashboard = () => {
       }
     }
 
-    // // Validate phone number format
-    // if (name === 'phoneNumber' && value) {
-    //   if (!validatePhoneNumber(value)) {
-    //     errors.phoneNumber = 'Phone number must be 10 digits';
-    //   } else {
-    //     delete errors.phoneNumber;
-    //   }
-    // }
-
     setValidationErrors(errors);
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    const processedValue = (!NO_CAPITALIZE_FIELDS.includes(name) && typeof value === 'string' && value.length > 0)
+      ? capitalizeWords(value)
+      : value;
+
+    setFormData((prev) => ({ ...prev, [name]: processedValue }));
   };
 
 
@@ -861,9 +706,13 @@ const JobOpeningsDashboard = () => {
     if (!formData.companyName) newErrors.companyName = true;
     if (!formData.jobTitle?.trim()) newErrors.jobTitle = true;
     if (!formData.jobLocation?.trim()) newErrors.jobLocation = true;
+    if (!formData.Area?.trim()) newErrors.Area = true;
     if (!formData.numberOfRequirements) newErrors.numberOfRequirements = true;
+    if (!jobTimingStart?.trim() && !jobTimingEnd?.trim()) newErrors.jobTiming = true;
+    if (!formData.salary) newErrors.salary = true;
     if (!formData.experience?.trim()) newErrors.experience = true;
     if (!formData.education?.trim()) newErrors.education = true;
+    if (!formData.weekOff?.trim()) newErrors.weekOff = true;
     if (!formData.requiredSkills?.trim()) newErrors.requiredSkills = true;
     if (!formData.descriptionFile) newErrors.descriptionFile = true;
     if (Object.keys(newErrors).length) {
@@ -1078,7 +927,7 @@ const JobOpeningsDashboard = () => {
     {
       field: 'actions',
       headerName: 'Actions',
-      width: 150,
+      width: 100,
       renderCell: (params) => (
         <div style={{ display: 'flex', gap: '8px' }}>
           <Button
@@ -1091,17 +940,6 @@ const JobOpeningsDashboard = () => {
           >
             Edit
           </Button>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(params.row._id);
-            }}
-            title="Delete"
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
         </div>
       )
     },
@@ -1218,6 +1056,19 @@ const JobOpeningsDashboard = () => {
     },
 
     {
+      field: 'weekOff',
+      headerName: 'Week Off',
+      width: 130,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value || '—'}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
       field: 'jobLocation',
       headerName: 'Job Location',
       width: 100,
@@ -1225,6 +1076,19 @@ const JobOpeningsDashboard = () => {
         <Tooltip title={params.value || ''} arrow>
           <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {params.value}
+          </div>
+        </Tooltip>
+      )
+    },
+
+    {
+      field: 'Area',
+      headerName: 'Area',
+      width: 110,
+      renderCell: (params) => (
+        <Tooltip title={params.value || ''} arrow>
+          <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {params.value || '—'}
           </div>
         </Tooltip>
       )
@@ -1453,10 +1317,7 @@ const JobOpeningsDashboard = () => {
                   sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.5)', fontWeight: 600, borderRadius: '10px', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}>
                   Template
                 </Button>
-                <Button variant="contained" onClick={() => setJobReportOpen(true)}
-                  sx={{ bgcolor: 'rgba(255,255,255,0.18)', color: '#fff', fontWeight: 600, borderRadius: '10px', border: '1px solid rgba(255,255,255,0.3)', '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' } }}>
-                  Job Opening Report
-                </Button>
+               
               </Box>
             </Box>
 
@@ -1610,6 +1471,11 @@ const JobOpeningsDashboard = () => {
                       onChange={(e) => { handleChange(e); if (errors.jobLocation) setErrors(p => ({ ...p, jobLocation: false })); }}
                       fullWidth error={!!errors.jobLocation} helperText={errors.jobLocation ? 'Required' : ''} required />
 
+                    <TextField label="Area *" name="Area" value={formData.Area || ''}
+                      onChange={(e) => { handleChange(e); if (errors.Area) setErrors(p => ({ ...p, Area: false })); }}
+                      fullWidth error={!!errors.Area}
+                      helperText={errors.Area ? 'Required' : 'e.g. Andheri, Bandra'} required />
+
                     <Grid container spacing={2}>
                       <Grid item xs={6}>
                         <TextField label="No. of Openings *" name="numberOfRequirements" type="number"
@@ -1619,8 +1485,8 @@ const JobOpeningsDashboard = () => {
                       </Grid>
                       <Grid item xs={6}>
                         <Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-                            Job Timing
+                          <Typography variant="caption" sx={{ mb: 0.5, display: 'block', color: errors.jobTiming ? '#d32f2f' : 'text.secondary' }}>
+                            Job Timing *
                           </Typography>
                           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                             <TextField
@@ -1646,10 +1512,12 @@ const JobOpeningsDashboard = () => {
                                 const ampm = hh >= 12 ? 'PM' : 'AM';
                                 const h12 = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
                                 setJobTimingStart(`${h12}:${m} ${ampm}`);
+                                if (errors.jobTiming) setErrors(p => ({ ...p, jobTiming: false }));
                               }}
                               InputLabelProps={{ shrink: true }}
                               inputProps={{ step: 300 }}
                               size="small"
+                              error={!!errors.jobTiming}
                               sx={{ flex: 1 }}
                             />
                             <Typography variant="body2" color="text.secondary">to</Typography>
@@ -1675,13 +1543,20 @@ const JobOpeningsDashboard = () => {
                                 const ampm = hh >= 12 ? 'PM' : 'AM';
                                 const h12 = hh > 12 ? hh - 12 : hh === 0 ? 12 : hh;
                                 setJobTimingEnd(`${h12}:${m} ${ampm}`);
+                                if (errors.jobTiming) setErrors(p => ({ ...p, jobTiming: false }));
                               }}
                               InputLabelProps={{ shrink: true }}
                               inputProps={{ step: 300 }}
                               size="small"
+                              error={!!errors.jobTiming}
                               sx={{ flex: 1 }}
                             />
                           </Box>
+                          {errors.jobTiming && (
+                            <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                              Job timing is required
+                            </Typography>
+                          )}
                           {(jobTimingStart || jobTimingEnd) && (
                             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
                               {jobTimingStart && jobTimingEnd
@@ -1711,16 +1586,20 @@ const JobOpeningsDashboard = () => {
                     <Grid container spacing={2}>
                       <Grid item xs={6}>
                         <TextField
-                          label="Salary (Monthly)"
+                          label="Salary (Monthly) *"
                           name="salary"
                           value={formData.salary}
                           onChange={(e) => {
                             const val = e.target.value;
                             if (val === '' || /^\d*$/.test(val)) {
                               handleChange({ target: { name: 'salary', value: val } });
+                              if (errors.salary) setErrors(p => ({ ...p, salary: false }));
                             }
                           }}
                           fullWidth
+                          error={!!errors.salary}
+                          helperText={errors.salary ? 'Required' : ''}
+                          required
                           inputProps={{ inputMode: 'numeric', pattern: '\\d*' }}
                         />
                       </Grid>
@@ -1748,6 +1627,32 @@ const JobOpeningsDashboard = () => {
 
                   {/* Right Column */}
                   <Grid item xs={12} md={6} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+                    {/* Week Off */}
+                    <Autocomplete
+                      freeSolo
+                      options={[
+                        'Sunday',
+                        'Monday',
+                        'Tuesday',
+                        'Wednesday',
+                        'Thursday',
+                        'Friday',
+                        'Saturday',
+                        'Saturday & Sunday',
+                        'Sunday & Monday',
+                        'Rotational',
+                        'No Week Off',
+                      ]}
+                      value={formData.weekOff || ''}
+                      onChange={(e, v) => { setFormData(p => ({ ...p, weekOff: v || '' })); if (errors.weekOff) setErrors(p => ({ ...p, weekOff: false })); }}
+                      onInputChange={(e, v) => { setFormData(p => ({ ...p, weekOff: v })); if (errors.weekOff) setErrors(p => ({ ...p, weekOff: false })); }}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Week Off *" fullWidth
+                          error={!!errors.weekOff}
+                          helperText={errors.weekOff ? 'Required' : 'Select or type custom week off'} />
+                      )}
+                    />
 
                     <TextField label="Required Skills *" name="requiredSkills" value={formData.requiredSkills}
                       onChange={(e) => { handleChange(e); if (errors.requiredSkills) setErrors(p => ({ ...p, requiredSkills: false })); }}
@@ -1830,9 +1735,6 @@ const JobOpeningsDashboard = () => {
                 </Box>
               </Box>
             </Modal>
-
-            {/* ── Job Opening Report Dialog ── */}
-            <JobReportDialog open={jobReportOpen} onClose={() => setJobReportOpen(false)} />
 
             <Dialog open={openReschedule} onClose={() => setOpenReschedule(false)}>
               <DialogTitle>Reschedule Meeting</DialogTitle>

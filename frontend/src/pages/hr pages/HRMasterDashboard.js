@@ -812,78 +812,55 @@ const HRMasterDashboard = () => {
           <TableHead>
             <TableRow sx={{ bgcolor: "#f8fafc" }}>
               <TableCell
-                sx={{
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  minWidth: 220,
-                  bgcolor: "#f8fafc",
-                }}
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 220, bgcolor: "#f8fafc" }}
               >
                 Candidate
               </TableCell>
 
               <TableCell
-                sx={{
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  minWidth: 220,
-                  bgcolor: "#f8fafc",
-                }}
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 220, bgcolor: "#f8fafc" }}
               >
                 Contact
               </TableCell>
 
               <TableCell
-                sx={{
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  minWidth: 180,
-                  bgcolor: "#f8fafc",
-                }}
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 160, bgcolor: "#f8fafc" }}
+              >
+                Company
+              </TableCell>
+
+              <TableCell
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 180, bgcolor: "#f8fafc" }}
               >
                 Position
               </TableCell>
 
               <TableCell
-                sx={{
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  minWidth: 140,
-                  bgcolor: "#f8fafc",
-                }}
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 150, bgcolor: "#f8fafc" }}
+              >
+                HR Name
+              </TableCell>
+
+              <TableCell
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 140, bgcolor: "#f8fafc" }}
               >
                 Status
               </TableCell>
 
               <TableCell
-                sx={{
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  minWidth: 220,
-                  bgcolor: "#f8fafc",
-                }}
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 220, bgcolor: "#f8fafc" }}
               >
                 Internal Interview
               </TableCell>
 
               <TableCell
-                sx={{
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  minWidth: 300,
-                  bgcolor: "#f8fafc",
-                }}
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 300, bgcolor: "#f8fafc" }}
               >
                 Interview Rounds
               </TableCell>
 
               <TableCell
-                sx={{
-                  fontWeight: 700,
-                  color: "#1e293b",
-                  minWidth: 150,
-                  bgcolor: "#f8fafc",
-                }}
+                sx={{ fontWeight: 700, color: "#1e293b", minWidth: 150, bgcolor: "#f8fafc" }}
               >
                 Joining Date
               </TableCell>
@@ -1002,6 +979,16 @@ const HRMasterDashboard = () => {
         </Box>
       </TableCell>
 
+      {/* Company */}
+      <TableCell>
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.92rem' }}
+        >
+          {candidate.jobId?.companyName || '—'}
+        </Typography>
+      </TableCell>
+
       {/* Position */}
       <TableCell>
         <Typography
@@ -1013,15 +1000,24 @@ const HRMasterDashboard = () => {
         >
           {candidate.jobId?.jobTitle || "N/A"}
         </Typography>
+      </TableCell>
 
-        <Typography
-          variant="caption"
-          sx={{
-            color: "#64748b",
-          }}
-        >
-          {candidate.jobId?.companyName || ""}
-        </Typography>
+      {/* HR Name */}
+      <TableCell>
+        {(() => {
+          const hrName = candidate.createdBy
+            ? `${candidate.createdBy.firstName || ''} ${candidate.createdBy.lastName || ''}`.trim()
+            : candidate.createdByName || '';
+          return hrName ? (
+            <Chip
+              label={hrName}
+              size="small"
+              sx={{ bgcolor: '#e0e7ff', color: '#3730a3', fontWeight: 700, fontSize: '0.78rem' }}
+            />
+          ) : (
+            <Typography variant="body2" sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>—</Typography>
+          );
+        })()}
       </TableCell>
 
       {/* Status */}

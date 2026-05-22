@@ -16,7 +16,8 @@ exports.createjobopenning = async (req, res) => {
       experience,
       salary,
       jobLocation,
-      description
+      description,
+      Area
     } = req.body;
 
     const job = new JobOpenings({
@@ -34,6 +35,7 @@ exports.createjobopenning = async (req, res) => {
       salary,
       jobLocation,
       description,
+      Area,
       createdBy: req.user._id 
     });
 

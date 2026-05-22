@@ -42,7 +42,30 @@ const assignCandidates = async (req, res) => {
       // Check if already assigned to this job
       const existing = await CandidateApplication.findOne({ candidateId, jobId });
       if (existing) {
-        results.alreadyAssigned.push(candidateId);
+        // If assigned by someone else, transfer ownership to the current HR
+        if (existing.createdBy.toString() !== req.user._id.toString()) {
+          existing.createdBy = req.user._id;
+          existing.createdByName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim();
+          existing.assignedBy = req.user._id;
+          existing.assignedAt = new Date();
+          await existing.save();
+
+          // ── Update candidateModal so new HR's list shows this candidate ──
+          await Candidate.findByIdAndUpdate(candidateId, {
+            $set: {
+              jobId,
+              createdBy:        req.user._id,
+              assignedTo:       req.user._id,
+              assignedPosition: jobId,
+              assignedBy:       req.user._id,
+              assignedAt:       new Date(),
+            },
+          });
+          results.assigned.push(candidateId);
+        } else {
+          // Already assigned by the same HR
+          results.alreadyAssigned.push(candidateId);
+        }
         continue;
       }
 

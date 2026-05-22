@@ -46,7 +46,6 @@ COPY --from=builder /app/utils ./utils
 COPY --from=builder /app/.env .
 COPY --from=builder /app/aqueous-nebula-454915-h7-3ee9fd1831ba.json .
 RUN cp aqueous-nebula-454915-h7-3ee9fd1831ba.json serviceAccountKey.json
-COPY --from=builder /app/firebase.js .
 
 # Create uploads directory and set permissions
 RUN mkdir -p uploads
