@@ -1120,6 +1120,24 @@ const DailyTaskData = () => {
                         </Grid>
                       ))}
                     </Grid>
+
+                    {/* TCEOD breakdown info in edit request dialog */}
+                    {tceodBreakdown && editRequestData.position && (
+                      <Box sx={{
+                        mt: 2, p: 1.5, bgcolor: '#f0fdf4', borderRadius: 1.5,
+                        border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
+                      }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534' }}>
+                          📊 TCEOD (auto-calculated): <strong>{editRequestData.TCEOD}</strong>
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#15803d' }}>
+                          🆕 New candidates: <strong>{tceodBreakdown.newCandidates}</strong>
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#15803d' }}>
+                          📞 Called existing: <strong>{tceodBreakdown.calledExisting}</strong>
+                        </Typography>
+                      </Box>
+                    )}
                   </Box>
                 </Box>
               </Grid>
