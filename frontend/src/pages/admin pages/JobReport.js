@@ -188,7 +188,12 @@ const JobReport = () => {
   const [holdDialog, setHoldDialog] = useState({ open: false, jobId: null, jobTitle: '' });
   const [holdReasonInput, setHoldReasonInput] = useState('');
 
-  // ── Review Job state ───────────────────────────────────────────────────────
+  // ── Monthly Summary ────────────────────────────────────────────────────────
+  const [monthlySummaryOpen, setMonthlySummaryOpen] = useState(false);
+  const [summaryMonth, setSummaryMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [reviewJob, setReviewJob] = useState(null);
 
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
@@ -715,6 +720,94 @@ const JobReport = () => {
     startDate,
     endDate,
   ].filter(Boolean).length;
+
+  // ── Monthly Summary logic ──────────────────────────────────────────────────
+  // Uses originalSales (all data) so it's independent of current filters
+  const monthlySummaryData = useMemo(() => {
+    // Use all sales data (originalSales if available, else sales)
+    const allData = originalSales.current.length ? originalSales.current : sales;
+
+    if (!summaryMonth) return null;
+    const [year, month] = summaryMonth.split('-').map(Number);
+
+    const inMonth = allData.filter(sale => {
+      if (!sale.createdAt) return false;
+      const d = new Date(sale.createdAt);
+      return d.getFullYear() === year && d.getMonth() + 1 === month;
+    });
+
+    const total   = inMonth.length;
+    const open    = inMonth.filter(s => !s.jobStatus || s.jobStatus === 'Open').length;
+    const closed  = inMonth.filter(s => s.jobStatus === 'Closed').length;
+    const onHold  = inMonth.filter(s => s.jobStatus === 'OnHold').length;
+    const assigned   = inMonth.filter(s => Array.isArray(s.assignedHR) ? s.assignedHR.length > 0 : !!s.assignedHR).length;
+    const unassigned = total - assigned;
+
+    // Company-wise breakdown
+    const companyMap = {};
+    inMonth.forEach(s => {
+      const name = s.companyName || 'Unknown';
+      if (!companyMap[name]) companyMap[name] = { total: 0, open: 0, closed: 0, onHold: 0 };
+      companyMap[name].total++;
+      if (!s.jobStatus || s.jobStatus === 'Open') companyMap[name].open++;
+      else if (s.jobStatus === 'Closed') companyMap[name].closed++;
+      else if (s.jobStatus === 'OnHold') companyMap[name].onHold++;
+    });
+
+    const companyBreakdown = Object.entries(companyMap)
+      .map(([name, counts]) => ({ name, ...counts }))
+      .sort((a, b) => b.total - a.total);
+
+    // Job title breakdown
+    const titleMap = {};
+    inMonth.forEach(s => {
+      const t = s.jobTitle || 'Unknown';
+      titleMap[t] = (titleMap[t] || 0) + 1;
+    });
+    const titleBreakdown = Object.entries(titleMap)
+      .map(([title, count]) => ({ title, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return { total, open, closed, onHold, assigned, unassigned, companyBreakdown, titleBreakdown, jobs: inMonth };
+  }, [summaryMonth, sales]);
+
+  // Quick month helpers
+  const quickMonth = (offsetMonths) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + offsetMonths);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const monthLabel = (ym) => {
+    if (!ym) return '';
+    const [y, m] = ym.split('-');
+    return new Date(Number(y), Number(m) - 1, 1)
+      .toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  };
+
+  // Apply month filter to main grid from summary
+  const applyMonthToGrid = (ym) => {
+    const [y, m] = ym.split('-').map(Number);
+    const from = `${y}-${String(m).padStart(2, '0')}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${y}-${String(m).padStart(2, '0')}-${lastDay}`;
+    setStartDate(from);
+    setEndDate(to);
+    setAssignmentFilter('all');
+    // store original if not already stored
+    if (!originalSales.current.length) originalSales.current = [...sales];
+    const start = dayjs(from).startOf('day');
+    const end   = dayjs(to).endOf('day');
+    const filtered = originalSales.current.filter(sale => {
+      if (!sale.createdAt) return false;
+      const d = dayjs(sale.createdAt);
+      return (d.isAfter(start) || d.isSame(start, 'day')) && (d.isBefore(end) || d.isSame(end, 'day'));
+    });
+    setSales(filtered);
+    setMonthlySummaryOpen(false);
+  };
 
   // Debug: Log all company names in sales data
   const salesCompanyNames = sales.map(sale => sale.companyName);
@@ -1286,7 +1379,26 @@ const JobReport = () => {
       setTimeout(() => { setOpen(false); setSuccessMessage(''); setSalaryMonthly(''); setJobTimingStart(''); setJobTimingEnd(''); }, 1500);
     } catch (error) {
       console.error('Error saving sale:', error);
-      toast.error('Failed to save job opening');
+
+      // Extract the most specific error message available
+      let msg = 'Failed to save job opening';
+
+      if (error?.response?.data) {
+        const data = error.response.data;
+        // Backend sends { message, error } — show both if error gives more detail
+        if (data.message && data.error) {
+          msg = `${data.message}: ${data.error}`;
+        } else if (data.message) {
+          msg = data.message;
+        } else if (data.error) {
+          msg = data.error;
+        }
+      } else if (error?.message) {
+        // Network error or thrown JS error
+        msg = error.message;
+      }
+
+      toast.error(`❌ ${msg}`, { autoClose: 6000 });
     } finally {
       setLoading(false);
     }
@@ -1298,14 +1410,20 @@ const JobReport = () => {
 
   const handleDelete = async (id) => {
     const confirmDelete = window.confirm('Are you sure you want to delete this job?');
-
-    if (!confirmDelete) return; // If user clicks "No", stop here
+    if (!confirmDelete) return;
 
     try {
       await deleteSale(id);
-      getSales(); // Refresh the data
+      toast.success('Job deleted successfully');
+      getSales();
     } catch (error) {
       console.error('Error deleting sale:', error);
+      const msg =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Failed to delete job';
+      toast.error(`❌ ${msg}`, { autoClose: 6000 });
     }
   };
 
@@ -2133,6 +2251,9 @@ const JobReport = () => {
               <Button variant="contained" onClick={handleExportData} size="small"
                 sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' }, px: 1.8, height: 34, whiteSpace: 'nowrap' }}
               >Export Excel</Button>
+              <Button variant="contained" onClick={() => setMonthlySummaryOpen(true)} size="small"
+                sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, bgcolor: '#0ea5e9', '&:hover': { bgcolor: '#0284c7' }, px: 1.8, height: 34, whiteSpace: 'nowrap' }}
+              >📅 Monthly Summary</Button>
               <Button variant="contained" onClick={handleDownloadJobTemplate} size="small"
                 sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, bgcolor: '#f59e0b', '&:hover': { bgcolor: '#d97706' }, px: 1.8, height: 34, whiteSpace: 'nowrap' }}
               >Template</Button>
@@ -3826,6 +3947,183 @@ const JobReport = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Monthly Summary Dialog ── */}
+      <Dialog
+        open={monthlySummaryOpen}
+        onClose={() => setMonthlySummaryOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}
+      >
+        {/* Header */}
+        <Box sx={{
+          background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
+          px: 3, py: 2.5,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <Box>
+            <Typography variant="h6" fontWeight={800} color="#fff">📅 Monthly Opening Summary</Typography>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.75)' }}>
+View new job openings for any month
+            </Typography>
+          </Box>
+          <IconButton onClick={() => setMonthlySummaryOpen(false)} size="small"
+            sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.15)', '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' } }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+
+        <DialogContent sx={{ p: 3, bgcolor: '#f8faff' }}>
+
+          {/* Month Picker + Quick Buttons */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
+            <TextField
+              type="month"
+              size="small"
+              label="Select Month"
+              value={summaryMonth}
+              onChange={e => setSummaryMonth(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                width: 180,
+                '& .MuiOutlinedInput-root': { borderRadius: '10px', fontWeight: 700, fontSize: '0.9rem' },
+              }}
+            />
+            {[
+              { label: 'This Month', offset: 0 },
+              { label: 'Last Month', offset: -1 },
+              { label: '2 Months Ago', offset: -2 },
+              { label: '3 Months Ago', offset: -3 },
+            ].map(({ label, offset }) => {
+              const val = quickMonth(offset);
+              const active = summaryMonth === val;
+              return (
+                <Button key={label} size="small" variant={active ? 'contained' : 'outlined'}
+                  onClick={() => setSummaryMonth(val)}
+                  sx={{
+                    borderRadius: '8px', textTransform: 'none', fontWeight: 700, fontSize: '0.75rem',
+                    ...(active
+                      ? { bgcolor: '#0ea5e9', '&:hover': { bgcolor: '#0284c7' } }
+                      : { borderColor: '#0ea5e9', color: '#0ea5e9', '&:hover': { bgcolor: '#e0f2fe' } }),
+                  }}>
+                  {label}
+                </Button>
+              );
+            })}
+          </Box>
+
+          {monthlySummaryData && (
+            <>
+              {/* Month Title */}
+              <Typography variant="subtitle1" fontWeight={800} color="#1e293b" mb={2}>
+                📊 {monthLabel(summaryMonth)} — Summary
+              </Typography>
+
+              {/* Stat Cards */}
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
+                {[
+                  { label: 'Total New Openings', value: monthlySummaryData.total, bg: '#e0f2fe', color: '#0369a1', border: '#7dd3fc' },
+                  { label: 'Open', value: monthlySummaryData.open, bg: '#dcfce7', color: '#15803d', border: '#86efac' },
+                  { label: 'Closed', value: monthlySummaryData.closed, bg: '#fee2e2', color: '#b91c1c', border: '#fca5a5' },
+                  { label: 'On Hold', value: monthlySummaryData.onHold, bg: '#fff7ed', color: '#c2410c', border: '#fdba74' },
+                  { label: 'Assigned', value: monthlySummaryData.assigned, bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' },
+                  { label: 'Unassigned', value: monthlySummaryData.unassigned, bg: '#fefce8', color: '#a16207', border: '#fde047' },
+                ].map(({ label, value, bg, color, border }) => (
+                  <Box key={label} sx={{
+                    flex: '1 1 120px', minWidth: 110,
+                    bgcolor: bg, border: `1px solid ${border}`, borderRadius: '12px',
+                    p: 1.5, textAlign: 'center',
+                  }}>
+                    <Typography variant="h5" fontWeight={800} color={color} lineHeight={1}>{value}</Typography>
+                    <Typography variant="caption" color={color} fontWeight={600} sx={{ opacity: 0.8 }}>{label}</Typography>
+                  </Box>
+                ))}
+              </Box>
+
+              {monthlySummaryData.total === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 4, color: '#94a3b8' }}>
+                  <Typography variant="h6">😕 No new openings were found this month</Typography>
+                  <Typography variant="caption">Select another month</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+
+                  {/* Company-wise Breakdown */}
+                  <Box sx={{ flex: '1 1 280px', bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px', overflow: 'hidden' }}>
+                    <Box sx={{ px: 2, py: 1.2, bgcolor: '#f1f5f9', borderBottom: '1px solid #e8eaf6' }}>
+                      <Typography variant="caption" fontWeight={800} color="#3f51b5" textTransform="uppercase" letterSpacing="0.05em">
+                        🏢 Company-wise Breakdown
+                      </Typography>
+                    </Box>
+                    <Box sx={{ maxHeight: 260, overflowY: 'auto', p: 1 }}>
+                      {monthlySummaryData.companyBreakdown.map(({ name, total, open, closed, onHold }) => (
+                        <Box key={name} sx={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          px: 1.5, py: 0.8, borderRadius: '8px', mb: 0.5,
+                          '&:hover': { bgcolor: '#f8faff' },
+                        }}>
+                          <Typography variant="caption" fontWeight={600} color="#334155" noWrap sx={{ maxWidth: 160 }}>
+                            {name}
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+                            <Chip label={total} size="small" sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 800, fontSize: '0.7rem', height: 20 }} />
+                            {open > 0 && <Chip label={`${open} open`} size="small" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: '0.65rem', height: 20 }} />}
+                            {closed > 0 && <Chip label={`${closed} closed`} size="small" sx={{ bgcolor: '#fee2e2', color: '#b91c1c', fontWeight: 700, fontSize: '0.65rem', height: 20 }} />}
+                            {onHold > 0 && <Chip label={`${onHold} hold`} size="small" sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 700, fontSize: '0.65rem', height: 20 }} />}
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+
+                  {/* Top Job Titles */}
+                  <Box sx={{ flex: '1 1 220px', bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '12px', overflow: 'hidden' }}>
+                    <Box sx={{ px: 2, py: 1.2, bgcolor: '#f1f5f9', borderBottom: '1px solid #e8eaf6' }}>
+                      <Typography variant="caption" fontWeight={800} color="#7c3aed" textTransform="uppercase" letterSpacing="0.05em">
+                        💼 Top Job Titles
+                      </Typography>
+                    </Box>
+                    <Box sx={{ maxHeight: 260, overflowY: 'auto', p: 1 }}>
+                      {monthlySummaryData.titleBreakdown.map(({ title, count }) => (
+                        <Box key={title} sx={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          px: 1.5, py: 0.8, borderRadius: '8px', mb: 0.5,
+                          '&:hover': { bgcolor: '#faf5ff' },
+                        }}>
+                          <Typography variant="caption" fontWeight={600} color="#334155" noWrap sx={{ maxWidth: 160 }}>
+                            {title}
+                          </Typography>
+                          <Chip label={count} size="small"
+                            sx={{ bgcolor: '#f3e8ff', color: '#7c3aed', fontWeight: 800, fontSize: '0.7rem', height: 20 }} />
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+
+                </Box>
+              )}
+            </>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2.5, pt: 1, borderTop: '1px solid #e8eaf6', bgcolor: '#f8faff', gap: 1 }}>
+          <Button onClick={() => setMonthlySummaryOpen(false)} variant="outlined"
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, borderColor: '#cbd5e1', color: '#64748b' }}>
+            Close
+          </Button>
+          {monthlySummaryData && monthlySummaryData.total > 0 && (
+            <Button
+              variant="contained"
+              onClick={() => applyMonthToGrid(summaryMonth)}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, bgcolor: '#0ea5e9', '&:hover': { bgcolor: '#0284c7' } }}
+            >
+              📋 See in Grid View — {monthLabel(summaryMonth)}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
     </div>
   );
 };

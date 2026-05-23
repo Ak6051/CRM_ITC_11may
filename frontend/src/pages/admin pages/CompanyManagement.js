@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Grid, IconButton, Chip, Tooltip,
   InputAdornment, CircularProgress, Paper, Badge, Alert,
-  Select, MenuItem, FormControl, InputLabel,
+  Select, MenuItem, FormControl, InputLabel, Autocomplete,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import AddIcon from '@mui/icons-material/Add';
@@ -236,6 +236,20 @@ export default function CompanyManagement() {
 
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
+
+  // ── Dropdown options derived from loaded companies ─────────────────────────
+  const filterOptions = useMemo(() => {
+    const uniq = (arr) => [...new Set(arr.filter(Boolean))].sort();
+    return {
+      companyName: uniq(companies.map(c => c.companyName)),
+      industries:  uniq(companies.map(c => c.industries)),
+      contactPerson: uniq(companies.map(c => c.contactPerson)),
+      area:    uniq(companies.map(c => c.area)),
+      city:    uniq(companies.map(c => c.city)),
+      state:   uniq(companies.map(c => c.state)),
+      country: uniq(companies.map(c => c.country)),
+    };
+  }, [companies]);
 
   // ── fetch ──────────────────────────────────────────────────────────────────
   const fetchCompanies = useCallback(async () => {
@@ -1048,9 +1062,44 @@ export default function CompanyManagement() {
 
               {/* All filter fields in one row - more compact */}
               <Box sx={{ display: 'flex', gap: 1, flex: 1, flexWrap: 'nowrap', alignItems: 'center' }}>
-                <TextField label="Company" name="companyName" value={filters.companyName} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 1, minWidth: 100 }} placeholder="Name..." />
-                <TextField label="Industry" name="industries" value={filters.industries} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.8, minWidth: 90 }} placeholder="Industry..." />
-                <TextField label="Contact" name="contactPerson" value={filters.contactPerson} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 1, minWidth: 100 }} placeholder="Person..." />
+
+                {/* Company Name */}
+                <Autocomplete
+                  freeSolo size="small" options={filterOptions.companyName}
+                  inputValue={filters.companyName}
+                  onInputChange={(_, v) => setFilters(p => ({ ...p, companyName: v ?? '' }))}
+                  sx={{ flex: 1, minWidth: 100 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Company" placeholder="Name..."
+                      sx={{ ...fieldSx }} />
+                  )}
+                />
+
+                {/* Industry */}
+                <Autocomplete
+                  freeSolo size="small" options={filterOptions.industries}
+                  inputValue={filters.industries}
+                  onInputChange={(_, v) => setFilters(p => ({ ...p, industries: v ?? '' }))}
+                  sx={{ flex: 0.8, minWidth: 90 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Industry" placeholder="Industry..."
+                      sx={{ ...fieldSx }} />
+                  )}
+                />
+
+                {/* Contact Person */}
+                <Autocomplete
+                  freeSolo size="small" options={filterOptions.contactPerson}
+                  inputValue={filters.contactPerson}
+                  onInputChange={(_, v) => setFilters(p => ({ ...p, contactPerson: v ?? '' }))}
+                  sx={{ flex: 1, minWidth: 100 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Contact" placeholder="Person..."
+                      sx={{ ...fieldSx }} />
+                  )}
+                />
+
+                {/* Mobile — plain TextField (no dropdown needed for numbers) */}
                 <TextField
                   label="Mobile"
                   name="contactNumber"
@@ -1064,10 +1113,55 @@ export default function CompanyManagement() {
                   placeholder="Mobile..."
                   inputProps={{ maxLength: 10 }}
                 />
-                <TextField label="Area" name="area" value={filters.area} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.7, minWidth: 80 }} placeholder="Area..." />
-                <TextField label="City" name="city" value={filters.city} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.7, minWidth: 80 }} placeholder="City..." />
-                <TextField label="State" name="state" value={filters.state} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.7, minWidth: 80 }} placeholder="State..." />
-                <TextField label="Country" name="country" value={filters.country} onChange={handleFilterChange} size="small" sx={{ ...fieldSx, flex: 0.8, minWidth: 85 }} placeholder="Country..." />
+
+                {/* Area */}
+                <Autocomplete
+                  freeSolo size="small" options={filterOptions.area}
+                  inputValue={filters.area}
+                  onInputChange={(_, v) => setFilters(p => ({ ...p, area: v ?? '' }))}
+                  sx={{ flex: 0.7, minWidth: 80 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Area" placeholder="Area..."
+                      sx={{ ...fieldSx }} />
+                  )}
+                />
+
+                {/* City */}
+                <Autocomplete
+                  freeSolo size="small" options={filterOptions.city}
+                  inputValue={filters.city}
+                  onInputChange={(_, v) => setFilters(p => ({ ...p, city: v ?? '' }))}
+                  sx={{ flex: 0.7, minWidth: 80 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="City" placeholder="City..."
+                      sx={{ ...fieldSx }} />
+                  )}
+                />
+
+                {/* State */}
+                <Autocomplete
+                  freeSolo size="small" options={filterOptions.state}
+                  inputValue={filters.state}
+                  onInputChange={(_, v) => setFilters(p => ({ ...p, state: v ?? '' }))}
+                  sx={{ flex: 0.7, minWidth: 80 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="State" placeholder="State..."
+                      sx={{ ...fieldSx }} />
+                  )}
+                />
+
+                {/* Country */}
+                <Autocomplete
+                  freeSolo size="small" options={filterOptions.country}
+                  inputValue={filters.country}
+                  onInputChange={(_, v) => setFilters(p => ({ ...p, country: v ?? '' }))}
+                  sx={{ flex: 0.8, minWidth: 85 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Country" placeholder="Country..."
+                      sx={{ ...fieldSx }} />
+                  )}
+                />
+
               </Box>
 
               {/* Clear button */}

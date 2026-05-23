@@ -103,50 +103,34 @@ export const fetchAllSales = async () => {
 
 
 
-export const createSale = async (jobData ,isMultipart = false) => {
-    try {
-      const response = await axios.post(`${API_URL}/create`, jobData, {
-        headers: {
-          Authorization: `Bearer ${sessionStorage.getItem('token')}`,
-                ...(isMultipart ? { 'Content-Type': 'multipart/form-data' } : {}),
+export const createSale = async (jobData, isMultipart = false) => {
+  const response = await axios.post(`${API_URL}/create`, jobData, {
+    headers: {
+      Authorization: `Bearer ${sessionStorage.getItem('token')}`,
+      ...(isMultipart ? { 'Content-Type': 'multipart/form-data' } : {}),
+    },
+  });
+  return response.data;
+};
 
-        },
-      });
-      console.log('Job created successfully:', response.data);
-      return response.data; // This will contain the job created response
-    } catch (error) {
-      console.error('Error creating job opening:', error);
-    }
-  };
+export const updateSale = async (jobId, jobData, isMultipart = false) => {
+  const response = await axios.put(`${API_URL}/edit/${jobId}`, jobData, {
+    headers: {
+      Authorization: `Bearer ${sessionStorage.getItem('token')}`,
+      ...(isMultipart ? { 'Content-Type': 'multipart/form-data' } : {}),
+    },
+  });
+  return response.data;
+};
 
-  export const updateSale = async (jobId, jobData, isMultipart = false) => {
-    try {
-      const response = await axios.put(`${API_URL}/edit/${jobId}`, jobData, {
-        headers: {
-          Authorization: `Bearer ${sessionStorage.getItem('token')}`,
-          ...(isMultipart ? { 'Content-Type': 'multipart/form-data' } : {}),
-        },
-      });
-      console.log('Job updated successfully:', response.data);
-      return response.data; // This will contain the updated job
-    } catch (error) {
-      console.error('Error updating job opening:', error);
-    }
-  };
-
-  export const deleteSale = async (jobId) => {
-    try {
-      const response = await axios.delete(`${API_URL}/delete/${jobId}`, {
-        headers: {
-          Authorization: `Bearer ${sessionStorage.getItem('token')}`,
-        },
-      });
-      console.log('Job deleted successfully:', response.data);
-      return response.data; // Confirmation of deletion
-    } catch (error) {
-      console.error('Error deleting job opening:', error);
-    }
-  };
+export const deleteSale = async (jobId) => {
+  const response = await axios.delete(`${API_URL}/delete/${jobId}`, {
+    headers: {
+      Authorization: `Bearer ${sessionStorage.getItem('token')}`,
+    },
+  });
+  return response.data;
+};
   
   export const updateJobApproval = async (jobId, status) => {
     try {

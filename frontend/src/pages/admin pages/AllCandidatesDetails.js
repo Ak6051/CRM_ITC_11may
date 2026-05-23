@@ -372,7 +372,7 @@ iTalentConnect`
       if (dCurPos) params.currentPosition = dCurPos;
       if (dIndustry) params.industry = dIndustry;
       if (selectedHRs.length > 0)
-        params.createdBy = selectedHRs.map((h) => h.name).join(",");
+        params.createdByIds = selectedHRs.map((h) => h.id).join(",");
       if (selectedPositions.length > 0)
         params.position = selectedPositions.join(",");
       if (dateRange.startDate)

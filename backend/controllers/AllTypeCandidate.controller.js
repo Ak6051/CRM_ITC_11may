@@ -349,11 +349,25 @@ const getCombinedCandidates = async (req, res) => {
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
     const skip = (page - 1) * limit;
 
-    const { name, location, createdBy, position, currentPosition, industry, startDate, endDate, minExp, maxExp, minCtc, maxCtc, maxNotice, phone, gender } = req.query;
+    const { name, location, createdBy, createdByIds, position, currentPosition, industry, startDate, endDate, minExp, maxExp, minCtc, maxCtc, maxNotice, phone, gender } = req.query;
 
     // Resolve createdBy filter to user IDs
-    let createdByIds = null;
-    if (createdBy) {
+    // Priority: createdByIds (direct IDs from frontend) > createdBy (name-based, legacy)
+    let createdByIdList = null;
+
+    if (createdByIds) {
+      // Direct ID list — most reliable, no name-matching issues
+      const ids = createdByIds.split(',').map(id => id.trim()).filter(Boolean);
+      try {
+        createdByIdList = ids.map(id => new mongoose.Types.ObjectId(id));
+      } catch {
+        return res.status(400).json({ message: 'Invalid HR ID format' });
+      }
+      if (createdByIdList.length === 0) {
+        return res.status(200).json({ data: [], total: 0, page, limit });
+      }
+    } else if (createdBy) {
+      // Legacy name-based filter — kept for backward compat
       const names = createdBy.split(',').map(n => n.trim()).filter(Boolean);
       const orConditions = names.flatMap(n => {
         const parts = n.split(' ');
@@ -366,8 +380,8 @@ const getCombinedCandidates = async (req, res) => {
         return [{ firstName: { $regex: n, $options: 'i' } }, { lastName: { $regex: n, $options: 'i' } }];
       });
       const users = await mongoose.model('User').find({ $or: orConditions }).select('_id').lean();
-      createdByIds = users.map(u => u._id);
-      if (createdByIds.length === 0) {
+      createdByIdList = users.map(u => u._id);
+      if (createdByIdList.length === 0) {
         return res.status(200).json({ data: [], total: 0, page, limit });
       }
     }
@@ -383,13 +397,10 @@ const getCombinedCandidates = async (req, res) => {
       userMap[u._id.toString()] = `${u.firstName || ''} ${u.lastName || ''}`.trim();
     });
 
-    // effectiveCreatedByIds: if createdBy filter given use those IDs, else no restriction (fetch all)
-    const effectiveCreatedByIds = createdByIds || null;
-
-    // Build filter query — no createdBy restriction unless filter is applied
+    // Build filter query
     const filterQuery = {};
-    if (effectiveCreatedByIds) {
-      filterQuery.createdBy = { $in: effectiveCreatedByIds };
+    if (createdByIdList) {
+      filterQuery.createdBy = { $in: createdByIdList };
     }
 
     if (name) filterQuery.candidateName = { $regex: name, $options: 'i' };

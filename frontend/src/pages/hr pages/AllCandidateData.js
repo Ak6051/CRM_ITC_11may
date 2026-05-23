@@ -347,7 +347,7 @@ iTalentConnect`
       if (dLocation) params.location = dLocation;
       if (dPosition) params.position = dPosition;
       if (selectedHRs.length > 0)
-        params.createdBy = selectedHRs.map((h) => h.name).join(",");
+        params.createdByIds = selectedHRs.map((h) => h.id).join(",");
       if (dExpMin) params.minExp = dExpMin;
       if (dExpMax) params.maxExp = dExpMax;
       if (dCtc) params.minCtc = dCtc;

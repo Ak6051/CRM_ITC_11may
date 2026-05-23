@@ -2,8 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import {
   Box, Typography, Chip, Tooltip, Button, TextField,
-  Tab, Tabs, FormControl, InputLabel, Select, MenuItem,
-  IconButton,
+  Tab, Tabs, IconButton, Autocomplete,
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import RefreshIcon       from '@mui/icons-material/Refresh';
@@ -108,6 +107,10 @@ const HrAnalytics = () => {
   const [hrList, setHrList]         = useState([]);
   const [selectedHr, setSelectedHr] = useState('');
 
+  // ── Tab 1 client-side filters ──────────────────────────────────────────────
+  const [filterCompany, setFilterCompany]   = useState('');
+  const [filterPosition, setFilterPosition] = useState('');
+
   // ── Fetch HR list ──────────────────────────────────────────────────────────
   useEffect(() => {
     const token = sessionStorage.getItem('token');
@@ -166,18 +169,37 @@ const HrAnalytics = () => {
   [companyData]);
 
   // Tab 1: group by (jobTitle + companyName) → subtotal per position
+  const filteredHrData = useMemo(() => {
+    let d = hrData;
+    if (filterCompany)  d = d.filter(r => (r.companyName || '') === filterCompany);
+    if (filterPosition) d = d.filter(r => (r.jobTitle    || '') === filterPosition);
+    return d;
+  }, [hrData, filterCompany, filterPosition]);
+
   const hrPositionRows = useMemo(() =>
     buildRowsWithSubtotals(
-      hrData,
+      filteredHrData,
       r => `${r.jobTitle || ''}__${r.companyName || ''}`,
       r => `${r.jobTitle || ''} @ ${r.companyName || ''}`,
     ),
+  [filteredHrData]);
+
+  // Unique options for Tab 1 dropdowns (from full hrData, not filtered)
+  const tab1Companies = useMemo(() =>
+    [...new Set(hrData.map(r => r.companyName).filter(Boolean))].sort(),
   [hrData]);
+
+  const tab1Positions = useMemo(() => {
+    const base = filterCompany
+      ? hrData.filter(r => r.companyName === filterCompany)
+      : hrData;
+    return [...new Set(base.map(r => r.jobTitle).filter(Boolean))].sort();
+  }, [hrData, filterCompany]);
 
   const activeRows = tab === 0 ? companyRows : hrPositionRows;
 
   // ── Summary totals (from raw data, not subtotal rows) ─────────────────────
-  const rawData = tab === 0 ? companyData : hrData;
+  const rawData = tab === 0 ? companyData : filteredHrData;
   const totals = rawData.reduce(
     (acc, r) => ({
       sourced:       acc.sourced       + (r.sourced       || 0),
@@ -323,6 +345,14 @@ const HrAnalytics = () => {
         );
       },
     },
+     {
+      field: 'companyName', headerName: 'Company', width: 180,
+      renderCell: (p) => (
+        <Tooltip title={p.value || ''}>
+          <Typography noWrap fontSize="0.83rem" color="#3f51b5">{p.value || '—'}</Typography>
+        </Tooltip>
+      ),
+    },
     {
       field: 'jobTitle', headerName: 'Position', width: 200,
       renderCell: (p) => (
@@ -337,14 +367,7 @@ const HrAnalytics = () => {
         </Box>
       ),
     },
-    {
-      field: 'companyName', headerName: 'Company', width: 180,
-      renderCell: (p) => (
-        <Tooltip title={p.value || ''}>
-          <Typography noWrap fontSize="0.83rem" color="#3f51b5">{p.value || '—'}</Typography>
-        </Tooltip>
-      ),
-    },
+   
     numCol('sourced',       'Sourced',        100),
     numCol('selected',      'Selected',       100),
     numCol('rejected',      'Rejected',       100),
@@ -359,8 +382,8 @@ const HrAnalytics = () => {
     },
   ];
 
-  const clearFilters = () => { setFrom(''); setTo(''); setSelectedHr(''); };
-  const hasFilters = from || to || selectedHr;
+  const clearFilters = () => { setFrom(''); setTo(''); setSelectedHr(''); setFilterCompany(''); setFilterPosition(''); };
+  const hasFilters = from || to || selectedHr || filterCompany || filterPosition;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f0f2f8' }}>
@@ -455,19 +478,86 @@ const HrAnalytics = () => {
                 sx={{ width: 150, '& .MuiOutlinedInput-root': { borderRadius: '8px', fontSize: 12, bgcolor: to ? '#e8eaf6' : '#fff' } }}
               />
               {tab === 1 && (
-                <FormControl size="small" sx={{ minWidth: 180 }}>
-                  <InputLabel sx={{ fontSize: 12 }}>Filter by HR</InputLabel>
-                  <Select value={selectedHr} label="Filter by HR"
-                    onChange={e => setSelectedHr(e.target.value)}
-                    sx={{ fontSize: 12, borderRadius: '8px', bgcolor: selectedHr ? '#e8eaf6' : '#fff' }}>
-                    <MenuItem value=""><em>All HRs</em></MenuItem>
-                    {hrList.map(hr => (
-                      <MenuItem key={hr._id} value={hr._id} sx={{ fontSize: 13 }}>
-                        {`${hr.firstName || ''} ${hr.lastName || ''}`.trim()}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  size="small"
+                  options={hrList}
+                  getOptionLabel={hr => `${hr.firstName || ''} ${hr.lastName || ''}`.trim()}
+                  value={hrList.find(hr => hr._id === selectedHr) || null}
+                  onChange={(_, newVal) => setSelectedHr(newVal ? newVal._id : '')}
+                  isOptionEqualToValue={(opt, val) => opt._id === val._id}
+                  sx={{ minWidth: 190 }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Filter by HR"
+                      placeholder="Search HR..."
+                      InputLabelProps={{ sx: { fontSize: 12 } }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px', fontSize: 12,
+                          bgcolor: selectedHr ? '#e8eaf6' : '#fff',
+                        },
+                      }}
+                    />
+                  )}
+                  renderOption={(props, hr) => (
+                    <li {...props} key={hr._id} style={{ fontSize: 13 }}>
+                      {`${hr.firstName || ''} ${hr.lastName || ''}`.trim()}
+                    </li>
+                  )}
+                />
+              )}
+              {tab === 1 && (
+                <Autocomplete
+                  size="small"
+                  options={tab1Companies}
+                  value={filterCompany || null}
+                  onChange={(_, newVal) => { setFilterCompany(newVal || ''); setFilterPosition(''); }}
+                  sx={{ minWidth: 190 }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Company"
+                      placeholder="Search company..."
+                      InputLabelProps={{ sx: { fontSize: 12 } }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px', fontSize: 12,
+                          bgcolor: filterCompany ? '#e8eaf6' : '#fff',
+                        },
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props} key={option} style={{ fontSize: 13 }}>{option}</li>
+                  )}
+                />
+              )}
+              {tab === 1 && (
+                <Autocomplete
+                  size="small"
+                  options={tab1Positions}
+                  value={filterPosition || null}
+                  onChange={(_, newVal) => setFilterPosition(newVal || '')}
+                  sx={{ minWidth: 190 }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Position"
+                      placeholder="Search position..."
+                      InputLabelProps={{ sx: { fontSize: 12 } }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '8px', fontSize: 12,
+                          bgcolor: filterPosition ? '#e8eaf6' : '#fff',
+                        },
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props} key={option} style={{ fontSize: 13 }}>{option}</li>
+                  )}
+                />
               )}
               <Button variant="contained" size="small"
                 onClick={() => tab === 0 ? fetchCompanyHr() : fetchHrPosition()}
