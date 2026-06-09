@@ -80,19 +80,23 @@ router.get('/candidates/joined', protect, async (req, res) => {
 
 router.put('/lineup/:id', async (req, res) => {
     try {
-      const updatedCandidate = await Candidate.findByIdAndUpdate(
+      const CandidateApplication = require('../models/CandidateApplication.model');
+      const updatedApplication = await CandidateApplication.findByIdAndUpdate(
         req.params.id,
         {
-          billingDate: req.body.billingDate,
+          billingDate:   req.body.billingDate   || null,
           billingAmount: req.body.billingAmount,
           paymentStatus: req.body.paymentStatus,
-          paymentDate: req.body.paymentDate,
-          paymentMode: req.body.paymentMode,
+          paymentDate:   req.body.paymentDate   || null,
+          paymentMode:   req.body.paymentMode,
           paymentRemark: req.body.paymentRemark,
         },
         { new: true }
       );
-      res.json(updatedCandidate);
+      if (!updatedApplication) {
+        return res.status(404).json({ message: 'Application not found' });
+      }
+      res.json(updatedApplication);
     } catch (err) {
       res.status(500).json({ message: err.message });
     }
@@ -121,10 +125,15 @@ router.get('/candidates/by-hr/:hrId', protect, async (req, res) => {
 });
 
 // ── GET positions assigned to a specific HR ──────────────────────────────────
+// Only returns Open or OnHold jobs — Closed positions are excluded so that
+// HR cannot create a daily task for a position that is already fulfilled/closed.
 router.get('/hr/:hrId/positions', protect, async (req, res) => {
   try {
-    const jobs = await JobOpenings.find({ assignedHR: req.params.hrId })
-      .select('_id jobTitle companyName companyId salary')
+    const jobs = await JobOpenings.find({
+      assignedHR: req.params.hrId,
+      jobStatus: { $in: ['Open', 'OnHold'] },   // exclude Closed
+    })
+      .select('_id jobTitle companyName companyId salary jobStatus')
       .sort({ createdAt: -1 });
     res.json(jobs);
   } catch (err) {

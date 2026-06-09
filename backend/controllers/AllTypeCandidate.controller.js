@@ -24,7 +24,11 @@ const createCandidates = async (req, res) => {
     // Duplicate check by phone
     const existing = await Candidate.findOne({ candidatePhone: phoneNumber });
     if (existing) {
-      return res.status(409).json({ message: 'Candidate already exists with this phone number.' });
+      return res.status(409).json({
+        message: 'Candidate already exists with this phone number.',
+        existingId: existing._id,
+        existingName: existing.candidateName || '',
+      });
     }
 
     const jobData = {

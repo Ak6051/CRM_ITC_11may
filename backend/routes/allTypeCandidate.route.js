@@ -31,6 +31,28 @@ router.get('/hr-candidates', protect, getCombinedCandidates);
 // Bulk upload
 router.post('/bulk-upload', protect, bulkUploadCandidates);
 
+// ── Phone duplicate check (used by CandidatesForm / AdminCandidateForm) ──────
+// GET /api/candidate/check-phone?phone=9876543210
+// Returns: { exists: true, id, name } or { exists: false }
+router.get('/check-phone', protect, async (req, res) => {
+  try {
+    const phone = (req.query.phone || '').trim();
+    if (!phone || phone.length !== 10) {
+      return res.json({ exists: false });
+    }
+    const candidate = await Candidate.findOne({ candidatePhone: phone })
+      .select('_id candidateName')
+      .lean();
+    if (candidate) {
+      return res.json({ exists: true, id: candidate._id, name: candidate.candidateName || '' });
+    }
+    return res.json({ exists: false });
+  } catch (err) {
+    console.error('Phone check error:', err);
+    res.status(500).json({ exists: false });
+  }
+});
+
 // Position search (used by CandidatesForm autocomplete)
 router.get('/', async (req, res) => {
   try {

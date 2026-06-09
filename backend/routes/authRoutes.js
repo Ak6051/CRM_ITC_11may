@@ -9,4 +9,8 @@ router.post('/pre-login', ipWhitelistMiddleware, preLogin);
 router.post('/verify-otp', verifyOtpAndLogin);
 router.post('/logout', logoutUser);
 
+// ── Beacon logout — called by navigator.sendBeacon on tab/window close ──────
+// Token is passed as a query param because sendBeacon body cannot set headers
+router.post('/logout-beacon', logoutUser);
+
 module.exports = router;

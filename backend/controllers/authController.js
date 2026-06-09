@@ -177,12 +177,21 @@ const verifyOtpAndLogin = async (req, res) => {
 
 const logoutUser = async (req, res) => {
   try {
+    // Token can come from Authorization header (normal logout)
+    // or from query param (beacon logout on tab/window close)
+    let token = null;
+
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query.token) {
+      token = req.query.token;
+    }
+
+    if (!token) {
       return res.status(200).json({ msg: 'Logged out' });
     }
 
-    const token = authHeader.split(' ')[1];
     const jwt = require('jsonwebtoken');
 
     let decoded;
