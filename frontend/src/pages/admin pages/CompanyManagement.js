@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box, Typography, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Grid, IconButton, Chip, Tooltip,
-  InputAdornment, CircularProgress, Paper, Badge, Alert,
+  InputAdornment, CircularProgress, Paper, Alert,
   Select, MenuItem, FormControl, InputLabel, Autocomplete,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
@@ -235,7 +235,7 @@ export default function CompanyManagement() {
   });
 
   const token = sessionStorage.getItem('token');
-  const headers = { Authorization: `Bearer ${token}` };
+  const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
   // ── Dropdown options derived from loaded companies ─────────────────────────
   const filterOptions = useMemo(() => {
@@ -262,7 +262,7 @@ export default function CompanyManagement() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [headers]);
 
   useEffect(() => { fetchCompanies(); }, [fetchCompanies]);
 
@@ -272,7 +272,7 @@ export default function CompanyManagement() {
       const updated = companies.find(c => c._id === branchViewCompany._id);
       if (updated) setBranchViewCompany(updated);
     }
-  }, [companies]);
+  }, [companies, branchViewCompany]);
 
   // ── Fetch pending requests ─────────────────────────────────────────────────
   const fetchPendingRequests = useCallback(async () => {
@@ -285,7 +285,7 @@ export default function CompanyManagement() {
       console.error('Failed to fetch pending requests:', err);
     }
     finally { setRequestsLoading(false); }
-  }, []);
+  }, [headers]);
 
   useEffect(() => {
     fetchPendingRequests();

@@ -52,10 +52,38 @@ const AdminNavbar = () => {
 
   const handleMenuClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
-  const handleLogout = () => { 
-    sessionStorage.clear(); 
-    navigate('/login'); 
+
+  const handleLogout = async () => {
+    try {
+      const token = sessionStorage.getItem('token');
+      if (token) {
+        await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch (err) {
+      console.error('Logout audit log failed:', err);
+    } finally {
+      sessionStorage.clear();
+      navigate('/login');
+    }
   };
+
+  // ── Send logout beacon when tab/window is closed directly ─────────────────
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const token = sessionStorage.getItem('token');
+      if (!token) return;
+      // navigator.sendBeacon is fire-and-forget — works even on tab close
+      const blob = new Blob([], { type: 'application/json' });
+      navigator.sendBeacon(
+        `${API_BASE_URL}/auth/logout-beacon?token=${encodeURIComponent(token)}`,
+        blob
+      );
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   return (
     <AppBar

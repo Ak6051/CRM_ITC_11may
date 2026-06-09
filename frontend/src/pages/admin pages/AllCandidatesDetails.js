@@ -1,25 +1,22 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { API_BASE_URL } from "../../config/api.config";
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
 import {
   Grid, Typography, Box, TextField, Button, Chip,
   IconButton, Autocomplete, Dialog, DialogTitle,
-  DialogContent, DialogActions, Avatar, List, ListItem,
-  ListItemText, ListItemIcon, CircularProgress, Tooltip, Checkbox,
-  Popover, Select, MenuItem, FormControl, InputLabel,
+  DialogContent, DialogActions, Avatar,
+  CircularProgress, Tooltip, Checkbox,
+  Popover,
 } from "@mui/material";
 import { QRCodeSVG } from "qrcode.react";
 import {
   Visibility as ViewIcon,
-  Work as WorkIcon,
   LocationOn as LocationIcon,
-  AccessTime as NoticeIcon,
   AccessTime,
-  Business as CompanyIcon,
   Person as PersonIcon,
   Phone as PhoneIcon,
   Description as ResumeIcon,
-  ArrowBack as ArrowBackIcon,
   Clear as ClearIcon,
   AssignmentInd as AssignIcon,
   PersonAdd as PersonAddIcon,
@@ -39,7 +36,6 @@ import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import Navbar from "../../components/admin components/AdminNavbar";
 import Sidebar from "../../components/admin components/AdminSidebar";
 import CurrencyRupeeIcon from "@mui/icons-material/CurrencyRupee";
-import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import AdminCandidateForm from "./AdminCandidateForm";
 import { ProfessionalResumePreview, generateProfessionalCV } from "../../components/ProfessionalResume";
@@ -57,6 +53,8 @@ function useDebounce(value, delay = 500) {
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
 const AdminCandidateList = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [rows, setRows] = useState([]);
   const [totalRows, setTotalRows] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -72,7 +70,8 @@ const AdminCandidateList = () => {
   const [ctcFilter, setCtcFilter] = useState({ min: "", max: "" });
   const [noticePeriodFilter, setNoticePeriodFilter] = useState("");
   const [genderFilter, setGenderFilter] = useState("");
-  const [phoneFilter, setPhoneFilter] = useState("");
+  // Pre-fill phone filter from URL param ?phone=... (used by duplicate eye-icon navigation)
+  const [phoneFilter, setPhoneFilter] = useState(() => searchParams.get("phone") || "");
   const [currentPositionFilter, setCurrentPositionFilter] = useState("");
   const [industryFilter, setIndustryFilter] = useState("");
   const [selectedHRs, setSelectedHRs] = useState([]);
@@ -115,14 +114,9 @@ const AdminCandidateList = () => {
   const [emailSendMeCopy, setEmailSendMeCopy] = useState(false);
   const [emailSending, setEmailSending] = useState(false);
 
-  const navigate = useNavigate();
-
   // ── Edit Candidate state ────────────────────────────────────────────────────
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
-  const [editForm, setEditForm] = useState({});
-  const [editSaving, setEditSaving] = useState(false);
-
   // ── Delete Candidate state ──────────────────────────────────────────────────
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState(null);
@@ -130,51 +124,7 @@ const AdminCandidateList = () => {
 
   const openEditDialog = (candidate) => {
     setEditCandidate(candidate);
-    setEditForm({
-      name: candidate.name || '',
-      phoneNumber: candidate.phoneNumber || '',
-      email: candidate.email || '',
-      positionName: candidate.positionName || '',
-      qualification: candidate.qualification || '',
-      experience: candidate.experience || '',
-      currentLocation: candidate.currentLocation || '',
-      preferredLocation: candidate.preferredLocation || '',
-      currentPosition: candidate.currentPosition || '',
-      currentCTC: candidate.currentCTC || '',
-      expectedCTC: candidate.expectedCTC || '',
-      noticePeriod: candidate.noticePeriod || '',
-      currentCompany: candidate.currentCompany || '',
-      reasonforLeaving: candidate.reasonforLeaving || '',
-      remark: candidate.remark || '',
-      industry: candidate.industry || '',
-    });
     setEditDialogOpen(true);
-  };
-
-  const handleEditSave = async () => {
-    setEditSaving(true);
-    try {
-      const token = sessionStorage.getItem('token');
-      // Use FormData because the route uses multer middleware
-      const formDataObj = new FormData();
-      Object.entries(editForm).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-          formDataObj.append(key, value);
-        }
-      });
-      await axios.put(
-        `${API_BASE_URL}/candidate/update/${editCandidate._id || editCandidate.id}`,
-        formDataObj,
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
-      );
-      toast.success('Candidate updated successfully');
-      setEditDialogOpen(false);
-      fetchCandidates();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Update failed');
-    } finally {
-      setEditSaving(false);
-    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -489,11 +439,14 @@ iTalentConnect`
   };
 
   // ── Filter accordion open state ─────────────────────────────────────────────
-  const [openFilters, setOpenFilters] = useState({
-    keywords: true, location: false, experience: false,
-    salary: false, position: false, createdBy: false,
-    noticePeriod: false, gender: false, phone: false, dateRange: false,
-    currentPosition: false, industry: false,
+  const [openFilters, setOpenFilters] = useState(() => {
+    const hasPhoneParam = !!searchParams.get("phone");
+    return {
+      keywords: !hasPhoneParam, location: false, experience: false,
+      salary: false, position: false, createdBy: false,
+      noticePeriod: false, gender: false, phone: hasPhoneParam, dateRange: false,
+      currentPosition: false, industry: false,
+    };
   });
   const toggleFilter = (key) => setOpenFilters(p => ({ ...p, [key]: !p[key] }));
 

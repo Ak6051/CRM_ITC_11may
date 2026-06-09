@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -7,7 +7,6 @@ import {
   Grid,
   Button,
   Chip,
-  LinearProgress,
   MenuItem,
   Select,
   FormControl,
@@ -58,9 +57,7 @@ import dayjs from 'dayjs';
 const MasterDashboard = () => {
   const navigate = useNavigate();
   const [timeFilter, setTimeFilter] = useState('week');
-  const [countdown, setCountdown] = useState(10);
   const [dateRange, setDateRange] = useState({ from: null, to: null });
-  const [dateRangeAnchor, setDateRangeAnchor] = useState(null);
   const [hrAnalytics, setHrAnalytics] = useState([]);
   const [dashboardData, setDashboardData] = useState({
     recruitmentAnalytics: {
@@ -104,44 +101,11 @@ const MasterDashboard = () => {
       notJoined: { count: 0, candidates: [], trend: 0 },
     },
   });
-  const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCandidates, setSelectedCandidates] = useState([]);
   const [dialogTitle, setDialogTitle] = useState('');
 
-  useEffect(() => {
-    fetchDashboardData();
-    fetchHrAnalytics();
-
-    // Auto-refresh every 10 seconds
-    const interval = setInterval(() => {
-      fetchDashboardData();
-      fetchHrAnalytics();
-      setCountdown(10);
-    }, 10000);
-
-    // Countdown timer
-    const countdownInterval = setInterval(() => {
-      setCountdown(prev => (prev <= 1 ? 10 : prev - 1));
-    }, 1000);
-
-    // Listen for global dashboard refresh events
-    const handleDashboardUpdate = () => {
-      fetchDashboardData();
-      fetchHrAnalytics();
-      setCountdown(10);
-    };
-    window.addEventListener('dashboardDataUpdated', handleDashboardUpdate);
-
-    return () => {
-      clearInterval(interval);
-      clearInterval(countdownInterval);
-      window.removeEventListener('dashboardDataUpdated', handleDashboardUpdate);
-    };
-  }, [timeFilter, dateRange]);
-
-  const fetchDashboardData = async () => {
-    setLoading(true);
+  const fetchDashboardData = useCallback(async () => {
     try {
       const token = sessionStorage.getItem('token');
 
@@ -159,12 +123,10 @@ const MasterDashboard = () => {
       setDashboardData(response.data);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [timeFilter, dateRange]);
 
-  const fetchHrAnalytics = async () => {
+  const fetchHrAnalytics = useCallback(async () => {
     try {
       const token = sessionStorage.getItem('token');
       // Build date params matching the current timeFilter
@@ -230,7 +192,30 @@ const MasterDashboard = () => {
     } catch (err) {
       console.error('Error fetching HR analytics:', err);
     }
-  };
+  }, [timeFilter, dateRange]);
+
+  useEffect(() => {
+    fetchDashboardData();
+    fetchHrAnalytics();
+
+    // Auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData();
+      fetchHrAnalytics();
+    }, 10000);
+
+    // Listen for global dashboard refresh events
+    const handleDashboardUpdate = () => {
+      fetchDashboardData();
+      fetchHrAnalytics();
+    };
+    window.addEventListener('dashboardDataUpdated', handleDashboardUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('dashboardDataUpdated', handleDashboardUpdate);
+    };
+  }, [timeFilter, dateRange, fetchDashboardData, fetchHrAnalytics]);
 
   const handleViewDetails = (candidates, title) => {
     setSelectedCandidates(candidates);
@@ -499,9 +484,6 @@ const MasterDashboard = () => {
                     onChange={(e) => {
                       const val = e.target.value;
                       setTimeFilter(val);
-                      if (val === 'dateRange') {
-                        setDateRangeAnchor(document.getElementById('date-range-btn'));
-                      }
                     }}
                     sx={{
                       color: '#fff',

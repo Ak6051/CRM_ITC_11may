@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
@@ -10,13 +10,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  TableCell,
-  TableRow,
-  TableBody,
-  TableHead,
   Checkbox,
   ListItemText,
-  Table,
   Grid,
   Dialog,
   DialogTitle,
@@ -30,20 +25,31 @@ import {
   InputAdornment,
   Drawer,
   IconButton,
-  Popover,
-  Badge,
-  FormHelperText,
+  Tab,
+  Tabs,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Collapse,
+  Avatar,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import BusinessIcon from '@mui/icons-material/Business';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonSearchIcon from '@mui/icons-material/PersonSearch';
 import PauseCircleIcon from '@mui/icons-material/PauseCircle';
 import ReplayIcon from '@mui/icons-material/Replay';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import Navbar from '../../components/admin components/AdminNavbar';
 import Sidebar from '../../components/admin components/AdminSidebar';
@@ -55,7 +61,6 @@ import {
   updateSale,
   fetchHRUsers,
   fetchTLUsers,
-  isTokenValid,
   updateJobApproval
 } from '../../utils/JobReportService';
 import * as XLSX from 'xlsx';
@@ -65,7 +70,6 @@ import axios from 'axios';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { debounce } from 'lodash';
 import LinearProgress from '@mui/material/LinearProgress';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { ToastContainer, toast } from 'react-toastify';
@@ -76,14 +80,12 @@ import { Autocomplete } from '@mui/material';
 
 const JobReport = () => {
   // Socket state
-  const [socket, setSocket] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [transport, setTransport] = useState('N/A');
+  const socketRef = useRef(null);
 
   const navigate = useNavigate();
   const [sales, setSales] = useState([]);
   const originalSales = useRef([]); // To store the original unfiltered data
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(null); // eslint-disable-line no-unused-vars
   const [formData, setFormData] = useState({
     // company (from CompanyCreate)
     companyName: '',
@@ -119,8 +121,8 @@ const JobReport = () => {
     assignedHR: [],
     assignedTL: [],
   });
-  const [emailError, setEmailError] = useState(false);
-  const [emailHelperText, setEmailHelperText] = useState('');
+  const [emailError, setEmailError] = useState(false); // eslint-disable-line no-unused-vars
+  const [emailHelperText, setEmailHelperText] = useState(''); // eslint-disable-line no-unused-vars
 
   // Error states for required fields
   const [errors, setErrors] = useState({
@@ -140,11 +142,11 @@ const JobReport = () => {
   const [parsedJobs, setParsedJobs] = useState([]);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [importModalOpen, setImportModalOpen] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState(0); // eslint-disable-line no-unused-vars
 
   // Approval Workflow State
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
-  const [uploadToastId, setUploadToastId] = useState(null);
+  const [uploadToastId, setUploadToastId] = useState(null); // eslint-disable-line no-unused-vars
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [companyOptions, setCompanyOptions] = useState([]);
@@ -155,11 +157,11 @@ const JobReport = () => {
   const [areaFilter, setAreaFilter] = useState([]);
   const [areaOptions, setAreaOptions] = useState([]);
   const [jobDetails, setJobDetails] = useState(null);
-  const [industryOptions, setIndustryOptions] = useState([]);
+  const [industryOptions, setIndustryOptions] = useState([]); // eslint-disable-line no-unused-vars
   const [openJobModal, setOpenJobModal] = useState(false);
   const [candidateFilter, setCandidateFilter] = useState('');
   const [companyNames, setCompanyNames] = useState([]); // This will now store objects with companyName and companyId
-  const [selectedCompany, setSelectedCompany] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState(''); // eslint-disable-line no-unused-vars
   const [selectedCompanies, setSelectedCompanies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -168,14 +170,14 @@ const JobReport = () => {
   const [matchedJobTitle, setMatchedJobTitle] = useState(''); // job title for position filter
   const [jobTitleNames, setJobTitleNames] = useState([]);
   const [selectedJobTitle, setSelectedJobTitle] = useState([]);
-  const [jobTitleInput, setJobTitleInput] = useState('');
+  const [jobTitleInput, setJobTitleInput] = useState(''); // eslint-disable-line no-unused-vars
   const [fileErrors, setFileErrors] = useState({
     descriptionFile: '',
     agreementSigned: '',
     gstUpload: ''
   });
   const [selectedSalaries, setSelectedSalaries] = useState([]); // Salary filter states
-  const [salaryInput, setSalaryInput] = useState('');
+  const [salaryInput, setSalaryInput] = useState(''); // eslint-disable-line no-unused-vars
   const [salaryOptions, setSalaryOptions] = useState([]);
   const [salaryMonthly, setSalaryMonthly] = useState(''); // monthly input for job form
   const [jobTimingStart, setJobTimingStart] = useState(''); // start time for job timing
@@ -188,6 +190,16 @@ const JobReport = () => {
   const [holdDialog, setHoldDialog] = useState({ open: false, jobId: null, jobTitle: '' });
   const [holdReasonInput, setHoldReasonInput] = useState('');
 
+  // ── Main tab (Job Report | Fulfilled Positions) ────────────────────────────
+  const [mainTab, setMainTab] = useState(0);
+
+  // ── Fulfilled Positions state ──────────────────────────────────────────────
+  const [fulfilledData, setFulfilledData] = useState([]);
+  const [fulfilledLoading, setFulfilledLoading] = useState(false);
+  const [fulfilledError, setFulfilledError] = useState(null);
+  const [expandedJobId, setExpandedJobId] = useState(null);
+  const [fulfilledSearch, setFulfilledSearch] = useState('');
+
   // ── Monthly Summary ────────────────────────────────────────────────────────
   const [monthlySummaryOpen, setMonthlySummaryOpen] = useState(false);
   const [summaryMonth, setSummaryMonth] = useState(() => {
@@ -196,19 +208,19 @@ const JobReport = () => {
   });
   const [reviewJob, setReviewJob] = useState(null);
 
-  const [filterAnchorEl, setFilterAnchorEl] = useState(null);
-  const filterPopoverOpen = Boolean(filterAnchorEl);
-  const [activeFilterPanel, setActiveFilterPanel] = useState(null); // which filter is expanded on right
-  const [filterSearch, setFilterSearch] = useState(''); // search within right panel dropdown
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null); // eslint-disable-line no-unused-vars
+  const filterPopoverOpen = Boolean(filterAnchorEl); // eslint-disable-line no-unused-vars
+  const [activeFilterPanel, setActiveFilterPanel] = useState(null); // eslint-disable-line no-unused-vars
+  const [filterSearch, setFilterSearch] = useState(''); // eslint-disable-line no-unused-vars
 
   // Search states for horizontal filter dropdowns
-  const [hrSearchTerm, setHrSearchTerm] = useState('');
-  const [companySearchTerm, setCompanySearchTerm] = useState('');
-  const [jobTitleSearchTerm, setJobTitleSearchTerm] = useState('');
-  const [salarySearchTerm, setSalarySearchTerm] = useState('');
+  const [hrSearchTerm, setHrSearchTerm] = useState(''); // eslint-disable-line no-unused-vars
+  const [companySearchTerm, setCompanySearchTerm] = useState(''); // eslint-disable-line no-unused-vars
+  const [jobTitleSearchTerm, setJobTitleSearchTerm] = useState(''); // eslint-disable-line no-unused-vars
+  const [salarySearchTerm, setSalarySearchTerm] = useState(''); // eslint-disable-line no-unused-vars
   const [selectedLocations, setSelectedLocations] = useState([]);
-  const [locationSearchTerm, setLocationSearchTerm] = useState('');
-  const [areaSearchTerm, setAreaSearchTerm] = useState('');
+  const [locationSearchTerm, setLocationSearchTerm] = useState(''); // eslint-disable-line no-unused-vars
+  const [areaSearchTerm, setAreaSearchTerm] = useState(''); // eslint-disable-line no-unused-vars
 
   // ── Cascading filter helper: matchCompany ──────────────────────────────
   const matchCompany = (saleCompanyName, selectedCompany) => {
@@ -295,7 +307,7 @@ const JobReport = () => {
         setSelectedJobTitle(validSelected);
       }
     }
-  }, [filteredJobTitleOptions]);
+  }, [filteredJobTitleOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (selectedSalaries.length > 0) {
@@ -306,7 +318,7 @@ const JobReport = () => {
         setSelectedSalaries(validSelected);
       }
     }
-  }, [filteredSalaryOptions]);
+  }, [filteredSalaryOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (selectedLocations.length > 0) {
@@ -315,7 +327,7 @@ const JobReport = () => {
         setSelectedLocations(validSelected);
       }
     }
-  }, [filteredLocationOptions]);
+  }, [filteredLocationOptions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Per-section text filter states for the new filter panel
   const [filterNoOfReq, setFilterNoOfReq] = useState('');
@@ -337,12 +349,11 @@ const JobReport = () => {
   const [mcFilterDateFrom, setMcFilterDateFrom] = useState('');
   const [mcFilterDateTo, setMcFilterDateTo] = useState('');
 
-  const [inputText, setInputText] = useState(String(formData.companyName || ''));
-  const shownReminders = new Set();
+  const shownReminders = useRef(new Set());
   // const SOCKET_URL = 'http://localhost:5000'; 
   // Keep input in sync with formData
   useEffect(() => {
-    setInputText(String(formData.companyName || ''));
+    // intentionally kept for future use
   }, [formData.companyName]);
 
   // Reusable component for displaying key-value pairs in the card
@@ -365,15 +376,6 @@ const JobReport = () => {
   const resetJobTitle = () => {
     setSelectedJobTitle([]);
     setJobTitleInput('');
-  };
-
-  const handleJobTitleChange = (event) => {
-    const { target: { value } } = event;
-    // When using multiple select with checkboxes, the value is already an array
-    setSelectedJobTitle(
-      // Handle both array and string cases
-      Array.isArray(value) ? value : [value].filter(Boolean)
-    );
   };
 
   useEffect(() => {
@@ -419,9 +421,9 @@ const JobReport = () => {
     socketInstance.on('task-reminder', (data) => {
       const uniqueKey = `${data.taskId}-${new Date(data.endDate).toISOString()}`;
 
-      if (shownReminders.has(uniqueKey)) return;
+      if (shownReminders.current.has(uniqueKey)) return;
 
-      shownReminders.add(uniqueKey);
+      shownReminders.current.add(uniqueKey);
 
       toast.info(
         <div style={{ fontSize: '15px', fontWeight: 500 }}>
@@ -444,10 +446,10 @@ const JobReport = () => {
       );
 
       // â±ï¸ Remove from shown reminders after 1 minute so it shows again
-      setTimeout(() => shownReminders.delete(uniqueKey), 1 * 60 * 1000);
+      setTimeout(() => shownReminders.current.delete(uniqueKey), 1 * 60 * 1000);
     });
 
-    setSocket(socketInstance);
+    socketRef.current = socketInstance;
 
     return () => {
       if (socketInstance) {
@@ -642,7 +644,7 @@ const JobReport = () => {
     fetchSalaryOptions();
   }, []);
 
-  const handleCompanyChange = (event) => {
+  const handleCompanyChange = (event) => { // eslint-disable-line no-unused-vars
     const {
       target: { value },
     } = event;
@@ -652,7 +654,7 @@ const JobReport = () => {
     );
   };
 
-  const resetCompanies = () => {
+  const resetCompanies = () => { // eslint-disable-line no-unused-vars
     setSelectedCompanies([]);
     // Reset to original data when clearing filters
     if (originalSales.current.length) {
@@ -809,8 +811,8 @@ const JobReport = () => {
     setMonthlySummaryOpen(false);
   };
 
-  // Debug: Log all company names in sales data
-  const salesCompanyNames = sales.map(sale => sale.companyName);
+  // Debug: Log all company names in sales data (kept for debugging)
+  // const salesCompanyNames = sales.map(sale => sale.companyName);
 
   const filteredSales = sales.filter(sale => {
     // Filter by company if any companies are selected
@@ -877,7 +879,7 @@ const JobReport = () => {
 
   // ... (rest of the code remains the same)
 
-  const handleRowClick = async (params) => {
+  const handleRowClick = async (params) => { // eslint-disable-line no-unused-vars
     const jobId = params.row._id; // Assuming _id is present in your row
 
     try {
@@ -907,7 +909,7 @@ const JobReport = () => {
   }, []);
 
 
-  const handleFileUploadForDescription = (e) => {
+  const handleFileUploadForDescription = (e) => { // eslint-disable-line no-unused-vars
     const file = e.target.files[0];
     if (file) {
       setFormData({ ...formData, description: file });
@@ -968,7 +970,7 @@ const JobReport = () => {
     const refreshInterval = setInterval(checkAuthAndFetchData, 5 * 60 * 1000);
 
     return () => clearInterval(refreshInterval);
-  }, [navigate]);
+  }, [navigate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getSales = async () => {
     try {
@@ -994,6 +996,31 @@ const JobReport = () => {
       }
     }
   };
+
+  // ── Fetch fulfilled positions for admin ────────────────────────────────────
+  const fetchFulfilledPositions = async () => {
+    setFulfilledLoading(true);
+    setFulfilledError(null);
+    try {
+      const token = sessionStorage.getItem('token');
+      const res = await axios.get(`${API_BASE_URL}/job/fulfilled`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setFulfilledData(res.data.data || []);
+    } catch (err) {
+      console.error('Error fetching fulfilled positions:', err);
+      setFulfilledError('Failed to load fulfilled positions. Please try again.');
+    } finally {
+      setFulfilledLoading(false);
+    }
+  };
+
+  // Fetch fulfilled positions when tab is switched to it
+  useEffect(() => {
+    if (mainTab === 1) {
+      fetchFulfilledPositions();
+    }
+  }, [mainTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleApproveJob = async (jobId) => {
     try {
@@ -1280,6 +1307,7 @@ const JobReport = () => {
   };
 
   // Predefined experience options for the job opening form
+  // eslint-disable-next-line no-unused-vars
   const experienceOptions = [
     'Fresher', '0-6 Months', '6 Months', '1 Year', '1 Year 3 Months',
     '1 Year 6 Months', '2 Years', '2 Years 3 Months', '2 Years 6 Months',
@@ -2581,47 +2609,343 @@ const JobReport = () => {
             </Box>
           </Modal>
 
-          <Box sx={{
-            bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '14px',
-            overflow: 'hidden', height: 600,
-            boxShadow: '0 2px 12px rgba(63,81,181,0.08)',
-          }}>
-            <DataGrid
-              rows={filteredSales}
-              columns={columns}
-              components={{ Toolbar: GridToolbar }}
-              pageSize={10}
-              rowsPerPageOptions={[10, 25, 50]}
-              checkboxSelection
-              disableColumnReorder={false}
-              getRowClassName={(params) => {
-                const status = params.row.jobStatus || 'Open';
-                if (status === 'Closed') return '';
-                const createdAt = params.row.createdAt;
-                if (!createdAt) return '';
-                const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
-                if (days >= 90) return 'age-critical';
-                if (days >= 60) return 'age-warning';
-                if (days >= 30) return 'age-caution';
-                return '';
-              }}
+          {/* ── Main Tabs: Job Report | Fulfilled Positions ── */}
+          <Box sx={{ bgcolor: '#fff', border: '1px solid #e8eaf6', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 2px 12px rgba(63,81,181,0.08)' }}>
+            <Tabs
+              value={mainTab}
+              onChange={(e, v) => setMainTab(v)}
               sx={{
-                border: 'none',
-                '& .MuiDataGrid-columnHeaders': { background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', borderBottom: '2px solid #c5cae9' },
-                '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, color: '#3f51b5', fontSize: '0.8rem' },
-                '& .MuiDataGrid-cell': { borderBottom: '1px solid #f0f2ff', fontSize: '0.82rem', '&:focus': { outline: 'none' } },
-                '& .MuiDataGrid-row:hover': { bgcolor: '#f5f6ff' },
-                '& .MuiDataGrid-row.Mui-selected': { bgcolor: 'rgba(63,81,181,0.07)', '&:hover': { bgcolor: 'rgba(63,81,181,0.12)' } },
-                '& .MuiDataGrid-footerContainer': { borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' },
-                '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': { height: 7, width: 7 },
-                '& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 4 },
-                '& .MuiToolbar-root': { color: '#3f51b5' },
-                // ── Aging row highlights ──
-                '& .age-caution': { bgcolor: '#fefce8 !important', '&:hover': { bgcolor: '#fef9c3 !important' } },
-                '& .age-warning': { bgcolor: '#fff7ed !important', '&:hover': { bgcolor: '#ffedd5 !important' } },
-                '& .age-critical': { bgcolor: '#fff1f2 !important', '&:hover': { bgcolor: '#fee2e2 !important' } },
+                borderBottom: '2px solid #e8eaf6',
+                '& .MuiTab-root': { fontWeight: 700, fontSize: '0.82rem', textTransform: 'none', minHeight: 46, px: 3 },
+                '& .Mui-selected': { color: '#3f51b5' },
+                '& .MuiTabs-indicator': { bgcolor: '#3f51b5', height: 3, borderRadius: '3px 3px 0 0' },
               }}
-            />
+            >
+              <Tab label={`📋 All Job Openings (${filteredSales.length})`} />
+              <Tab
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                    <CheckCircleOutlineIcon sx={{ fontSize: 16, color: mainTab === 1 ? '#3f51b5' : '#64748b' }} />
+                    <span>Fulfilled Positions</span>
+                    {fulfilledData.length > 0 && (
+                      <Chip
+                        label={fulfilledData.filter(d => d.isFulfilled).length}
+                        size="small"
+                        sx={{ bgcolor: '#d1fae5', color: '#065f46', fontWeight: 800, fontSize: '0.7rem', height: 18, ml: 0.5 }}
+                      />
+                    )}
+                  </Box>
+                }
+              />
+            </Tabs>
+
+            {/* Tab 0: Existing Job Report DataGrid */}
+            {mainTab === 0 && (
+              <Box sx={{ height: 560 }}>
+                <DataGrid
+                  rows={filteredSales}
+                  columns={columns}
+                  components={{ Toolbar: GridToolbar }}
+                  pageSize={10}
+                  rowsPerPageOptions={[10, 25, 50]}
+                  checkboxSelection
+                  disableColumnReorder={false}
+                  getRowClassName={(params) => {
+                    const status = params.row.jobStatus || 'Open';
+                    if (status === 'Closed') return '';
+                    const createdAt = params.row.createdAt;
+                    if (!createdAt) return '';
+                    const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                    if (days >= 90) return 'age-critical';
+                    if (days >= 60) return 'age-warning';
+                    if (days >= 30) return 'age-caution';
+                    return '';
+                  }}
+                  sx={{
+                    border: 'none',
+                    '& .MuiDataGrid-columnHeaders': { background: 'linear-gradient(135deg, #e8eaf6, #f3f4fd)', borderBottom: '2px solid #c5cae9' },
+                    '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, color: '#3f51b5', fontSize: '0.8rem' },
+                    '& .MuiDataGrid-cell': { borderBottom: '1px solid #f0f2ff', fontSize: '0.82rem', '&:focus': { outline: 'none' } },
+                    '& .MuiDataGrid-row:hover': { bgcolor: '#f5f6ff' },
+                    '& .MuiDataGrid-row.Mui-selected': { bgcolor: 'rgba(63,81,181,0.07)', '&:hover': { bgcolor: 'rgba(63,81,181,0.12)' } },
+                    '& .MuiDataGrid-footerContainer': { borderTop: '1px solid #e8eaf6', bgcolor: '#f5f6ff' },
+                    '& .MuiDataGrid-virtualScroller::-webkit-scrollbar': { height: 7, width: 7 },
+                    '& .MuiDataGrid-virtualScroller::-webkit-scrollbar-thumb': { background: '#9fa8da', borderRadius: 4 },
+                    '& .MuiToolbar-root': { color: '#3f51b5' },
+                    '& .age-caution': { bgcolor: '#fefce8 !important', '&:hover': { bgcolor: '#fef9c3 !important' } },
+                    '& .age-warning': { bgcolor: '#fff7ed !important', '&:hover': { bgcolor: '#ffedd5 !important' } },
+                    '& .age-critical': { bgcolor: '#fff1f2 !important', '&:hover': { bgcolor: '#fee2e2 !important' } },
+                  }}
+                />
+              </Box>
+            )}
+
+            {/* Tab 1: Fulfilled Positions */}
+            {mainTab === 1 && (
+              <Box sx={{ p: 2.5, bgcolor: '#f8faff', minHeight: 560 }}>
+
+                {/* Summary Cards */}
+                {!fulfilledLoading && !fulfilledError && fulfilledData.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
+                    {[
+                      {
+                        label: 'Total Closed Positions',
+                        value: fulfilledData.length,
+                        bg: '#e0f2fe', color: '#0369a1', border: '#7dd3fc',
+                        icon: <PeopleAltIcon sx={{ fontSize: 20 }} />,
+                      },
+                      {
+                        label: 'Fully Fulfilled',
+                        value: fulfilledData.filter(d => d.isFulfilled).length,
+                        bg: '#d1fae5', color: '#065f46', border: '#6ee7b7',
+                        icon: <CheckCircleOutlineIcon sx={{ fontSize: 20 }} />,
+                      },
+                      {
+                        label: 'Partially Filled',
+                        value: fulfilledData.filter(d => !d.isFulfilled).length,
+                        bg: '#fef9c3', color: '#a16207', border: '#fde047',
+                        icon: <HourglassEmptyIcon sx={{ fontSize: 20 }} />,
+                      },
+                      {
+                        label: 'Total Candidates Joined',
+                        value: fulfilledData.reduce((sum, d) => sum + (d.totalJoined || 0), 0),
+                        bg: '#f3e8ff', color: '#7c3aed', border: '#d8b4fe',
+                        icon: <PeopleAltIcon sx={{ fontSize: 20 }} />,
+                      },
+                    ].map(({ label, value, bg, color, border, icon }) => (
+                      <Box key={label} sx={{
+                        flex: '1 1 160px', minWidth: 145,
+                        bgcolor: bg, border: `1px solid ${border}`,
+                        borderRadius: '12px', p: 1.8,
+                        display: 'flex', alignItems: 'center', gap: 1.5,
+                      }}>
+                        <Box sx={{ color, opacity: 0.8 }}>{icon}</Box>
+                        <Box>
+                          <Typography variant="h5" fontWeight={800} color={color} lineHeight={1}>{value}</Typography>
+                          <Typography variant="caption" color={color} fontWeight={600} sx={{ opacity: 0.75 }}>{label}</Typography>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+
+                {/* Search + Refresh */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                  <TextField
+                    size="small"
+                    placeholder="Search by company or job title..."
+                    value={fulfilledSearch}
+                    onChange={(e) => setFulfilledSearch(e.target.value)}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: '#9fa8da' }} /></InputAdornment>,
+                    }}
+                    sx={{ width: 320, '& .MuiOutlinedInput-root': { borderRadius: '10px', fontSize: '0.85rem', bgcolor: '#fff' } }}
+                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={fetchFulfilledPositions}
+                    disabled={fulfilledLoading}
+                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700, height: 36, borderColor: '#3f51b5', color: '#3f51b5', '&:hover': { bgcolor: '#e8eaf6' } }}
+                  >
+                    {fulfilledLoading ? 'Loading...' : '🔄 Refresh'}
+                  </Button>
+                </Box>
+
+                {/* Loading */}
+                {fulfilledLoading && (
+                  <Box sx={{ textAlign: 'center', py: 6, color: '#94a3b8' }}>
+                    <Typography variant="body1" fontWeight={600}>Loading fulfilled positions...</Typography>
+                  </Box>
+                )}
+
+                {/* Error */}
+                {fulfilledError && !fulfilledLoading && (
+                  <Box sx={{ textAlign: 'center', py: 6, color: '#ef4444' }}>
+                    <Typography variant="body1" fontWeight={600}>{fulfilledError}</Typography>
+                    <Button variant="outlined" size="small" onClick={fetchFulfilledPositions}
+                      sx={{ mt: 1.5, borderRadius: '8px', textTransform: 'none', color: '#ef4444', borderColor: '#ef4444' }}>
+                      Retry
+                    </Button>
+                  </Box>
+                )}
+
+                {/* Empty state */}
+                {!fulfilledLoading && !fulfilledError && fulfilledData.length === 0 && (
+                  <Box sx={{ textAlign: 'center', py: 8, color: '#94a3b8' }}>
+                    <CheckCircleOutlineIcon sx={{ fontSize: 48, mb: 1, opacity: 0.4 }} />
+                    <Typography variant="h6" fontWeight={600}>No closed positions found</Typography>
+                    <Typography variant="caption">Positions will appear here once they are marked as Closed</Typography>
+                  </Box>
+                )}
+
+                {/* Fulfilled Positions List */}
+                {!fulfilledLoading && !fulfilledError && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    {fulfilledData
+                      .filter(item =>
+                        !fulfilledSearch ||
+                        (item.companyName || '').toLowerCase().includes(fulfilledSearch.toLowerCase()) ||
+                        (item.jobTitle || '').toLowerCase().includes(fulfilledSearch.toLowerCase())
+                      )
+                      .map((item) => {
+                        const isExpanded = expandedJobId === String(item.jobId);
+                        const isFull = item.isFulfilled;
+
+                        return (
+                          <Box key={String(item.jobId)} sx={{
+                            bgcolor: '#fff',
+                            border: `1px solid ${isFull ? '#6ee7b7' : '#fde68a'}`,
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+                          }}>
+                            {/* Row Header */}
+                            <Box
+                              onClick={() => setExpandedJobId(isExpanded ? null : String(item.jobId))}
+                              sx={{
+                                display: 'flex', alignItems: 'center', gap: 2,
+                                px: 2.5, py: 1.8, cursor: 'pointer',
+                                bgcolor: isFull ? '#f0fdf4' : '#fffbeb',
+                                '&:hover': { bgcolor: isFull ? '#dcfce7' : '#fef3c7' },
+                                transition: 'background 0.2s',
+                              }}
+                            >
+                              <Box sx={{ flexShrink: 0 }}>
+                                {isFull
+                                  ? <CheckCircleOutlineIcon sx={{ color: '#16a34a', fontSize: 22 }} />
+                                  : <HourglassEmptyIcon sx={{ color: '#d97706', fontSize: 22 }} />
+                                }
+                              </Box>
+
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="body2" fontWeight={700} color="#1e293b" noWrap>
+                                  {item.companyName || '—'}
+                                </Typography>
+                                <Typography variant="caption" color="#64748b" noWrap>
+                                  {item.jobTitle} &nbsp;•&nbsp; {item.jobLocation || '—'}
+                                </Typography>
+                              </Box>
+
+                              <Chip
+                                label={item.fulfillmentNote}
+                                size="small"
+                                sx={{
+                                  fontWeight: 700, fontSize: '0.7rem', flexShrink: 0,
+                                  bgcolor: isFull ? '#d1fae5' : '#fef9c3',
+                                  color: isFull ? '#065f46' : '#92400e',
+                                  border: `1px solid ${isFull ? '#6ee7b7' : '#fde68a'}`,
+                                }}
+                              />
+
+                              {item.assignedHR && item.assignedHR.length > 0 && (
+                                <Tooltip title={`HR: ${item.assignedHR.join(', ')}`} arrow>
+                                  <Chip
+                                    label={item.assignedHR.length === 1 ? item.assignedHR[0] : `${item.assignedHR.length} HRs`}
+                                    size="small"
+                                    sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 600, fontSize: '0.68rem', flexShrink: 0 }}
+                                  />
+                                </Tooltip>
+                              )}
+
+                              <Typography variant="caption" color="#94a3b8" sx={{ flexShrink: 0, display: { xs: 'none', md: 'block' } }}>
+                                Closed: {item.closedAt ? new Date(item.closedAt).toLocaleDateString('en-IN') : '—'}
+                              </Typography>
+
+                              {isExpanded
+                                ? <ExpandLessIcon sx={{ color: '#64748b', flexShrink: 0 }} />
+                                : <ExpandMoreIcon sx={{ color: '#64748b', flexShrink: 0 }} />
+                              }
+                            </Box>
+
+                            {/* Expanded Detail */}
+                            <Collapse in={isExpanded}>
+                              <Box sx={{ px: 2.5, py: 2, borderTop: `1px solid ${isFull ? '#bbf7d0' : '#fde68a'}`, bgcolor: '#fafbff' }}>
+
+                                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                                  {[
+                                    { label: 'Required', value: item.numberOfRequirements, bg: '#e0f2fe', color: '#0369a1' },
+                                    { label: 'Joined', value: item.totalJoined, bg: '#d1fae5', color: '#065f46' },
+                                    { label: 'Applied', value: item.totalApplied, bg: '#f3e8ff', color: '#7c3aed' },
+                                    { label: 'Selected', value: item.selectedCount, bg: '#fef9c3', color: '#a16207' },
+                                    { label: 'Rejected', value: item.rejectedCount, bg: '#fee2e2', color: '#b91c1c' },
+                                  ].map(({ label, value, bg, color }) => (
+                                    <Box key={label} sx={{ bgcolor: bg, border: `1px solid ${bg}`, borderRadius: '8px', px: 1.5, py: 0.8, textAlign: 'center', minWidth: 70 }}>
+                                      <Typography variant="subtitle2" fontWeight={800} color={color}>{value ?? 0}</Typography>
+                                      <Typography variant="caption" color={color} sx={{ opacity: 0.75, fontWeight: 600, fontSize: '0.65rem' }}>{label}</Typography>
+                                    </Box>
+                                  ))}
+                                </Box>
+
+                                {item.joinedCandidates && item.joinedCandidates.length > 0 ? (
+                                  <>
+                                    <Typography variant="caption" fontWeight={800} color="#3f51b5"
+                                      sx={{ textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', mb: 1 }}>
+                                      ✅ Candidates Who Joined This Position
+                                    </Typography>
+                                    <TableContainer component={Paper} elevation={0}
+                                      sx={{ border: '1px solid #e8eaf6', borderRadius: '10px', overflow: 'hidden' }}>
+                                      <Table size="small">
+                                        <TableHead>
+                                          <TableRow sx={{ bgcolor: '#f1f5f9' }}>
+                                            {['#', 'Candidate Name', 'Phone', 'Offered Salary', 'Joining Date', 'HR (Assigned By)'].map(h => (
+                                              <TableCell key={h} sx={{ fontWeight: 700, fontSize: '0.72rem', color: '#475569', py: 1, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                                            ))}
+                                          </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                          {item.joinedCandidates.map((c, idx) => (
+                                            <TableRow key={c.applicationId} hover sx={{ '&:last-child td': { border: 0 } }}>
+                                              <TableCell sx={{ fontSize: '0.78rem', color: '#64748b', py: 1 }}>
+                                                <Avatar sx={{ width: 22, height: 22, fontSize: '0.65rem', bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 800 }}>
+                                                  {idx + 1}
+                                                </Avatar>
+                                              </TableCell>
+                                              <TableCell sx={{ py: 1 }}>
+                                                <Typography variant="caption" fontWeight={700} color="#1e293b">{c.candidateName || '—'}</Typography>
+                                                {c.candidateEmail && (
+                                                  <Typography variant="caption" display="block" color="#94a3b8" sx={{ fontSize: '0.68rem' }}>{c.candidateEmail}</Typography>
+                                                )}
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.78rem', color: '#475569', py: 1 }}>{c.candidatePhone || '—'}</TableCell>
+                                              <TableCell sx={{ py: 1 }}>
+                                                {c.offeredSalary
+                                                  ? <Chip label={`Rs. ${c.offeredSalary}`} size="small"
+                                                      sx={{ bgcolor: '#f0fdf4', color: '#15803d', fontWeight: 700, fontSize: '0.68rem', height: 20 }} />
+                                                  : <span style={{ color: '#bbb', fontSize: '0.75rem' }}>—</span>
+                                                }
+                                              </TableCell>
+                                              <TableCell sx={{ fontSize: '0.78rem', color: '#475569', py: 1 }}>
+                                                {c.joiningDate ? new Date(c.joiningDate).toLocaleDateString('en-IN') : '—'}
+                                              </TableCell>
+                                              <TableCell sx={{ py: 1 }}>
+                                                {c.assignedHR
+                                                  ? <Chip label={c.assignedHR} size="small"
+                                                      sx={{ bgcolor: '#e8eaf6', color: '#3f51b5', fontWeight: 600, fontSize: '0.68rem', height: 20 }} />
+                                                  : <span style={{ color: '#bbb', fontSize: '0.75rem' }}>—</span>
+                                                }
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </TableContainer>
+                                  </>
+                                ) : (
+                                  <Box sx={{ textAlign: 'center', py: 2.5, color: '#94a3b8' }}>
+                                    <Typography variant="body2" fontWeight={600}>No candidates have joined this position yet</Typography>
+                                    <Typography variant="caption">The position was closed but joining data is not recorded</Typography>
+                                  </Box>
+                                )}
+                              </Box>
+                            </Collapse>
+                          </Box>
+                        );
+                      })}
+                  </Box>
+                )}
+              </Box>
+            )}
           </Box>
 
           <Modal open={openJobModal} onClose={() => setOpenJobModal(false)}>
@@ -2747,7 +3071,6 @@ const JobReport = () => {
                     value={companyOptions.find(c => c.companyId === formData.companyId) || (formData.companyName ? { companyName: formData.companyName, companyId: formData.companyId } : null)}
                     onChange={(e, value) => {
                       if (value) {
-                        setInputText(value.companyName);
                         setFormData(prev => ({
                           ...prev,
                           companyName: value.companyName,
@@ -2756,7 +3079,6 @@ const JobReport = () => {
                         setSelectedBranch(null);
                         if (errors.companyName) setErrors(p => ({ ...p, companyName: false }));
                       } else {
-                        setInputText('');
                         setFormData(prev => ({ ...prev, companyName: '', companyId: '' }));
                         setSelectedBranch(null);
                       }
@@ -3760,7 +4082,7 @@ const JobReport = () => {
         PaperProps={{ sx: { borderRadius: '16px', overflow: 'hidden', bgcolor: '#fdfdfd' } }}
       >
         <Box sx={{
-          background: 'linear-gradient(135deg, #3f51b5 0%, #5c6bc0 100%)',
+          background: 'linear-g`radient(135deg, #3f51b5 0%, #5c6bc0 100%)',
           px: 3, py: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <Box>

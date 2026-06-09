@@ -83,6 +83,21 @@ const HrNavbar = () => {
     }
   };
 
+  // ── Send logout beacon when tab/window is closed directly ─────────────────
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const token = sessionStorage.getItem('token');
+      if (!token) return;
+      const blob = new Blob([], { type: 'application/json' });
+      navigator.sendBeacon(
+        `${API_BASE_URL}/auth/logout-beacon?token=${encodeURIComponent(token)}`,
+        blob
+      );
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   return (
     <AppBar
       position="static"

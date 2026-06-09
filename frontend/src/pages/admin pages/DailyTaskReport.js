@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config/api.config';
 import { toast } from 'react-toastify';
@@ -125,11 +125,11 @@ const DailyTaskReport = () => {
 
 
   const token = sessionStorage.getItem("token");
-  const config = {
+  const config = useMemo(() => ({
     headers: { Authorization: `Bearer ${token}` }
-  };
+  }), [token]);
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/dailyTask/all`, config);
       // Sort tasks by createdAt date in descending order (newest first)
@@ -140,18 +140,18 @@ const DailyTaskReport = () => {
     } catch (err) {
       console.error("Error fetching tasks", err);
     }
-  };
+  }, [config]);
 
-  const fetchHRs = async () => {
+  const fetchHRs = useCallback(async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/dailyTask/assignHr`, config);
       setHrList(res.data);
     } catch (error) {
       console.error("Failed to load HRs", error);
     }
-  };
+  }, [config]);
 
-  const fetchEditRequests = async () => {
+  const fetchEditRequests = useCallback(async () => {
     try {
       setEditRequestsLoading(true);
       const res = await axios.get(`${API_BASE_URL}/dailyTask/edit-requests`, config);
@@ -161,7 +161,7 @@ const DailyTaskReport = () => {
     } finally {
       setEditRequestsLoading(false);
     }
-  };
+  }, [config]);
 
   const handleReviewAction = (request, action) => {
     setReviewDialog({ open: true, request, action });
@@ -215,7 +215,7 @@ const DailyTaskReport = () => {
     }
   };
 
-  const fetchAllCompanies = async () => {
+  const fetchAllCompanies = useCallback(async () => {
     try {
       const res = await axios.get(`${API_BASE_URL}/companies`, config);
       if (res.data && res.data.success) {
@@ -224,7 +224,7 @@ const DailyTaskReport = () => {
     } catch (error) {
       console.error("Failed to load companies from CompanyCreate model", error);
     }
-  };
+  }, [config]);
 
   // Unique company names from allCompanies (CompanyCreate model)
   const hrCompanyOptions = [...new Map(
@@ -336,7 +336,7 @@ const DailyTaskReport = () => {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchTasks, fetchEditRequests, fetchHRs, fetchAllCompanies]);
 
   useEffect(() => {
     if (openForm) {
@@ -362,7 +362,7 @@ const DailyTaskReport = () => {
         remarks: [''],
       });
     }
-  }, [openForm, editData]);
+  }, [openForm, editData, fetchHRs, fetchAllCompanies]);
 
   const handleEdit = async (task) => {
     // Show saved TCEOD as-is on open — do NOT overwrite it.

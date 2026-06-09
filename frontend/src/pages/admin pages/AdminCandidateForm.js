@@ -18,7 +18,11 @@ import {
   FormControl,
   InputLabel,
   FormHelperText,
+  InputAdornment,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Navbar from '../../components/admin components/AdminNavbar';
 import Sidebar from '../../components/admin components/AdminSidebar';
@@ -27,8 +31,11 @@ import { API_BASE_URL } from "../../config/api.config";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import * as XLSX from 'xlsx';
+import { useNavigate } from "react-router-dom";
 
 const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = false }) => {
+  const navigate = useNavigate();
+  const [duplicateCandidate, setDuplicateCandidate] = useState(null); // { id, name } when phone already exists
   const [formData, setFormData] = useState({
     name: candidateData?.name || "",
     phoneNumber: candidateData?.phoneNumber || "",
@@ -102,8 +109,45 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
   });
 
 
+  // Real-time phone duplicate check
+  useEffect(() => {
+    const phone = formData.phoneNumber;
+    if (!phone || phone.length !== 10 || isEdit) {
+      setDuplicateCandidate(null);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const token = sessionStorage.getItem('token');
+        const res = await axios.get(`${API_BASE_URL}/candidate/check-phone?phone=${phone}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        });
+        if (res.data?.exists) {
+          setDuplicateCandidate({ id: res.data.id, name: res.data.name });
+        } else {
+          setDuplicateCandidate(null);
+        }
+      } catch (err) {
+        if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
+          setDuplicateCandidate(null);
+        }
+      }
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [formData.phoneNumber, isEdit]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // Reset duplicate state when phone number changes
+    if (name === 'phoneNumber') {
+      setDuplicateCandidate(null);
+    }
 
     // Special handling for numeric fields
     if (['phoneNumber', 'currentCTC', 'expectedCTC', 'experience', 'noticePeriod'].includes(name)) {
@@ -323,6 +367,10 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
       toast.dismiss(loadingToast);
 
       if (error.response?.status === 409 && !isEdit) {
+        const { existingId, existingName } = error.response.data || {};
+        if (existingId) {
+          setDuplicateCandidate({ id: existingId, name: existingName || 'this candidate' });
+        }
         toast.info("⚠️ Candidate already exists with this phone number.", {
           position: "top-right",
           style: { backgroundColor: "#fff8e1", color: "#ff6f00" },
@@ -660,6 +708,51 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
                 const fieldName = field
                   .replace(/([A-Z])/g, " $1")
                   .replace(/^./, (str) => str.toUpperCase());
+
+                if (field === "phoneNumber") {
+                  return (
+                    <Grid item xs={12} sm={6} md={3} key={field}>
+                      <TextField
+                        fullWidth
+                        name="phoneNumber"
+                        label="Phone Number"
+                        value={formData.phoneNumber}
+                        onChange={(e) => {
+                          handleChange(e);
+                          if (errors.phoneNumber) setErrors((prev) => ({ ...prev, phoneNumber: false }));
+                        }}
+                        variant="outlined"
+                        size="medium"
+                        InputProps={{
+                          style: { height: 44 },
+                          endAdornment: duplicateCandidate ? (
+                            <InputAdornment position="end">
+                              <Tooltip title={`View existing candidate: ${duplicateCandidate.name}`}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => navigate(`/can-rep?phone=${formData.phoneNumber}`)}
+                                  sx={{ color: '#f59e0b' }}
+                                >
+                                  <VisibilityIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </InputAdornment>
+                          ) : null,
+                        }}
+                        error={errors.phoneNumber}
+                        helperText={
+                          errors.phoneNumber
+                            ? "Phone Number is required"
+                            : duplicateCandidate
+                            ? `Already exists: ${duplicateCandidate.name}`
+                            : ""
+                        }
+                        FormHelperTextProps={duplicateCandidate ? { sx: { color: '#f59e0b', fontWeight: 600 } } : {}}
+                        required
+                      />
+                    </Grid>
+                  );
+                }
 
                 if (field === "positionName") {
                   return (
@@ -1075,6 +1168,51 @@ const AdminCandidateForm = ({ userId, onSuccess, candidateData = null, isEdit = 
                     const fieldName = field
                       .replace(/([A-Z])/g, " $1")
                       .replace(/^./, (str) => str.toUpperCase());
+
+                    if (field === "phoneNumber") {
+                      return (
+                        <Grid item xs={12} sm={6} key={field}>
+                          <TextField
+                            fullWidth
+                            name="phoneNumber"
+                            label="Phone Number *"
+                            value={formData.phoneNumber}
+                            onChange={(e) => {
+                              handleChange(e);
+                              if (errors.phoneNumber) setErrors((prev) => ({ ...prev, phoneNumber: false }));
+                            }}
+                            variant="outlined"
+                            size="medium"
+                            InputProps={{
+                              style: { height: 50 },
+                              endAdornment: duplicateCandidate ? (
+                                <InputAdornment position="end">
+                                  <Tooltip title={`View existing candidate: ${duplicateCandidate.name}`}>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => navigate(`/can-rep?phone=${formData.phoneNumber}`)}
+                                      sx={{ color: '#f59e0b' }}
+                                    >
+                                      <VisibilityIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </InputAdornment>
+                              ) : null,
+                            }}
+                            error={errors.phoneNumber}
+                            helperText={
+                              errors.phoneNumber
+                                ? "Phone Number is required"
+                                : duplicateCandidate
+                                ? `Already exists: ${duplicateCandidate.name}`
+                                : ""
+                            }
+                            FormHelperTextProps={duplicateCandidate ? { sx: { color: '#f59e0b', fontWeight: 600 } } : {}}
+                            required
+                          />
+                        </Grid>
+                      );
+                    }
 
                     if (field === "positionName") {
                       return (

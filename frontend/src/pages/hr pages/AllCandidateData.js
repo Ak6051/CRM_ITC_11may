@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { API_BASE_URL } from "../../config/api.config";
 import axios from "axios";
 import {
@@ -53,6 +53,7 @@ function useDebounce(value, delay = 500) {
 }
 
 const AllCandidateData = () => {
+  const [searchParams] = useSearchParams();
   const [candidates, setCandidates] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -68,7 +69,8 @@ const AllCandidateData = () => {
   const [ctcFilter, setCtcFilter] = useState({ min: "", max: "" });
   const [noticePeriodFilter, setNoticePeriodFilter] = useState("");
   const [genderFilter, setGenderFilter] = useState("");
-  const [phoneFilter, setPhoneFilter] = useState("");
+  // Pre-fill phone filter from URL param ?phone=... (used by duplicate eye-icon navigation)
+  const [phoneFilter, setPhoneFilter] = useState(() => searchParams.get("phone") || "");
   const [currentPositionFilter, setCurrentPositionFilter] = useState("");
   const [industryFilter, setIndustryFilter] = useState("");
   const [dateRange, setDateRange] = useState({ startDate: null, endDate: null });
@@ -89,11 +91,14 @@ const AllCandidateData = () => {
   const dExpMax = useDebounce(experienceRange.max);
 
   // Filter accordion open state
-  const [openFilters, setOpenFilters] = useState({
-    keywords: true, location: false, experience: false,
-    salary: false, position: false, createdBy: false,
-    noticePeriod: false, gender: false, phone: false, dateRange: false,
-    currentPosition: false, industry: false,
+  const [openFilters, setOpenFilters] = useState(() => {
+    const hasPhoneParam = !!searchParams.get("phone");
+    return {
+      keywords: !hasPhoneParam, location: false, experience: false,
+      salary: false, position: false, createdBy: false,
+      noticePeriod: false, gender: false, phone: hasPhoneParam, dateRange: false,
+      currentPosition: false, industry: false,
+    };
   });
   const toggleFilter = (key) => setOpenFilters(p => ({ ...p, [key]: !p[key] }));
 
@@ -283,8 +288,7 @@ iTalentConnect`
       try {
         const token = sessionStorage.getItem('token');
         if (!token) return;
-        // profile middleware expects raw token (no "Bearer " prefix)
-        const res = await axios.get(`${API_BASE_URL}/profile`, {
+        const res = await axios.get(`${API_BASE_URL}/user/profile`, {
           headers: { Authorization: token },
         });
         const { firstName = '', lastName = '', phoneNumber = '' } = res.data || {};

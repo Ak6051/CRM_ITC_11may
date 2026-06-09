@@ -60,6 +60,7 @@ const MySourcedData = () => {
   const [loading, setLoading] = useState(false);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 50 });
   const [currentUserFullName, setCurrentUserFullName] = useState("");
+  const [currentUserId, setCurrentUserId] = useState("");
 
   // Filters
   const [nameFilter, setNameFilter] = useState("");
@@ -242,6 +243,7 @@ iTalentConnect`
           setSenderName(name);
           setCurrentUserFullName(name);
         }
+        if (res.data?._id) setCurrentUserId(res.data._id);
         if (phoneNumber) setSenderPhone(phoneNumber);
       } catch (e) {
         console.error('Could not fetch sender name:', e?.response?.status);
@@ -287,14 +289,14 @@ iTalentConnect`
 
   // ── Fetch candidates ────────────────────────────────────────────────────────
   const fetchCandidates = useCallback(async () => {
-    if (!currentUserFullName) return;
+    if (!currentUserId) return;
     try {
       setLoading(true);
       const token = sessionStorage.getItem("token");
       const params = {
         page: paginationModel.page + 1,
         limit: paginationModel.pageSize,
-        createdBy: currentUserFullName, // strictly force my candidates
+        createdByIds: currentUserId, // use ID — reliable, no name-matching issues
       };
       if (dName) params.name = dName;
       if (dLocation) params.location = dLocation;
@@ -328,7 +330,7 @@ iTalentConnect`
     } finally {
       setLoading(false);
     }
-  }, [paginationModel, currentUserFullName, dName, dLocation, dPosition, dExpMin, dExpMax, dCtc, dCtcMax, dNotice, dGender, dPhone, dCurPos, dIndustry, dateRange]);
+  }, [paginationModel, currentUserId, dName, dLocation, dPosition, dExpMin, dExpMax, dCtc, dCtcMax, dNotice, dGender, dPhone, dCurPos, dIndustry, dateRange]);
 
   // Reset page on filter change
   useEffect(() => {

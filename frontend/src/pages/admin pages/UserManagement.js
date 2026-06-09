@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Box, Typography, Button, Dialog, DialogTitle, DialogContent,
+  Box, Typography, Button, Dialog, DialogContent,
   DialogActions, TextField, Select, MenuItem, FormControl, InputLabel,
   IconButton, Chip, Tooltip, Alert, Switch,
   Card, CardContent, Grid, InputAdornment, Divider, Avatar,
   Table, TableHead, TableBody, TableRow, TableCell, CircularProgress,
-  Radio, RadioGroup, FormControlLabel, FormLabel,
 } from '@mui/material';
 import { toast } from 'react-toastify';
 import { DataGrid } from '@mui/x-data-grid';
@@ -107,7 +106,7 @@ export default function UserManagement() {
   const token = sessionStorage.getItem('token');
   const headers = { Authorization: `Bearer ${token}` };
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await axios.get(`${API_BASE_URL}/manage-users`, { headers });
@@ -118,9 +117,10 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   useEffect(() => {
     let data = [...users];
